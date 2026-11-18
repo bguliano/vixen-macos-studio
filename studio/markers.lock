@@ -7,6 +7,10 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:mcp-lock-dependency": {
+  "file": "Cargo.lock",
+  "hash": "9fe80727784f95cf"
+ },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
   "hash": "431691d95a53a991"
