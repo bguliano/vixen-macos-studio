@@ -92,15 +92,19 @@ fn write_temp(path: &Path, bytes: &[u8]) -> Result<PathBuf, IoError> {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let temp =
         path.with_file_name(format!(".{name}.tmp-{}-{}", std::process::id(), COUNTER.fetch_add(1, Ordering::Relaxed)));
+    // STUDIO-BEGIN exclusive-save-temp: never follow or remove a pre-existing temporary-file symlink
+    let mut owned=false;
     let result = (|| {
-        let mut f = fs::File::create(&temp)?;
+        let mut f=fs::OpenOptions::new().write(true).create_new(true).open(&temp)?;
+        owned=true;
         f.write_all(bytes)?;
         f.sync_all()
     })();
+    // STUDIO-END exclusive-save-temp
     match result {
         Ok(()) => Ok(temp),
         Err(e) => {
-            let _ = fs::remove_file(&temp);
+            if owned { let _ = fs::remove_file(&temp); } // STUDIO: clean up only a temporary file this call created
             Err(IoError::io(&temp, e))
         }
     }

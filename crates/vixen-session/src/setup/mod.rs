@@ -60,6 +60,7 @@ impl FilterEntry {
 /// leaves both files byte-identical and makes no backups.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Dirty {
+    pub studio_module: bool, // STUDIO: module-only show/schedule transactions without rebuilding unrelated setup data
     pub tree: bool,
     pub flow: bool,
     pub filters: bool,
@@ -71,7 +72,7 @@ pub struct Dirty {
 
 impl Dirty {
     pub fn any(&self) -> bool {
-        self.tree || self.flow || self.filters || self.controllers || self.tags || self.run_state
+        self.studio_module || self.tree || self.flow || self.filters || self.controllers || self.tags || self.run_state // STUDIO: count module-only commands as edits
     }
 }
 

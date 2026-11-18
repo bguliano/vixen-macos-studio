@@ -1050,6 +1050,12 @@ impl SequenceSession {
             self.touch();
         }
         match action {
+            // STUDIO-BEGIN sequence-settings-inverse: restore document settings without a parallel undo stack
+            UndoAction::StudioSettings {label,length,layers} => {
+                let inverse=UndoAction::StudioSettings {label,length:self.length(),layers:self.document().layers.clone()};
+                self.set_length(length);self.document_mut().layers=layers;self.layers_changed();inverse
+            }
+            // STUDIO-END sequence-settings-inverse
             UndoAction::EffectsAdded { kind, ids } => {
                 let snapshots = self.remove_effects(&ids);
                 UndoAction::EffectsRemoved { kind, effects: snapshots }

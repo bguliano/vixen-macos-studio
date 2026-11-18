@@ -93,6 +93,9 @@ pub struct MarkPlacement {
 /// One step on the stack.
 #[derive(Clone)]
 pub enum UndoAction {
+    // STUDIO-BEGIN sequence-settings-undo: shared reversible document length and layer configuration
+    StudioSettings { label: String, length: TimeSpan, layers: vixen_core::layer::SequenceLayers },
+    // STUDIO-END sequence-settings-undo
     /// Undoing removes these.
     EffectsAdded { kind: AddRemoveKind, ids: Vec<EffectId> },
     /// Undoing puts these back.
@@ -133,6 +136,7 @@ impl UndoAction {
     /// The Edit menu name and drop-down text, as the original words each action.
     pub fn description(&self) -> String {
         match self {
+            UndoAction::StudioSettings {label,..} => label.clone(), // STUDIO: document settings share the same undo menu
             UndoAction::EffectsAdded { kind, ids } => added_removed_text(*kind, ids.len(), true),
             UndoAction::EffectsRemoved { kind, effects } => added_removed_text(*kind, effects.len(), false),
             UndoAction::TimesChanged { kind, times } => {

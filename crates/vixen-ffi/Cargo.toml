@@ -29,6 +29,8 @@ scheduler = []
 tools = ["dep:vixen-prop"]
 
 [dependencies]
+studio-mcp = { path = "../studio-mcp" } # STUDIO: in-app local MCP transport
+serde_json.workspace = true # STUDIO: Studio command JSON boundary
 vixen-core = { path = "../vixen-core" }
 vixen-io = { path = "../vixen-io" }
 vixen-session = { path = "../vixen-session" }

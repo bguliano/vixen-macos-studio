@@ -183,7 +183,7 @@ impl LiveTarget {
 /// `PreviewPixel.Draw`: a full colour light shows the element's mixed colour with intensity as alpha, and ignores discrete
 /// states. A discrete light shows its colour with that colour's intensity as alpha.
 #[inline]
-fn light_color(state: &CombinedState, discrete: Option<[u8; 3]>) -> u32 {
+pub(crate) fn light_color(state: &CombinedState, discrete: Option<[u8; 3]>) -> u32 { // STUDIO: share native light colors with offscreen inspection frames
     match discrete {
         None => {
             let color = if let Some(rgb) = state.rgb {

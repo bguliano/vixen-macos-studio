@@ -1912,6 +1912,19 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
+# STUDIO-BEGIN mcp-lock-dependency: generated local MCP crate dependency entry
+[[package]]
+name = "studio-mcp"
+version = "3.13.4"
+dependencies = [
+ "libc",
+ "serde_json",
+ "vixen-effect-registry",
+ "vixen-io",
+ "vixen-session",
+]
+# STUDIO-END mcp-lock-dependency
+
 [[package]]
 name = "svgtypes"
 version = "0.15.3"
@@ -2526,6 +2539,8 @@ name = "vixen-ffi"
 version = "3.13.4"
 dependencies = [
  "parking_lot",
+ "serde_json", # STUDIO: Studio command JSON boundary
+ "studio-mcp", # STUDIO: in-app local MCP transport
  "thiserror 2.0.21",
  "uniffi",
  "uuid",

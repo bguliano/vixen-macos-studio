@@ -300,6 +300,7 @@ impl AppCore {
     /// `VixenSystem.Stop(false)`, then saving the application data and removing the lock. Neither system file is written: only explicit saves count,
     /// so a controller toggled and never saved comes back as it was.
     pub fn shutdown(&self) {
+        self.studio_display.stop(); // STUDIO: stop agent commands before releasing the profile lock
         logging::info(SYSTEM_LOGGER, "Vixen System stopping...");
         self.execution().close();
         self.live.release_all();

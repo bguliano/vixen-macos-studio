@@ -63,6 +63,14 @@ else
     RUST_OUT="$CARGO_TARGET_DIR/debug"
 fi
 
+# STUDIO-BEGIN mcp-helper-build: compile the local stdio MCP bridge with the same bundle toolchain
+if [ "$CONFIG" = "release" ]; then
+    cargo build -p studio-mcp --bin vixen-studio-mcp --release
+else
+    cargo build -p studio-mcp --bin vixen-studio-mcp
+fi
+# STUDIO-END mcp-helper-build
+
 echo "==> Swift bindings"
 GEN="$WORK/uniffi-swift"
 rm -rf "$GEN"
@@ -95,6 +103,10 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Helpers"
 cp "$BIN" "$APP/Contents/MacOS/Vixen"
+# STUDIO-BEGIN mcp-helper-bundle: ship and sign the local stdio bridge alongside media helpers
+cp "$RUST_OUT/vixen-studio-mcp" "$APP/Contents/Helpers/vixen-studio-mcp"
+codesign --force --sign - --timestamp=none "$APP/Contents/Helpers/vixen-studio-mcp" >/dev/null 2>&1
+# STUDIO-END mcp-helper-bundle
 if [ "$CONFIG" = "release" ]; then
     # Debug-map entries name the object files in this checkout; release builds don't need them.
     /usr/bin/strip -S "$APP/Contents/MacOS/Vixen"

@@ -37,6 +37,18 @@ pub enum TransportState {
 }
 
 impl SequencerSession {
+    // STUDIO-BEGIN shared-sequence-wrapper: open agent-created documents without forking their undo/render state
+    pub(crate) fn studio_wrap_shared(core: Arc<AppCore>, session: Arc<Mutex<SequenceSession>>) -> Arc<SequencerSession> {
+        let playback_id=session.lock().playback_id();
+        let finished=session.lock().take_finished_batches();
+        if let Some(finished)=finished {
+            let weak=Arc::downgrade(&session);
+            std::thread::spawn(move || { while finished.recv().is_ok() { let Some(session)=weak.upgrade() else {break};session.lock().apply_finished_renders(); } });
+        }
+        Arc::new(SequencerSession {core,session,playback_id})
+    }
+    // STUDIO-END shared-sequence-wrapper
+
     pub(crate) fn wrap(core: Arc<AppCore>, mut session: SequenceSession) -> Arc<SequencerSession> {
         let playback_id = session.playback_id();
         let finished = session.take_finished_batches();
@@ -60,6 +72,13 @@ impl SequencerSession {
 impl VixenCore {
     /// Opens a sequence file. Audio decodes and effects render in the background.
     pub fn open_sequence(&self, path: String) -> Result<Arc<SequencerSession>, FfiError> {
+        // STUDIO-BEGIN reuse-open-sequence: UI opens the same agent session and undo stack for an existing path
+        let canonical=std::fs::canonicalize(&path).map_err(|e|FfiError::new(e.to_string()))?;
+        if let Some(shared)=self.inner.open_sequence_sessions().into_iter().find(|s|s.lock().path().is_some_and(|p|std::fs::canonicalize(p).is_ok_and(|p|p==canonical))) {
+            return Ok(SequencerSession::studio_wrap_shared(Arc::clone(&self.inner),shared));
+        }
+        // STUDIO-END reuse-open-sequence
+
         let env = self.inner.session_environment();
         let session = SequenceSession::open(Path::new(&path), &env)?;
         Ok(SequencerSession::wrap(Arc::clone(&self.inner), session))

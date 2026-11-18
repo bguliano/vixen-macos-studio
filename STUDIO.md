@@ -69,4 +69,12 @@ reason. If a change would also help vanilla, note it here so it can be offered u
 
 | Marker | Crate | Why | Offer to vanilla? |
 |---|---|---|---|
-| _(none yet)_ | | | |
+| `mcp-profile-lock` | vixen-io | Recognize the lowercase Studio MCP helper as an active profile lock owner. | No: Studio helper-specific. |
+| `exclusive-save-temp` and owned-temp cleanup | vixen-io | Prevent predictable temporary-file symlinks from redirecting atomic saves; never remove a temp this call did not create. | Yes. |
+| `display-materialize`, AppCore/boot hooks, module-only Dirty flag | vixen-session | Shared live transactions, lifecycle shutdown gate and module-only preview/show edits. | Generic materialization/dirty support may help vanilla. |
+| `sequence-settings-undo`, `sequence-settings-inverse` | vixen-session | Undo document length and layer configuration on the native stack. | Yes. |
+| Preview color conversion visibility | vixen-session | Reuse real color handling in offscreen inspection frames. | Possibly. |
+| `authoring-modules` and Studio module registrations | vixen-session | Register Studio-only command/schema/diagnostic implementations without changing vanilla UI behavior. | No. |
+| `mcp-app-start`, `shared-sequence-wrapper`, `reuse-open-sequence`, Studio FFI/dependency hooks | vixen-ffi | Serve the running core and share documents/undo with agents; expose callbacks without view changes. | Generic shared document reuse may help vanilla. |
+
+See `studio/MCP-INTEGRATION.md` for the complete marked-file handoff and validation evidence.

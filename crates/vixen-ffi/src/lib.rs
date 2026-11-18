@@ -6,6 +6,7 @@
 uniffi::setup_scaffolding!();
 
 pub mod core;
+pub mod studio_agent; // STUDIO: shared agent/UI display commands and change observer
 mod naming;
 mod wire_diagram;
 pub mod kit;

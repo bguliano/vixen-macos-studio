@@ -1,6 +1,7 @@
 //! The editing session behind the sequencer window: the effect table, undo, timeline rows and thumbnails.
 
 pub mod app;
+pub mod studio_display; // STUDIO: shared live display commands and undo
 pub mod archive;
 pub mod boot;
 pub mod compare;
@@ -72,3 +73,21 @@ pub enum SessionError {
     #[error("{0}")]
     Other(String),
 }
+
+// STUDIO-BEGIN authoring-modules: shared sequence, parameter and offscreen preview commands
+pub mod studio_sequence;
+pub mod studio_params;
+pub mod studio_preview;
+// STUDIO-END authoring-modules
+
+pub mod studio_live; // STUDIO: explicit locally gated agent hardware operations
+
+pub mod studio_show; // STUDIO: shared show and disabled schedule authoring
+
+pub mod studio_diagnostics; // STUDIO: reusable agent and UI profile diagnostics
+
+pub mod studio_paths; // STUDIO: protect profile output and backup boundaries
+
+pub mod studio_props; // STUDIO: shared native preview prop commands
+
+pub mod studio_schema; // STUDIO: validate the shared published command schemas

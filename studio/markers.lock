@@ -7,9 +7,21 @@
   "file": "app/Info.plist",
   "hash": "357f99168b05089a"
  },
+ "block:authoring-modules": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "eb0cf2722f73d5b1"
+ },
  "block:copyright": {
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
+ },
+ "block:display-materialize": {
+  "file": "crates/vixen-session/src/setup/commit.rs",
+  "hash": "9c96b5a3e33e7cc2"
+ },
+ "block:exclusive-save-temp": {
+  "file": "crates/vixen-io/src/file.rs",
+  "hash": "d7ab4cb764f2d32e"
  },
  "block:inspector-header": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
@@ -18,6 +30,26 @@
  "block:inspector-title": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "1ac6603fc819de34"
+ },
+ "block:mcp-app-start": {
+  "file": "crates/vixen-ffi/src/admin.rs",
+  "hash": "2c09ed908fea0825"
+ },
+ "block:mcp-helper-build": {
+  "file": "scripts/build_app.sh",
+  "hash": "4334f81f91c778d0"
+ },
+ "block:mcp-helper-bundle": {
+  "file": "scripts/build_app.sh",
+  "hash": "3350ed5c33b09d3b"
+ },
+ "block:mcp-lock-dependency": {
+  "file": "Cargo.lock",
+  "hash": "92d722e5d7a340d8"
+ },
+ "block:mcp-profile-lock": {
+  "file": "crates/vixen-io/src/lock.rs",
+  "hash": "431691d95a53a991"
  },
  "block:native-toolbar": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
@@ -39,9 +71,25 @@
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
  },
+ "block:reuse-open-sequence": {
+  "file": "crates/vixen-ffi/src/sequence.rs",
+  "hash": "0781cc897fd86b91"
+ },
+ "block:sequence-settings-inverse": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "0c305a2618fe618e"
+ },
+ "block:sequence-settings-undo": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "0bfc0cbe95cae17d"
+ },
  "block:setup-columns": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "51d5f65f76d74ab9"
+ },
+ "block:shared-sequence-wrapper": {
+  "file": "crates/vixen-ffi/src/sequence.rs",
+  "hash": "4c20c38ec9352f9e"
  },
  "block:show-window": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
@@ -58,6 +106,26 @@
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
+ },
+ "line:Cargo.lock:9e38d460bcd2c432": {
+  "file": "Cargo.lock",
+  "hash": "9e38d460bcd2c432"
+ },
+ "line:Cargo.lock:b9eb6b16d05a8117": {
+  "file": "Cargo.lock",
+  "hash": "b9eb6b16d05a8117"
+ },
+ "line:Cargo.toml:230f6039ffff686f": {
+  "file": "Cargo.toml",
+  "hash": "230f6039ffff686f"
+ },
+ "line:app/Package.swift:0f137b62859e1e57": {
+  "file": "app/Package.swift",
+  "hash": "0f137b62859e1e57"
+ },
+ "line:app/Package.swift:adb4aab7e4a6e402": {
+  "file": "app/Package.swift",
+  "hash": "adb4aab7e4a6e402"
  },
  "line:app/Sources/VixenAdmin/AdminModel.swift:7edb2c216294df1a": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
@@ -235,9 +303,81 @@
   "file": "app/Sources/VixenTools/ToolsScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:crates/vixen-ffi/Cargo.toml:5148ba7228e2664a": {
+  "file": "crates/vixen-ffi/Cargo.toml",
+  "hash": "5148ba7228e2664a"
+ },
+ "line:crates/vixen-ffi/Cargo.toml:aad71a28b7bfa14e": {
+  "file": "crates/vixen-ffi/Cargo.toml",
+  "hash": "aad71a28b7bfa14e"
+ },
  "line:crates/vixen-ffi/src/lib.rs:4401e1a2eb529ad6": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "4401e1a2eb529ad6"
+ },
+ "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "d1100fa74313d8ae"
+ },
+ "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
+  "file": "crates/vixen-io/src/file.rs",
+  "hash": "658915e8cd98c064"
+ },
+ "line:crates/vixen-session/src/app.rs:b0bca46243531f1d": {
+  "file": "crates/vixen-session/src/app.rs",
+  "hash": "b0bca46243531f1d"
+ },
+ "line:crates/vixen-session/src/app.rs:c0d73ad0965256b5": {
+  "file": "crates/vixen-session/src/app.rs",
+  "hash": "c0d73ad0965256b5"
+ },
+ "line:crates/vixen-session/src/boot.rs:e0e2fb453a030826": {
+  "file": "crates/vixen-session/src/boot.rs",
+  "hash": "e0e2fb453a030826"
+ },
+ "line:crates/vixen-session/src/lib.rs:03fcbfc65a5465c6": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "03fcbfc65a5465c6"
+ },
+ "line:crates/vixen-session/src/lib.rs:1f45af25574701ee": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "1f45af25574701ee"
+ },
+ "line:crates/vixen-session/src/lib.rs:20a024e2a12b4f4a": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "20a024e2a12b4f4a"
+ },
+ "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "52a77d70c765b2b0"
+ },
+ "line:crates/vixen-session/src/lib.rs:54e1cfc535d64c95": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "54e1cfc535d64c95"
+ },
+ "line:crates/vixen-session/src/lib.rs:968e890add5b20b4": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "968e890add5b20b4"
+ },
+ "line:crates/vixen-session/src/lib.rs:ee1d8a6cdc0b17c0": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "ee1d8a6cdc0b17c0"
+ },
+ "line:crates/vixen-session/src/preview.rs:bc77178e83943822": {
+  "file": "crates/vixen-session/src/preview.rs",
+  "hash": "bc77178e83943822"
+ },
+ "line:crates/vixen-session/src/setup/mod.rs:d93a5857a9a30d37": {
+  "file": "crates/vixen-session/src/setup/mod.rs",
+  "hash": "d93a5857a9a30d37"
+ },
+ "line:crates/vixen-session/src/setup/mod.rs:f5c5db0718a20319": {
+  "file": "crates/vixen-session/src/setup/mod.rs",
+  "hash": "f5c5db0718a20319"
+ },
+ "line:crates/vixen-session/src/undo.rs:bca77e0e22b11298": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "bca77e0e22b11298"
  },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/studio-mcp", # STUDIO: local agent protocol and bridge
     "crates/vixen-core",
     "crates/vixen-xml",
     "crates/vixen-effects",
