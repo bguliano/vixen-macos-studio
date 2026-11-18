@@ -14,10 +14,10 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
 echo "==> Disk image"
-ditto "$APP" "$STAGE/Vixen.app"
+ditto "$APP" "$STAGE/Vixen Studio.app"  # STUDIO: Studio's app name
 ln -s /Applications "$STAGE/Applications"
 rm -f "$DMG"
-hdiutil create -quiet -volname "Vixen (Unofficial macOS Port)" -srcfolder "$STAGE" -fs APFS -format ULFO -ov "$DMG"
+hdiutil create -quiet -volname "Vixen Studio" -srcfolder "$STAGE" -fs APFS -format ULFO -ov "$DMG"  # STUDIO: Studio's volume name
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 
 echo "==> Notarize disk image"

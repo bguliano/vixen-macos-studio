@@ -1,0 +1,3 @@
+# STUDIO: Studio owns these files outright; the `ours` merge driver (set by scripts/studio_sync.sh) keeps them on vanilla merges.
+README.md merge=ours
+docs/UI_GUIDE.md merge=ours

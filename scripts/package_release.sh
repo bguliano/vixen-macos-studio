@@ -8,15 +8,17 @@
 # Create the notary profile once with:
 #   xcrun notarytool store-credentials <profile> --apple-id <Apple ID> --team-id <TEAMID>
 #
-# Writes target/release/Vixen-macOS-Port-<name>.zip and .dmg, each with a .sha256.
+# Writes target/release/Vixen-Studio-<name>.zip and .dmg, each with a .sha256.  # STUDIO: Studio's archive name
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NAME="${1:?usage: scripts/package_release.sh <release name>}"
 IDENTITY="${VIXEN_SIGN_IDENTITY:?set VIXEN_SIGN_IDENTITY to a Developer ID Application identity}"
 PROFILE="${VIXEN_NOTARY_PROFILE:?set VIXEN_NOTARY_PROFILE to a notarytool keychain profile}"
 OUT="$ROOT/target/release"
-APP="$OUT/Vixen.app"
-ZIP="$OUT/Vixen-macOS-Port-$NAME.zip"
+# STUDIO-BEGIN release-names: Studio ships as its own app and archives, so it installs beside the vanilla port
+APP="$OUT/Vixen Studio.app"
+ZIP="$OUT/Vixen-Studio-$NAME.zip"
+# STUDIO-END release-names
 cd "$ROOT"
 
 rm -rf "$OUT"
@@ -44,4 +46,4 @@ ditto -c -k --keepParent "$APP" "$ZIP"
 ( cd "$OUT" && shasum -a 256 "$(basename "$ZIP")" > "$(basename "$ZIP").sha256" )
 echo "Built $ZIP"
 
-scripts/make_dmg.sh "$APP" "$OUT/Vixen-macOS-Port-$NAME.dmg"
+scripts/make_dmg.sh "$APP" "$OUT/Vixen-Studio-$NAME.dmg"  # STUDIO: Studio's archive name

@@ -1,0 +1,30 @@
+{
+ "block:app-identity": {
+  "file": "app/Info.plist",
+  "hash": "357f99168b05089a"
+ },
+ "block:copyright": {
+  "file": "app/Info.plist",
+  "hash": "7f9d86476c08b909"
+ },
+ "block:release-names": {
+  "file": "scripts/package_release.sh",
+  "hash": "94253c7a2fbcf13c"
+ },
+ "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
+  "file": "scripts/make_dmg.sh",
+  "hash": "058f1f709f3f68c6"
+ },
+ "line:scripts/make_dmg.sh:c7131d1498d10063": {
+  "file": "scripts/make_dmg.sh",
+  "hash": "c7131d1498d10063"
+ },
+ "line:scripts/package_release.sh:0f5d4c23f964d3a8": {
+  "file": "scripts/package_release.sh",
+  "hash": "0f5d4c23f964d3a8"
+ },
+ "line:scripts/package_release.sh:f2eef215f7498bc2": {
+  "file": "scripts/package_release.sh",
+  "hash": "f2eef215f7498bc2"
+ }
+}

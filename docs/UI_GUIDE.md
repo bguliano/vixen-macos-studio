@@ -1,48 +1,48 @@
-# Building the SwiftUI windows
+# Vixen Studio interface guide
 
-The owner's brief, in their words: *"feel free to modernize slightly. it doesn't have to look identical as long
-as the buttons are where they typically are and the functionality is the same. if there are modern SwiftUI best
-practices or Apple-isms that should be used, do so, as this is a mac native software."*
+Studio is a redesign, not a replica. Windows Vixen's features are the starting inventory, but its layouts, wording and
+workflows are not requirements. Keep a capability when a show needs it; change how it is reached when a better Mac way
+exists. Vanilla's parity notes in `docs/parity/` remain useful as a checklist of what exists.
 
-So: **same functionality, same layout regions, native Mac behaviour.** They know Vixen well and have used it for
-years, so anything they relied on must still be there and easy to find.
+## Principles
 
-## What to keep from the original
+1. **Apple Human Interface Guidelines first.** Current macOS design: Liquid Glass toolbars and sidebars,
+   `NavigationSplitView`, `.inspector`, native `NSToolbar`/`.toolbar` (customisable), grouped `Form`s, SF Symbols,
+   system colours and the accent colour. Follow the system's light or dark appearance; the timeline and preview canvases
+   stay dark, as in Logic and Final Cut.
+2. **One show window.** A sidebar holds Sequences, Display, Controllers, Previews and Schedule. Sequences open as
+   document windows (tabbable). Setup tools are panes of the show window, not separate modal windows.
+3. **One obvious way.** Each action has one canonical control in one predictable place, one word per concept, labelled
+   controls, and every disabled or stale state explained in place. Shortcuts and gestures accelerate, never replace.
+4. **Live edits with Undo** instead of OK/Cancel windows. Changes apply immediately and are undoable from the Edit menu.
+5. **State is visible.** Rendering progress, live output, execution state, unsaved changes and agent activity are always
+   shown, never discovered by surprise.
+6. **Agents are first-class users (MCP parity).** Every user action is a command in the Rust session layer, called by
+   both the SwiftUI interface and the built-in MCP server. Never implement behaviour only in Swift: if a button can do it,
+   an agent can do it, and if an agent does it, the interface shows it live and Undo reverses it. Agent edits are
+   labelled in the undo history ("Undo Add Effect (Agent)") and the toolbar shows when an agent is connected or working.
+   When adding a UI feature, add or reuse its command and its MCP tool in the same change.
+7. **Guide, don't gatekeep.** Empty states (`ContentUnavailableView`) say what to do next. Common confusions found in
+   the Vixen community, such as effects that render nothing because of colour handling, get inline explanations and
+   one-click fixes.
 
-Every window has a spec in `docs/reference/forms/<upstream path>.json`, generated from the WinForms designer files:
-every control, its label, tooltip, position, grouping, menu structure and event handler name. The handlers' logic is
-in the matching `.cs` file under `upstream/Vixen/src`. WPF windows have `.xaml` and `.xaml.cs` files there instead.
+## Mac conventions
 
-- Keep every feature, option and label wording. Don't drop a control because it looks obscure.
-- Keep each control in the same region of the window and the same order, so muscle memory still works.
-- Reference screenshots of the real app are on https://www.vixenlights.com/docs/ (for example `started/qs-preview-setup/`,
-  `started/qs-controller-setup/`, `started/qs-first-sequence/`, `usage/...`). `upstream/Vixen/Assets/Editor.png` shows the sequencer.
-- Only leave out what truly has no meaning on a Mac (Windows-only paths, for example). Record each omission.
-
-For each window you finish, write `docs/parity/<window>.md`: a table of upstream controls and menu items, each marked
-done (with where it lives now) or omitted (with why). A control missing from the table counts as not done.
-
-## What to change: Mac conventions
-
-| Original | On the Mac |
+| Original | In Studio |
 |---|---|
-| In-window menu strip | The menu bar, with `.commands`. Same menus and items, plus the standard App, File, Edit, Window and Help behaviour |
-| Ctrl shortcuts | ⌘ equivalents. Keep single-key shortcuts as they are. Check `TimedSequenceEditorForm_Hotkeys.cs` |
-| Options / Preferences dialogs | `Settings` scene (⌘,) |
-| Modal dialog windows | Sheets on the owning window where a dialog belongs to it; separate windows for tools you work alongside |
-| MessageBoxForm | `.alert` / `.confirmationDialog`, with verbs on the buttons ("Delete", not "Yes") |
-| Open / Save dialogs | `.fileImporter`, `.fileExporter`, or `NSOpenPanel` / `NSSavePanel`. Drag and drop files where it makes sense |
-| Vixen's colour picker | `ColorPicker` / the system colour panel, except where discrete element colours restrict the choice |
-| Segoe UI | The system font. Monospaced digits (`.monospacedDigit()`) for times and counters |
-| Hand-drawn dark theme | Native controls in dark appearance (the app forces it by default, and timeline canvases use `Theme` colours) |
-| Tool button icons | SF Symbols where one clearly means the same thing. Keep Vixen's own icons for effects (`Resources/effects/*.png`) and anything distinctive |
-| Dock panels | Right-side panels with the same tabs and order, toggled from the View menu, each detachable to a floating panel |
-| Windows scrollbars, mouse wheel | Trackpad gestures work everywhere: two-finger scroll, pinch to zoom on canvases |
-| Ctrl-click to multi-select | ⌘-click and ⇧-click, as elsewhere on the Mac |
-| Tooltips | `.help("…")` with the original tooltip text |
+| In-window menu strip | The menu bar, with `.commands` |
+| Ctrl shortcuts | ⌘ equivalents; single-key shortcuts unchanged |
+| Options dialogs | The `Settings` scene (⌘,) |
+| Modal dialog windows | Inspectors and sheets on the owning window; separate windows only for tools used alongside |
+| MessageBoxForm | `.alert` / `.confirmationDialog`, with verbs on buttons ("Delete", not "Yes") |
+| Open / Save dialogs | `.fileImporter` / `.fileExporter`, plus drag and drop |
+| Draggable WinForms tool strips | A native customisable toolbar (View ▸ Customize Toolbar…) |
+| Bottom tab rows of panels | Sidebar sections or an inspector with a segmented picker |
+| Vixen's tool icons | SF Symbols; Vixen's effect icons stay |
+| Tooltips | `.help("…")` |
 
-Also: right-click context menus keep the same items (`.contextMenu`), Undo and Redo use the window's `UndoManager` so the Edit
-menu names the action, destructive actions use `role: .destructive`, and VoiceOver labels come free by using real controls.
+Right-click menus use `.contextMenu`, Undo/Redo use the window's `UndoManager`, destructive actions use
+`role: .destructive`.
 
 ## Modern SwiftUI, concretely
 
@@ -134,7 +134,7 @@ VIXEN_UI_TEST=/path/to/script.json VIXEN_UI_TEST_OUT=/path/to/out VIXEN_DATA=/pa
 with your Read tool and look at them.** "It compiled" doesn't mean it works: open every window you build, exercise its controls, and check the picture against
 the reference. Results go to `VIXEN_UI_TEST_OUT/result.json`, with any step that failed.
 
-Real data for testing is in `/Users/developer/Documents/Vixen 3`, which is the owner's real show and is READ-ONLY. Never point the app directly at
+Real data for testing is in `~/Developer/vixen-show-original/Vixen 3` (a read-only copy of the owner's real show). Never point the app directly at
 it. A copy for tests is at `target/show-copy` (its `Media` is a link back to the original, so only read it). Copy that folder to your own under `target/` if your test saves
 anything, and pass it as `VIXEN_DATA`.
 

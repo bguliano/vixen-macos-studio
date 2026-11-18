@@ -1,0 +1,52 @@
+# Opens a "Sync from vanilla" pull request when bguliano/vixen-macos-port has new commits. See STUDIO.md.
+name: Sync from vanilla
+
+on:
+  schedule:
+    - cron: "0 14 * * 1" # Mondays
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: studio
+          fetch-depth: 0
+      - name: Merge vanilla
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config merge.ours.driver true
+          git remote add upstream https://github.com/bguliano/vixen-macos-port.git
+          git fetch upstream macos-port
+          if git merge-base --is-ancestor upstream/macos-port HEAD; then
+            echo "Up to date."; exit 0
+          fi
+          SHA=$(git rev-parse --short upstream/macos-port)
+          BRANCH="sync/vanilla-$SHA"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null; then
+            echo "A sync branch for $SHA already exists."; exit 0
+          fi
+          COMMITS=$(git log --oneline HEAD..upstream/macos-port | head -50)
+          if git merge --no-ff --no-edit upstream/macos-port -m "Sync from vanilla ($SHA)" && python3 scripts/studio_markers.py check; then
+            git push origin "HEAD:$BRANCH"
+            gh pr create --base studio --head "$BRANCH" --title "Sync from vanilla ($SHA)" \
+              --body "$(printf 'Vanilla commits:\n\n```\n%s\n```\n\nThe merge was clean and every Studio marker is intact. Build and smoke-test before merging.' "$COMMITS")"
+          else
+            CONFLICTS=$(git diff --name-only --diff-filter=U || true)
+            if gh issue list --state open --search "$SHA in:title" --json number -q '.[0].number' | grep -q .; then
+              echo "An issue for $SHA is already open."; exit 0
+            fi
+            gh issue create --title "Vanilla sync needs a manual merge ($SHA)" \
+              --body "$(printf 'Merging vanilla %s needs attention. Run `scripts/studio_sync.sh` locally.\n\nConflicted files:\n\n```\n%s\n```\n\nVanilla commits:\n\n```\n%s\n```' "$SHA" "$CONFLICTS" "$COMMITS")"
+          fi

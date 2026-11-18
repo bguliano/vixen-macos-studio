@@ -5,17 +5,21 @@
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleExecutable</key><string>Vixen</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundleIdentifier</key><string>io.github.bguliano.vixen-macos-port</string>
+    <!-- STUDIO-BEGIN app-identity: own bundle id and name, so Studio installs beside vanilla with its own preferences -->
+    <key>CFBundleIdentifier</key><string>io.github.bguliano.vixen-macos-studio</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>Vixen Port</string>
-    <key>CFBundleDisplayName</key><string>Vixen (Unofficial macOS Port)</string>
+    <key>CFBundleName</key><string>Vixen Studio</string>
+    <key>CFBundleDisplayName</key><string>Vixen Studio</string>
+    <!-- STUDIO-END app-identity -->
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>3.13.4</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
-    <key>NSHumanReadableCopyright</key><string>Vixen © 2023 Vixen Team. Unofficial macOS port by bguliano, not affiliated with or supported by the Vixen team.</string>
+    <!-- STUDIO-BEGIN copyright: Studio credit line -->
+    <key>NSHumanReadableCopyright</key><string>Vixen © 2023 Vixen Team. Vixen Studio, an unofficial macOS edition by bguliano, is not affiliated with or supported by the Vixen team.</string>
+    <!-- STUDIO-END copyright -->
     <key>NSDocumentsFolderUsageDescription</key><string>Vixen keeps its profile, sequences and logs in your Documents folder.</string>
     <key>NSLocalNetworkUsageDescription</key><string>Vixen sends lighting data to your E1.31 and DDP controllers on the local network.</string>
     <key>UTExportedTypeDeclarations</key>
