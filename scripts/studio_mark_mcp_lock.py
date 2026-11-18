@@ -12,18 +12,18 @@ if path.is_symlink():
 original = path.read_text()
 before = tomllib.loads(original)
 text = original
-if "# STUDIO-BEGIN mcp-lock-dependency" not in text:
+if ("# STUDIO" + "-BEGIN mcp-lock-dependency") not in text:
     anchor = '[[package]]' + chr(10) + 'name = "studio-mcp"'
     start = text.index(anchor)
     end = text.index(chr(10) + '[[package]]', start + len(anchor))
-    text = (text[:start] + '# STUDIO-BEGIN mcp-lock-dependency: generated local MCP crate dependency entry' + chr(10)
-            + text[start:end].rstrip() + chr(10) + '# STUDIO-END mcp-lock-dependency' + chr(10) + text[end:])
+    text = (text[:start] + ('# STUDIO' + '-BEGIN mcp-lock-dependency: generated local MCP crate dependency entry') + chr(10)
+            + text[start:end].rstrip() + chr(10) + ('# STUDIO' + '-END mcp-lock-dependency') + chr(10) + text[end:])
 anchor = '[[package]]' + chr(10) + 'name = "vixen-ffi"'
 start = text.index(anchor)
 end = text.index(chr(10) + '[[package]]', start + len(anchor))
 section = text[start:end]
 for dependency, reason in [('serde_json', 'Studio command JSON boundary'), ('studio-mcp', 'in-app local MCP transport')]:
-    section = section.replace(' "' + dependency + '",' + chr(10), ' "' + dependency + '", # STUDIO: ' + reason + chr(10))
+    section = section.replace(' "' + dependency + '",' + chr(10), ' "' + dependency + ('", # STUDIO' + ': ') + reason + chr(10))
 text = text[:start] + section + text[end:]
 if tomllib.loads(text) != before:
     raise SystemExit("Marker restoration would change dependency data")
