@@ -54,6 +54,8 @@ public enum UITestHarness {
 
     static func moveOffscreen(_ window: NSWindow) {
         guard window.frame.origin.x > -5000 else { return }
+        // STUDIO: VIXEN_UI_TEST_ONSCREEN keeps windows visible, so scripts/studio_capture.sh can capture real rendering (Liquid Glass)
+        if ProcessInfo.processInfo.environment["VIXEN_UI_TEST_ONSCREEN"] != nil { return }
         // Not remembered: the next real launch shares these defaults, and would open the window off screen.
         window.setFrameAutosaveName("")
         window.setFrameOrigin(NSPoint(x: -12000, y: -12000))

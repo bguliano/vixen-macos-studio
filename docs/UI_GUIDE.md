@@ -138,6 +138,14 @@ Real data for testing is in `~/Developer/vixen-show-original/Vixen 3` (a read-on
 it. A copy for tests is at `target/show-copy` (its `Media` is a link back to the original, so only read it). Copy that folder to your own under `target/` if your test saves
 anything, and pass it as `VIXEN_DATA`.
 
+**Real rendering (Liquid Glass, materials):** `snapshot` uses `cacheDisplay`, which can't draw glass. Run the script with
+`VIXEN_UI_TEST_ONSCREEN=1` so windows stay on screen, and capture them from outside with Studio Capture
+(`studio/tools/studio-capture`, built into `~/Applications/Studio Capture.app`, signed with a stable identity so its Screen
+Recording permission survives rebuilds):
+`"~/Applications/Studio Capture.app/Contents/MacOS/studio-capture" --owner Vixen --title "<window title>" --out shot.png`.
+Set the appearance to test with `defaults write io.github.bguliano.vixen-macos-studio studio.appearance light|dark|system`
+before launching.
+
 Set `VIXEN_UI_TEST_TRACE=1` to log each step before and after it runs when diagnosing a stalled script. The in-process accessibility reader handles both plain and attributed text returned by SwiftUI; some offscreen icon controls are still absent from that tree, so use posted native pointer events and verify their resulting state when label lookup cannot reach them.
 
 Tests must not make sound or send anything to hardware or the network. The harness sets `VIXEN_MUTE=1`, and output controllers stay stopped unless a test starts them.

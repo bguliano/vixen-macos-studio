@@ -111,6 +111,10 @@
   "file": "app/Sources/VixenKit/MetalLayerView.swift",
   "hash": "75e1aaef1d213b7c"
  },
+ "line:app/Sources/VixenKit/UITestHarness.swift:e0b2a61395d4fade": {
+  "file": "app/Sources/VixenKit/UITestHarness.swift",
+  "hash": "e0b2a61395d4fade"
+ },
  "line:app/Sources/VixenMarks/MarksTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"

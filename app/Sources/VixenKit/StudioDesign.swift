@@ -137,7 +137,7 @@ public struct StudioSplitView<Sidebar: View, Detail: View>: View {
     }
 
     public var body: some View {
-        if UITestHarness.isActive {
+        if UITestHarness.isActive, ProcessInfo.processInfo.environment["VIXEN_UI_TEST_ONSCREEN"] == nil {
             HStack(spacing: 0) {
                 sidebar
                     .frame(width: 220)
