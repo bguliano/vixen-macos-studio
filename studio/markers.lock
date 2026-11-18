@@ -11,6 +11,10 @@
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
  },
+ "line:.gitattributes:bbd307d5f1ffa71c": {
+  "file": ".gitattributes",
+  "hash": "bbd307d5f1ffa71c"
+ },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",
   "hash": "058f1f709f3f68c6"
