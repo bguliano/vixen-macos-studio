@@ -1,41 +1,70 @@
-# Integration handoff
+# MCP integration handoff
 
-The protocol foundation does not satisfy full MCP parity yet. Do not advertise full show authoring in the UI.
+## What the UI branch should consume
 
-## Shared-session work before mutations
+The shared Rust display ownership/undo refactor is implemented. AppCore owns StudioDisplay. The redesigned non-modal pane must call studioDisplayCommand and fetch studioDisplaySnapshot/history, rather than hold openDisplaySetup's legacy private working copy. The legacy API remains compatible during migration, but mixing both writers invalidates Studio snapshot history rather than overwriting newer state.
 
-- Current DisplaySetupSession owns a private RwLock<SetupSession> and publishes through apply_live/commit. Move ownership into an AppCore-owned Studio command service; both UI and MCP must borrow it. Coordinate this with the simultaneous UI redesign before altering setup.rs.
-- Display undo is not in SequenceSession's UndoStack. Add a session-level display command transaction and shared undo history; avoid a separate MCP-only snapshot stack. Disk saves remain explicit.
-- Open sequences already register shared Arc<Mutex<SequenceSession>> handles in AppCore. Resolve MCP IDs through that registry; never reopen an existing sequence from disk. Add one UndoAction::Group with an Agent label per request.
-- Publish callbacks outside engine/session locks. Snapshot replacement is already represented by StudioAgentActivity, but no server or FFI callback currently drives it. Register the Swift target and wire the toolbar only after the callback exists.
+Use StudioAgentActivity.observe(core:) for the toolbar, and studioAgentSnapshot on reconnect/event gaps. It tracks real connected clients, active tools and bounded action outcomes. Callback delivery is marshalled to MainActor. For sequence windows, use studioOpenSequenceSession(sequenceId:) for an unsaved agent document. Opening a saved agent sequence through ordinary openSequence reuses its shared session. documentChanged carries documentId; refresh the relevant view from that shared session. Display edits publish displayChanged; preview edits also set preview_needs_reload.
 
-## Transport follow-up
+Wire the local setting to studioSetAllowAgentsLiveOutput. It defaults OFF each app launch; there is deliberately no MCP setter. Revocation stops agent-started controllers/test output. Startup is one explicitly confirmed network controller at a time; execution must first be opened locally. Tests never enable real hardware.
 
-- Adopt/qualify rmcp before growing transport concurrency.
-- Add same-user 0600 Unix socket, profile identity handshake, bounded clients and server lifetime owned by AppCore. Only use headless fallback when no app is serving the selected profile, never after an ambiguous connection failure.
-- Bundle bridge in Contents/Helpers via marked build script edits. Current focused tests build the helper; app packaging is not changed.
-- Add an AppCore-local persistent Allow agents to control live output preference defaulting false. MCP must not have a setter. All hardware operations require both preference and confirm, with mute overriding both.
+Full FFI/event/command contract and explicit limitations: MCP.md. Current tool inventory: MCP-TOOLS.md (71 tools when generated). Client registration: MCP-CLIENTS.md.
 
-## Remaining coverage
+## Verified work
 
-Display/controller edits, patching, preview props/frame PNG, sequences/effects/parameters/layers/marks, analysis, shows/schedules, fuller diagnostics, controller monitor and FPP export remain unimplemented. Test all writes on disposable copies; Media links are read-only. The requested 30-second music-synced MCP authoring/render end-to-end test has not run because authoring/render tools do not yet exist.
+- M0 design committed before protocol work; draft PR #1 targets studio from studio-mcp.
+- M1 read-only stdio foundation: initialize, tools/resources/prompts, seven initial tools, profile locking and real-show tests.
+- M2: shared display/preview/show transactions and Agent-labelled undo; native controller configuration/patching; sequence effects/parameters/length/layers/marks/transport using the shared SequenceSession; in-app socket and callback/activity adapter; signed bundle helper.
+- M3: real media beat/bar analysis, typed parameter read/write, CPU preview inspection frames, local FSEQ export; scripted stdio authoring of a 30000ms real-music sequence with 20 beat-synced effects, rendered schedule, TIM/FSEQ/PNG outputs, show/disabled schedule drafts, native preview prop creation/linking, confirmed profile save.
 
-## Vanilla markers
+The preview PNG was inspected: actual illuminated strands at their native preview coordinates on the intentionally plain black inspection background. It is not a mock UI screenshot or a claim of GPU/background/fixture rendering parity.
 
-- Cargo.toml: Studio-only MCP workspace member.
-- Cargo.lock: generated local MCP dependency entry (Cargo may regenerate this; record/check after regeneration).
-- crates/vixen-io/src/lock.rs: mcp-profile-lock recognizes lowercase bridge processes, preventing the app from treating an active bridge lock as stale.
-- studio/markers.lock also records an inherited .gitattributes marker that was missing from the starting inventory.
+## Test evidence
 
-No existing Swift views, build script or app lifecycle code were changed.
+Commands run with VIXEN_MUTE=1 and CARGO_BUILD_JOBS=2, serialized:
 
-## Verification (2026-11-18)
+- cargo test -p studio-mcp: 6 passing integration tests (4 stdio/locking/protocol, 1 socket/live undo/shutdown, 1 real-song authoring/export/preview/show/prop end-to-end).
+- cargo test -p vixen-session studio_ --lib: 5 passing shared schema, permission/mute, display transaction, controller/template/save, and sequence undo/parameter tests; the subsequently added studio_paths test separately passed (1).
+- cargo test -p vixen-io file::tests --lib: 11 passing atomic-save/backup regressions after exclusive temp creation hardening.
+- Initial admitted admin+setup application build passed, including the real UniFFI callback and StudioAgent target. Signed bundled helper initialize + 18-tool catalog smoke passed at that M2 point. A final expanded build and packaged-app smoke are recorded below when complete.
 
-VIXEN_MUTE=1 CARGO_BUILD_JOBS=2 cargo test -p studio-mcp:
-4 passed; 0 failed; 0 ignored. Includes real target/show-copy stdio round trip of all seven tools, malformed protocol/bounded frame handling, existing-lock refusal and app recognition of a live lowercase bridge lock. No audio or output starts. Existing fx-pixel-simple unused-assignment warning remains unrelated.
-Swift activity adapter passed swiftc -frontend -parse; it is not yet compiled as an integrated app target. No full app build or UI rendering claim.
+Local logs/artifacts are under target/ and are not committed. Real-song fixtures come from the copied show; Media is read-only. No tests played audio, started controllers, uploaded FPP data or activated a schedule.
 
-## M2 progress update
-The earlier shared-session blocker is resolved by AppCore-owned StudioDisplay and its new FFI command/snapshot/history/observer API. See the final M2 section of MCP.md for the contract to wire into the sidebar pane. The legacy modal API is intentionally unchanged; its private copy must not be used by the new pane. Live socket edit + UI undo + shutdown rejection test passes. App packaging and Swift callback build verification are in progress. M2 sequence editing and M3 remain open.
+## Marked changes to vanilla files
 
-M2 display/transport verification: admitted admin+setup app build succeeded, including generated UniFFI callback and StudioAgent Swift target. Bundled signed helper initialize + 18-tool catalog smoke test passed. One live Unix socket integration test passes (actual shared-core edit, UI-path undo, shutdown rejection), alongside four stdio/lock tests. Remaining authoring coverage is still in progress; this is not a claim that all M2/M3 tools exist.
+All new implementation is in Studio-only crates/files except these narrow marked hooks:
+
+| File | Purpose |
+|---|---|
+| Cargo.toml | Add studio-mcp workspace member |
+| Cargo.lock | Generated local MCP/FFI dependency entries; comments must be restored after Cargo regenerates |
+| app/Package.swift | Build StudioAgent and expose it to VixenApp |
+| crates/vixen-ffi/Cargo.toml | studio-mcp and serde_json dependencies |
+| crates/vixen-ffi/src/lib.rs | Register studio_agent exports; trivial merge with coordinator's studio_library registration |
+| crates/vixen-ffi/src/admin.rs | Start MCP on the existing app core; report startup failure through logs |
+| crates/vixen-ffi/src/sequence.rs | Shared-session wrapper and reuse an already-open sequence path |
+| crates/vixen-io/src/lock.rs | Recognize the lowercase headless bridge as a live profile-lock owner |
+| crates/vixen-io/src/file.rs | Exclusive save temporary creation; cleanup only owned temps (suitable upstream hardening) |
+| crates/vixen-session/src/app.rs | One Studio command service per AppCore |
+| crates/vixen-session/src/boot.rs | Stop commands/server before profile-lock release |
+| crates/vixen-session/src/lib.rs | Register Studio-only command/codec/diagnostic/path modules |
+| crates/vixen-session/src/setup/commit.rs | Materialize a validated candidate without save or hardware side effects |
+| crates/vixen-session/src/setup/mod.rs | Module-only dirty bit for preview/show/schedule transactions |
+| crates/vixen-session/src/preview.rs | Reuse native light-color conversion for inspection PNGs |
+| crates/vixen-session/src/undo.rs | Native undo variant/description for sequence length/layer configuration |
+| crates/vixen-session/src/sequence.rs | Apply/invert that native undo action |
+| scripts/build_app.sh | Build, bundle and sign vixen-studio-mcp in Contents/Helpers |
+
+STUDIO.md documents the engine rationale; studio/markers.lock records intended hashes. An inherited .gitattributes marker missing from the starting inventory was recorded in a separate early commit; its file content was not changed. No existing Swift views were restyled, no merge into studio was performed, and no push to upstream was made.
+
+## Open issues / limits
+
+Read MCP.md's Known limits before calling this exhaustive parity. Important remaining boundaries: no automatic lyrics alignment, heuristic onset/section estimates and fixed 4/4 bars, selected unsupported parameter codecs/specialist controller dialogs, inspection-only PNG rasterization, disabled schedule drafts requiring local review, no MCP cancellation/tasks/HTTP, memory-heavy full display snapshots, and coordinator-owned final UI/reload wiring. Real hardware operations remain untested by design. These are explicit limits, not placeholder tools or silent fallback paths.
+
+## Final packaged-app verification
+
+The expanded admitted admin+setup build succeeded with the new FFI/activity model, followed by the packaged-app smoke harness: liveSession attachment, actual in-app create/undo, default-off output and normal-shutdown socket cleanup all PASS. The initial smoke used the generic harness quit action, which calls exit directly and deliberately bypasses normal shutdown; the corrected smoke closes the Administration window and exercises the normal application termination path. Its failed-run test socket was cleaned up only after verifying its process had exited.
+
+After that successful build, two protocol metadata corrections were made: live playback/seek safety annotations and initialize guidance. A repackage attempt was rejected by the configured build-admission gate before compilation. Source is current; the existing local bundle is the immediately preceding verified build. Do not describe the final metadata-only edits as repackaged until admission permits another build. No gate was bypassed.
+
+After Cargo rewrites Cargo.lock, run python3 scripts/studio_mark_mcp_lock.py before marker checking/recording. It uses a full native file read, validates semantic TOML equality before writing, and restores only the Studio comments atomically. Do not reconstruct a long generated lockfile from a bounded/truncated tool read. Missing-marker restoration and repeated idempotent runs were tested; the dependency graph remains 328 packages.
