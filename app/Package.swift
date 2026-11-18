@@ -48,6 +48,7 @@ let package = Package(
             path: "Sources/VixenBridge",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(name: "StudioAgent", dependencies: ["VixenBridge"], path: "Sources/StudioAgent", swiftSettings: uiSettings), // STUDIO: live agent activity adapter
         .target(name: "VixenKit", dependencies: ["VixenBridge"], path: "Sources/VixenKit", swiftSettings: uiSettings),
     ] + areas.map { area in
         let others = (areaDependencies[area] ?? []).filter(areas.contains).map { Target.Dependency.target(name: $0) }
@@ -55,7 +56,7 @@ let package = Package(
     } + [
         .executableTarget(
             name: "VixenApp",
-            dependencies: ["VixenKit", "VixenBridge"] + areas.map { .target(name: $0) },
+            dependencies: ["StudioAgent", "VixenKit", "VixenBridge"] + areas.map { .target(name: $0) }, // STUDIO: expose agent activity to app toolbar
             path: "Sources/VixenApp",
             swiftSettings: uiSettings,
             linkerSettings: [

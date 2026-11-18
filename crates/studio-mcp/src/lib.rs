@@ -1,7 +1,10 @@
 //! Studio's bounded, newline-delimited MCP adapter. No mutation or hardware path.
+pub mod socket;
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 use std::path::Path;
+use std::sync::Arc;
+use vixen_session::app::AppCore;
 use vixen_session::setup::{flow::CompKind, SetupSession};
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
@@ -19,6 +22,8 @@ pub struct Server {
     root: std::path::PathBuf,
     setup: SetupSession,
     initialized: bool,
+    client_id: Option<String>,
+    core: Option<Arc<AppCore>>,
 }
 impl Server {
     pub fn open(root: &Path) -> Result<Self, String> {
@@ -30,7 +35,26 @@ impl Server {
             root,
             setup: SetupSession::from_system(system, &Default::default(), false),
             initialized: false,
+            client_id: None,
+            core: None,
         })
+    }
+    pub fn from_core(core: Arc<AppCore>) -> Self {
+        let setup =
+            SetupSession::from_system(core.system.read().clone(), &Default::default(), false);
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+        let client = format!(
+            "client-{}",
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
+        core.studio_display.activity("clientConnected", &client);
+        Self {
+            root: core.paths.root().to_path_buf(),
+            setup,
+            initialized: false,
+            client_id: Some(client),
+            core: Some(core),
+        }
     }
     pub fn dispatch(&mut self, request: Value) -> Option<Value> {
         let id = request.get("id").cloned();
@@ -63,19 +87,39 @@ impl Server {
                     return Some(error(id, -32602, "Missing initialize fields"));
                 }
                 self.initialized = true;
-                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION")},"instructions":"Read-only milestone. No live output or mutations are exposed."})
+                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION")},"instructions":"Live display edits are undoable. Hardware control is unavailable. Save is not implicit."})
             }
             "ping" => json!({}),
             "tools/list" => {
-                json!({"tools":TOOLS.iter().map(|(name, description)| json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":500}},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})).collect::<Vec<_>>()})
+                let mut tools=TOOLS.iter().map(|(name,description)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":{"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":500}},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})).collect::<Vec<_>>();
+                tools.extend(vixen_session::studio_display::command_tools());
+                json!({"tools":tools})
             }
             "tools/call" => {
                 let name = p["name"].as_str().unwrap_or("");
-                if !TOOLS.iter().any(|(n, _)| *n == name) {
+                if !TOOLS.iter().any(|(n, _)| *n == name)
+                    && !vixen_session::studio_display::command_tools()
+                        .iter()
+                        .any(|t| t["name"] == name)
+                {
                     return Some(error(id, -32602, "Unknown tool"));
                 }
                 let args = p.get("arguments").cloned().unwrap_or(json!({}));
-                match self.call(name, &args) {
+                if let Some(c) = &self.core {
+                    c.studio_display.activity("commandStarted", name);
+                }
+                let outcome = self.call(name, &args);
+                if let Some(c) = &self.core {
+                    c.studio_display.activity(
+                        if outcome.is_ok() {
+                            "commandFinished"
+                        } else {
+                            "commandFailed"
+                        },
+                        name,
+                    );
+                }
+                match outcome {
                     Ok(value) => {
                         json!({"content":[{"type":"text","text":value.to_string()}],"isError":false})
                     }
@@ -101,7 +145,23 @@ impl Server {
         };
         Some(json!({"jsonrpc":"2.0","id":id,"result":result}))
     }
-    fn call(&self, name: &str, args: &Value) -> Result<Value, String> {
+    fn call(&mut self, name: &str, args: &Value) -> Result<Value, String> {
+        if vixen_session::studio_display::command_tools()
+            .iter()
+            .any(|t| t["name"] == name)
+        {
+            if self.core.is_none() {
+                self.core = Some(Arc::new(
+                    AppCore::open(self.root.clone(), true).map_err(|e| e.to_string())?,
+                ));
+            }
+            let core = self.core.as_ref().unwrap();
+            return core.studio_display.execute(core, name, args, true);
+        }
+        if let Some(core) = &self.core {
+            self.setup =
+                SetupSession::from_system(core.system.read().clone(), &Default::default(), false);
+        }
         let obj = args.as_object().ok_or("arguments must be an object")?;
         if obj.keys().any(|k| k != "offset" && k != "limit") {
             return Err("Unknown argument".into());
@@ -122,7 +182,7 @@ impl Server {
         }
         let s = &self.setup;
         let items:Vec<Value> = match name {
-            "studio_status" => return Ok(json!({"profile":self.root,"mode":"readOnlySnapshot","liveOutputAllowed":false,"mutationsAvailable":false,"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
+            "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.core.is_some(){"liveSession"}else{"headlessSnapshot"},"liveOutputAllowed":false,"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
             "display_elements" => s.tree.live_nodes().map(|(_,n)|json!({"id":n.id.to_string(),"name":n.name,"elementId":n.element_id.map(|i|i.to_string()),"children":n.children.iter().map(|id|s.tree.node(*id).id.to_string()).collect::<Vec<_>>()})).collect(),
             "controller_list" => s.controllers.iter().filter(|c|c.alive).map(|c|json!({"id":c.id.to_string(),"name":c.name,"type":c.type_name(),"typeId":c.type_id.to_string(),"outputs":c.outputs.len(),"running":false})).collect(),
             "sequence_list" | "media_list" => {
@@ -180,6 +240,14 @@ pub fn serve(
             }
             writeln!(output, "{encoded}")?;
             output.flush()?;
+        }
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        if let (Some(core), Some(id)) = (&self.core, &self.client_id) {
+            core.studio_display.activity("clientDisconnected", id);
         }
     }
 }

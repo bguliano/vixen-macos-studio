@@ -8,6 +8,7 @@ name = "vixen-studio-mcp"
 path = "src/main.rs"
 
 [dependencies]
+libc = "0.2"
 serde_json.workspace = true
 vixen-session = { path = "../vixen-session" }
 vixen-io = { path = "../vixen-io" }

@@ -34,3 +34,8 @@ No existing Swift views, build script or app lifecycle code were changed.
 VIXEN_MUTE=1 CARGO_BUILD_JOBS=2 cargo test -p studio-mcp:
 4 passed; 0 failed; 0 ignored. Includes real target/show-copy stdio round trip of all seven tools, malformed protocol/bounded frame handling, existing-lock refusal and app recognition of a live lowercase bridge lock. No audio or output starts. Existing fx-pixel-simple unused-assignment warning remains unrelated.
 Swift activity adapter passed swiftc -frontend -parse; it is not yet compiled as an integrated app target. No full app build or UI rendering claim.
+
+## M2 progress update
+The earlier shared-session blocker is resolved by AppCore-owned StudioDisplay and its new FFI command/snapshot/history/observer API. See the final M2 section of MCP.md for the contract to wire into the sidebar pane. The legacy modal API is intentionally unchanged; its private copy must not be used by the new pane. Live socket edit + UI undo + shutdown rejection test passes. App packaging and Swift callback build verification are in progress. M2 sequence editing and M3 remain open.
+
+M2 display/transport verification: admitted admin+setup app build succeeded, including generated UniFFI callback and StudioAgent Swift target. Bundled signed helper initialize + 18-tool catalog smoke test passed. One live Unix socket integration test passes (actual shared-core edit, UI-path undo, shutdown rejection), alongside four stdio/lock tests. Remaining authoring coverage is still in progress; this is not a claim that all M2/M3 tools exist.

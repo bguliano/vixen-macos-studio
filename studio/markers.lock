@@ -7,9 +7,21 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
- "block:mcp-lock-dependency": {
-  "file": "Cargo.lock",
-  "hash": "9fe80727784f95cf"
+ "block:display-materialize": {
+  "file": "crates/vixen-session/src/setup/commit.rs",
+  "hash": "9c96b5a3e33e7cc2"
+ },
+ "block:mcp-app-start": {
+  "file": "crates/vixen-ffi/src/admin.rs",
+  "hash": "2c09ed908fea0825"
+ },
+ "block:mcp-helper-build": {
+  "file": "scripts/build_app.sh",
+  "hash": "4334f81f91c778d0"
+ },
+ "block:mcp-helper-bundle": {
+  "file": "scripts/build_app.sh",
+  "hash": "3350ed5c33b09d3b"
  },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
@@ -26,6 +38,42 @@
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",
   "hash": "230f6039ffff686f"
+ },
+ "line:app/Package.swift:0f137b62859e1e57": {
+  "file": "app/Package.swift",
+  "hash": "0f137b62859e1e57"
+ },
+ "line:app/Package.swift:adb4aab7e4a6e402": {
+  "file": "app/Package.swift",
+  "hash": "adb4aab7e4a6e402"
+ },
+ "line:crates/vixen-ffi/Cargo.toml:5148ba7228e2664a": {
+  "file": "crates/vixen-ffi/Cargo.toml",
+  "hash": "5148ba7228e2664a"
+ },
+ "line:crates/vixen-ffi/Cargo.toml:aad71a28b7bfa14e": {
+  "file": "crates/vixen-ffi/Cargo.toml",
+  "hash": "aad71a28b7bfa14e"
+ },
+ "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "d1100fa74313d8ae"
+ },
+ "line:crates/vixen-session/src/app.rs:b0bca46243531f1d": {
+  "file": "crates/vixen-session/src/app.rs",
+  "hash": "b0bca46243531f1d"
+ },
+ "line:crates/vixen-session/src/app.rs:c0d73ad0965256b5": {
+  "file": "crates/vixen-session/src/app.rs",
+  "hash": "c0d73ad0965256b5"
+ },
+ "line:crates/vixen-session/src/boot.rs:e0e2fb453a030826": {
+  "file": "crates/vixen-session/src/boot.rs",
+  "hash": "e0e2fb453a030826"
+ },
+ "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "52a77d70c765b2b0"
  },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",

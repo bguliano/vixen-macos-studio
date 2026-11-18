@@ -38,3 +38,26 @@ Integration prerequisite discovered: DisplaySetupSession privately owns a RwLock
 Preflight: no existing MCP dependency in this repository. The narrow synchronous read-only adapter uses existing serde_json instead of introducing an async runtime. Before concurrent sessions/cancellation/HTTP, evaluate the maintained official Rust MCP SDK (rmcp) and migrate transport rather than expanding a bespoke stack.
 
 StudioAgentActivity is a standalone @Observable MainActor adapter with bounded snapshot replacement. It is not yet registered in Package.swift or connected to FFI; do not show a connected indicator until a real server snapshot arrives. No existing views were changed.
+
+## M2 live display API (2026-11-18, supersedes M1-only limitations above)
+
+The profile now owns StudioDisplay in AppCore. Both MCP and Swift call the same validated command service, which uses the existing SetupSession algorithms in an isolated candidate and publishes the completed SystemData with AppCore::apply_display. A failed command cannot partially mutate the live display. Undo/redo retain up to 20 profile snapshots; UI and agent commands interleave on one stack and agent entries end with '(Agent)'. Stable UUIDs cross this API, never temporary arena row paths. Non-modal panes must use this service, not hold an old setup working copy.
+
+Swift-facing VixenCore API (generated Swift lower-camel names):
+- studioDisplayCommand(command:argumentsJson:) throws -> JSON result {changed, revision, result}. This is the UI origin; agent origin is supplied internally by the MCP adapter, never an argument.
+- studioDisplayCommandCatalog() -> JSON array of command schemas.
+- studioDisplaySnapshot() -> JSON {revision,elements,controllers}; element rows include id, name, elementId, child UUIDs. Fetch in bulk off MainActor.
+- studioDisplayHistory() -> JSON {revision,undo,redo}; descriptions are newest first.
+- studioObserveDisplay(observer:) / studioStopObservingDisplay(). One observer per core; replace on rebinding. Callback is off MainActor and outside service/engine locks.
+- studioDisplayEvents(afterRevision:) -> bounded recent events. Event revision is its own monotonic counter, NOT the display revision used for optimistic edits.
+- studioStartMcp() throws -> explicitly retry/report local server startup. Normal VixenCore.start starts it automatically; lower-level test VixenCore.open does not.
+
+Commands currently wired: element_create, element_rename, element_delete, element_group, controller_create, controller_rename, controller_delete, patch_elements, unpatch_elements, display_undo, display_redo. Every command accepts optional expectedRevision from the display snapshot; stale values fail before mutation. Delete/unpatch requires confirm:true. Newly created controllers are disabled. Agents cannot edit display while non-muted execution is open, because applying a graph could itself restart hardware; close execution locally first. No live-output tool is advertised yet.
+
+After successful publication: displayChanged event. The server also emits clientConnected/clientDisconnected and commandStarted/commandFinished/commandFailed. For client events, command contains an opaque connection ID; for command events it contains only the tool name, never arguments. StudioAgentActivity.observe(core:) forwards actual callbacks onto MainActor and retains at most 100 actions. The pane should refresh its display snapshot on displayChanged; do not confuse event counters with expectedRevision. No views were restyled.
+
+Legacy openDisplaySetup/commit/discard remains unchanged during migration. Do not mix a legacy modal working copy with the new live pane: legacy publication invalidates the live history on the next command rather than undoing unrelated external edits. Full parity applies to the new service API; the old modal APIs are compatibility-only until the UI switch.
+
+The bridge now prefers the per-profile Unix socket (0600, directory 0700), validates canonical profile identity, and falls back to locked headless mode only if the socket does not exist. Existing broken/stale/untrusted socket endpoints fail closed. Max 8 connections; idle read timeout 120 seconds, write timeout 30 seconds. App shutdown first rejects further commands and drops the listener before releasing its profile lock. The bridge is built/signed into Contents/Helpers by the marked build script.
+
+Still open: sequence/music/preview/export commands; controller network setup and templates/colors/properties; persisted live-output setting and gated operations. Do not present these as completed based on the transport work.

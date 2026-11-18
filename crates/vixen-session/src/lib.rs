@@ -1,6 +1,7 @@
 //! The editing session behind the sequencer window: the effect table, undo, timeline rows and thumbnails.
 
 pub mod app;
+pub mod studio_display; // STUDIO: shared live display commands and undo
 pub mod archive;
 pub mod boot;
 pub mod compare;

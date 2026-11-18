@@ -50,7 +50,7 @@ fn real_show_stdio_round_trip_and_safety() {
         .map(|s| serde_json::from_str(s).unwrap())
         .collect();
     assert_eq!(replies.len(), 11);
-    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 7);
+    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 18);
     for reply in &replies[2..9] {
         assert_eq!(reply["result"]["isError"], false, "{reply}");
     }

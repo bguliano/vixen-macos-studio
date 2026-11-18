@@ -37,3 +37,45 @@ public final class StudioAgentActivity {
         revision = 0
     }
 }
+
+#if canImport(VixenBridge)
+import VixenBridge
+
+private final class StudioActivityObserver: StudioChangeObserver, @unchecked Sendable {
+    nonisolated let handler: @Sendable (UInt64, String, String, Bool) -> Void
+    nonisolated init(handler: @escaping @Sendable (UInt64, String, String, Bool) -> Void) { self.handler = handler }
+    nonisolated func changed(event: StudioChangeEvent) {
+        handler(event.revision, event.kind, event.command, event.agent)
+    }
+}
+
+extension StudioAgentActivity {
+    /// Retain this model in the show window. Call stopObserving before releasing that window/core.
+    public func observe(core: VixenCore) {
+        core.studioObserveDisplay(observer: StudioActivityObserver { [weak self] revision, kind, command, agent in
+            Task { @MainActor [weak self] in
+                self?.receive(revision: revision, kind: kind, command: command, agent: agent)
+            }
+        })
+        isAvailable = true
+    }
+    public func stopObserving(core: VixenCore) {
+        core.studioStopObservingDisplay()
+        disconnect()
+    }
+    private func receive(revision: UInt64, kind: String, command: String, agent: Bool) {
+        guard revision > self.revision else { return }
+        self.revision = revision
+        switch kind {
+        case "clientConnected": if !connectedClients.contains(command) { connectedClients.append(command) }
+        case "clientDisconnected": connectedClients.removeAll { $0 == command }
+        case "commandStarted": currentTool = command
+        case "commandFinished", "commandFailed":
+            currentTool = nil
+            recentActions.append(Action(id: revision, command: command, summary: command, succeeded: kind == "commandFinished"))
+            recentActions = Array(recentActions.suffix(100))
+        default: break // displayChanged still updates revision, triggering the pane's snapshot refresh.
+        }
+    }
+}
+#endif

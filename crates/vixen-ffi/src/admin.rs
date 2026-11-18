@@ -460,6 +460,11 @@ impl VixenCore {
             .inspect_err(|error| logging::error("Vixen.Sys.VixenSystem", "Error during system startup!", Some(&error.to_string())))?;
         let weak = Arc::downgrade(&core);
         logging::set_crash_is_saving(Box::new(move || weak.upgrade().is_some_and(|core| core.is_saving())));
+        // STUDIO-BEGIN mcp-app-start: serve the same running profile core to local agents
+        if let Err(error)=crate::studio_agent::start_server(&core) {
+            logging::error("Vixen.Studio.MCP", "Could not start MCP server", Some(&error.to_string()));
+        }
+        // STUDIO-END mcp-app-start
         Ok(Arc::new(VixenCore { inner: core }))
     }
 

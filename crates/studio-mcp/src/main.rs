@@ -17,6 +17,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("Use a show copy, not the original archive".into());
     }
+    if let Some(mut socket) = studio_mcp::socket::connect(&root)? {
+        let mut reader = socket.try_clone()?;
+        let inbound =
+            std::thread::spawn(move || std::io::copy(&mut reader, &mut std::io::stdout().lock()));
+        std::io::copy(&mut std::io::stdin().lock(), &mut socket)?;
+        socket.shutdown(std::net::Shutdown::Write)?;
+        inbound.join().map_err(|_| "socket reader failed")??;
+        return Ok(());
+    }
     // Fail closed even for stale locks; never steal a running app's profile.
     let lock = vixen_io::lock::create_lock_file(&root)?;
     struct Guard(PathBuf);

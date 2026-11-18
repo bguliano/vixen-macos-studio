@@ -39,6 +39,7 @@ pub(crate) struct Services {
 
 /// The open profile. `VixenSystem` and the application object in the original.
 pub struct AppCore {
+    pub studio_display: crate::studio_display::StudioDisplay, // STUDIO: one command and undo service per profile
     pub video_cache: Arc<vixen_video::cache::VideoCache>,
     pub paths: DataPaths,
     pub system: RwLock<SystemData>,
@@ -86,6 +87,7 @@ impl AppCore {
         let video_cache = vixen_video::cache::VideoCache::new(vixen_video::cache::profile_cache_root(paths.root()),
             vixen_video::cache::CacheOptions { clear_on_exit: system.clear_effect_cache_on_exit, file_type: system.video_effect_cache_file_type.clone() });
         AppCore {
+            studio_display: Default::default(), // STUDIO: shared live display service
             video_cache,
             paths,
             system: RwLock::new(system),
