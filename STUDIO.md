@@ -50,7 +50,7 @@ Anything that differs from vanilla **outside the Studio-only files** is marked, 
   marked block, run `scripts/studio_sync.sh --record`.
 
 Studio-only files need no markers, because vanilla never touches them: everything under `studio/`, `app/Sources/Studio*`,
-`crates/studio-*`, `STUDIO.md` and the scripts named `studio_*`. Prefer putting new code there, so merges stay clean.
+`crates/studio-*`, `STUDIO.md`, and any file whose name starts with `studio_` or `Studio`. Prefer putting new code there, so merges stay clean.
 
 A few vanilla files are rewritten wholesale for Studio (`README.md`, `docs/UI_GUIDE.md`). `.gitattributes` gives them the
 `ours` merge driver, so vanilla's edits to them never overwrite Studio's. Read vanilla's change to such a file in the
