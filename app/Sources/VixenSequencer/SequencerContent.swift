@@ -21,15 +21,16 @@ struct SequencerContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ToolbarBand(model: model)
-                .fixedSize(horizontal: false, vertical: true)
-            Divider()
+            // STUDIO-BEGIN native-toolbar: the window's native toolbar replaces Vixen's tool strips
             DockArea(model: model)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             Divider()
             StatusBarView(model: model)
         }
-        .background(Theme.background)
+        .toolbar(id: "studio.sequencer") { StudioSequencerToolbar(model: model) }
+        .toolbarRole(.editor)
+        .background(WindowReader { StudioToolbarDefaults.applyOnce(to: $0) })
+        // STUDIO-END native-toolbar
         .background(KeyCatcher(model: model))
         .sheet(item: $model.sheet) { sheet in
             SequencerSheetView(model: model, sheet: sheet)
@@ -241,13 +242,16 @@ struct DockPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // STUDIO-BEGIN panel-tabs: labelled tabs along the top replace the header and the bottom tab row
+            StudioPanelTabs(tabs: tabs, selected: current?.panel) {
+                model.selectPanel($0, side: side)
+            } detach: {
+                model.detachPanel($0)
+            } close: {
+                model.togglePanel($0)
+            }
+            Divider()
             if let current {
-                PanelHeader(title: current.title) {
-                    model.detachPanel(current.panel)
-                } close: {
-                    model.togglePanel(current.panel)
-                }
-                Divider()
                 // Every panel stays alive behind the one showing, so switching tabs keeps its state.
                 ZStack {
                     ForEach(tabs, id: \.panel) { tab in
@@ -260,10 +264,9 @@ struct DockPane: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            Divider()
-            TabStrip(tabs: tabs, selected: current?.panel) { model.selectPanel($0, side: side) }
         }
-        .background(Theme.background)
+        .background(.background)
+        // STUDIO-END panel-tabs
     }
 }
 

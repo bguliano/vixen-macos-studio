@@ -12,35 +12,42 @@ nonisolated enum TimelineColors {
         rgb(CGFloat((v >> 16) & 0xFF), CGFloat((v >> 8) & 0xFF), CGFloat(v & 0xFF), CGFloat((v >> 24) & 0xFF))
     }
 
-    /// `TimeLineEffectsBackColor`.
-    static let effectsBackground = rgb(68, 68, 68)
-    static let labelBackground = rgb(68, 68, 68)
-    static let panelBackground = rgb(40, 40, 40)
+    // STUDIO-BEGIN timeline-palette: a deeper, quieter dark palette so effects stand out (Vixen's greys in comments)
+    /// `TimeLineEffectsBackColor` (Vixen: 68).
+    static let effectsBackground = rgb(30, 30, 33)
+    static let labelBackground = rgb(40, 40, 44)   // Vixen: 68
+    static let panelBackground = rgb(24, 24, 27)   // Vixen: 40
     static let black = rgb(0, 0, 0)
     static let white = rgb(255, 255, 255)
-    static let foreground = rgb(235, 235, 235)
-    static let placeholder = rgb(122, 122, 122)
-    static let red = rgb(255, 0, 0)
+    static let foreground = rgb(232, 232, 236)
+    static let placeholder = rgb(96, 96, 102)      // Vixen: 122
+    static let red = rgb(255, 69, 58)
     /// `SelectionColor`.
-    static let selectionFill = rgb(40, 100, 160, 100)
-    static let selectionBlue = rgb(0, 0, 255)
-    static let selectionGreen = rgb(0, 128, 0)
+    static let selectionFill = rgb(10, 132, 255, 70)
+    static let selectionBlue = rgb(10, 132, 255)
+    static let selectionGreen = rgb(48, 209, 88)
     static let drawFill = rgb(255, 255, 255, 100)
-    /// `Color.Gray`.
-    static let gray = rgb(128, 128, 128)
+    /// The ruler's background (Vixen: `Color.Gray`, 128).
+    static let gray = rgb(44, 44, 48)
     /// `Color.DarkGray`.
     static let darkGray = rgb(169, 169, 169)
-    static let waveformBackground = rgb(120, 120, 120)
-    static let waveformTop = rgb(60, 60, 60)
-    static let waveformMid = rgb(20, 20, 20)
+    static let waveformBackground = rgb(36, 36, 40)  // Vixen: 120
+    static let waveformTop = rgb(150, 190, 255)     // Vixen: 60 on a light background
+    static let waveformMid = rgb(70, 110, 210)      // Vixen: 20
     static let blue = rgb(0, 0, 255)
     static let green = rgb(0, 128, 0)
     static let yellow = rgb(255, 255, 0)
-    static let activeYellow = rgb(255, 255, 0)
+    static let activeYellow = rgb(255, 214, 10)
     static let infoBackground = rgb(0, 0, 0, 128)
-    static let expanderBorder = rgb(150, 150, 150)
-    static let expanderFill = rgb(90, 90, 90)
+    static let expanderBorder = rgb(120, 120, 128)
+    static let expanderFill = rgb(58, 58, 64)
     static let cursor = rgb(50, 50, 50, 150)
+    /// Studio: one-second gridlines and row separators, faint against the dark grid.
+    static let gridLine = rgb(255, 255, 255, 22)
+    static let rowSeparator = rgb(0, 0, 0, 160)
+    /// Studio: ruler ticks, light against the dark ruler.
+    static let rulerTick = rgb(150, 150, 158)
+    // STUDIO-END timeline-palette
 }
 
 /// One point of GDI's type is a third larger than one of ours at the same pixel size: 96 against 72.
@@ -108,7 +115,7 @@ nonisolated func paintGridTile(_ request: TileRequest, _ ctx: CGContext, control
     ctx.fill(r)
 
     // 1 second dashes: `DashStyle.Dash` is 3 on and 1 off.
-    ctx.setFillColor(TimelineColors.black)
+    ctx.setFillColor(TimelineColors.gridLine) // STUDIO: faint gridlines
     for x in frame.gridlines {
         fillDashedColumn(ctx, x: CGFloat(x), top: r.minY, height: r.height, on: 3, off: 1)
     }
@@ -130,7 +137,7 @@ nonisolated func paintGridTile(_ request: TileRequest, _ ctx: CGContext, control
             ctx.setFillColor(TimelineColors.selectionFill)
             ctx.fill(band)
         }
-        ctx.setFillColor(TimelineColors.black)
+        ctx.setFillColor(TimelineColors.rowSeparator) // STUDIO: softer row separators
         ctx.fill(CGRect(x: band.minX, y: band.maxY - 1, width: band.width, height: 1))
     }
 
@@ -278,10 +285,10 @@ nonisolated func paintRulerTile(_ request: TileRequest, _ ctx: CGContext, contro
     ctx.setFillColor(TimelineColors.gray)
     ctx.fill(r)
 
-    ctx.setFillColor(TimelineColors.black)
+    ctx.setFillColor(TimelineColors.rulerTick) // STUDIO: light ticks on the dark ruler
     let majorTop = height * (1 - 0.4)
     for x in f.majorTicks {
-        ctx.fill(CGRect(x: CGFloat(x).rounded(.down), y: majorTop.rounded(), width: 2, height: height - majorTop.rounded()))
+        ctx.fill(CGRect(x: CGFloat(x).rounded(.down), y: majorTop.rounded(), width: 1, height: height - majorTop.rounded())) // STUDIO: hairline major ticks
     }
     let minorTop = height * (1 - 0.20)
     for x in f.minorTicks {

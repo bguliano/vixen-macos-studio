@@ -382,12 +382,7 @@ private struct ViewMenuItems: View {
         toggle("Lock Ruler Height", ui?.prefs.lockRulerHeight) { model?.set(.lockRulerHeight, $0) }
         toggle("Lock Waveform Height", ui?.prefs.lockWaveformHeight) { model?.set(.lockWaveformHeight, $0) }
         Divider()
-        Menu("Toolbars") {
-            if let model {
-                ToolbarsList(model: model)
-            }
-        }
-        .disabled(model == nil)
+        // STUDIO: the native toolbar is customised with View ▸ Customize Toolbar…, so Vixen's Toolbars submenu is gone
         panelItem("Effect Window", .effects, model)
         panelItem("Mark Window", .marks, model)
         // Only shows it if hidden, and it can't be here: it's always the centre (F76).

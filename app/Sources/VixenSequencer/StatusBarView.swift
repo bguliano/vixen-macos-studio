@@ -9,13 +9,7 @@ struct StatusBarView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            PositionField(model: model)
-            Divider().frame(height: 14)
-            Text("Sequence Length:")
-            Text(model.ui?.lengthText ?? "0:00.000")
-                .monospacedDigit()
-                .accessibilityIdentifier("toolStripStatusLabel_sequenceLength")
-            Divider().frame(height: 14)
+            // STUDIO-BEGIN status-bar: position and length live in the toolbar clock; the status bar keeps messages and progress
             if let transport = model.ui?.transport, transport.delayVisible {
                 Text("Play Delayed:")
                 Text(transport.delayText)
@@ -29,17 +23,20 @@ struct StatusBarView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("toolStripStatusLabel4")
             if let ui = model.ui, ui.renderingVisible {
-                Text("Rendering Elements:")
+                Text("Rendering effects…")
+                    .foregroundStyle(.secondary)
                 ProgressView(value: Double(max(0, min(100, ui.renderingPercent))), total: 100)
                     .progressViewStyle(.linear)
                     .frame(width: 120)
                     .accessibilityIdentifier("toolStripProgressBar_RenderingElements")
             }
+            // STUDIO-END status-bar
         }
         .font(.callout)
         .lineLimit(1)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
+        .frame(minHeight: 22) // STUDIO: keeps its height when the message is empty
         .background(.bar)
     }
 }
