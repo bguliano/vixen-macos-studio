@@ -7,6 +7,10 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:mcp-profile-lock": {
+  "file": "crates/vixen-io/src/lock.rs",
+  "hash": "431691d95a53a991"
+ },
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
@@ -14,6 +18,10 @@
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
+ },
+ "line:Cargo.toml:230f6039ffff686f": {
+  "file": "Cargo.toml",
+  "hash": "230f6039ffff686f"
  },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",

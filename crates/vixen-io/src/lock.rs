@@ -165,7 +165,9 @@ pub fn check_profile_lock(folder: &Path) -> LockCheck {
         return LockCheck::stale(&lock);
     }
     match process_name(pid) {
-        Some(name) if name.starts_with("Vixen") => LockCheck::locked(),
+        // STUDIO-BEGIN mcp-profile-lock: recognize the headless bridge as a profile owner
+        Some(name) if name.starts_with("Vixen") || name.starts_with("vixen-studio") => LockCheck::locked(),
+        // STUDIO-END mcp-profile-lock
         _ => LockCheck::stale(&lock),
     }
 }

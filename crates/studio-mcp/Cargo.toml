@@ -1,0 +1,14 @@
+[package]
+name = "studio-mcp"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "vixen-studio-mcp"
+path = "src/main.rs"
+
+[dependencies]
+serde_json.workspace = true
+vixen-session = { path = "../vixen-session" }
+vixen-io = { path = "../vixen-io" }
+vixen-effect-registry = { path = "../vixen-effect-registry" }

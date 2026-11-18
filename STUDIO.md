@@ -63,4 +63,4 @@ reason. If a change would also help vanilla, note it here so it can be offered u
 
 | Marker | Crate | Why | Offer to vanilla? |
 |---|---|---|---|
-| _(none yet)_ | | | |
+| `mcp-profile-lock` | vixen-io | Recognize the lowercase Studio MCP helper as an active profile lock owner. | No: Studio helper-specific. |

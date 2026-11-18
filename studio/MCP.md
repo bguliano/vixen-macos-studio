@@ -29,3 +29,12 @@ Allow agents to control live output defaults OFF, is set only by local UI, and c
 
 ## UI integration requirements
 Do not fork sessions for MCP. App starts/stops the server with its core lifecycle and exposes the shared activity/event adapter. Existing UI session ownership and undo handling must be unified before live mutation tools are advertised. UI may render event snapshots without implementing business rules.
+
+## Implemented scope (M1 foundation)
+The initial implementation is a locked, read-only headless snapshot with seven tools, resources and a workflow prompt. It deliberately does not advertise mutations, socket attachment, analysis, render/export or playback. Existing session APIs interpret display/patch data. Stdio has 1 MiB input and 8 MiB response limits, strict tool arguments and 500-item pages. No app core is booted and no media is decoded.
+
+Integration prerequisite discovered: DisplaySetupSession privately owns a RwLock<SetupSession>, while open sequencers register Arc<Mutex<SequenceSession>> with AppCore. Display edits lack a shared session-level undo stack. M2 must unify setup ownership and add shared display undo first; an agent-only working copy is not live parity. Sequence actions can use UndoAction::Group to label shared undo entries with (Agent). The profile-lock recognizer must recognize the lowercase bridge or the app treats its live lock as stale.
+
+Preflight: no existing MCP dependency in this repository. The narrow synchronous read-only adapter uses existing serde_json instead of introducing an async runtime. Before concurrent sessions/cancellation/HTTP, evaluate the maintained official Rust MCP SDK (rmcp) and migrate transport rather than expanding a bespoke stack.
+
+StudioAgentActivity is a standalone @Observable MainActor adapter with bounded snapshot replacement. It is not yet registered in Package.swift or connected to FFI; do not show a connected indicator until a real server snapshot arrives. No existing views were changed.
