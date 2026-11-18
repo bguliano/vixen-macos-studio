@@ -383,7 +383,7 @@ struct PanelContent: View {
     var body: some View {
         switch panel {
         case .effects:
-            EffectsPanel(model: model)
+            StudioEffectsLibrary(model: model) // STUDIO: searchable effects library that switches to Draw mode
         case .effectEditor:
             #if canImport(VixenEffectEditor)
             if let session = model.session {

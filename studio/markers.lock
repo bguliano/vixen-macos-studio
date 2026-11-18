@@ -7,6 +7,14 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:inspector-header": {
+  "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
+  "hash": "b8f3800be69a9f46"
+ },
+ "block:inspector-title": {
+  "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
+  "hash": "1ac6603fc819de34"
+ },
  "block:native-toolbar": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "33211ce659ca27ee"
@@ -14,6 +22,10 @@
  "block:panel-tabs": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "2e68e2f86a0f473e"
+ },
+ "block:preview-switch": {
+  "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
+  "hash": "3783f94619bccede"
  },
  "block:release-names": {
   "file": "scripts/package_release.sh",
@@ -58,6 +70,10 @@
  "line:app/Sources/VixenDialogs/DialogsTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenDialogs/DialogsTestScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenEffectEditor/EffectEditorPane.swift:036ee544948c9627": {
+  "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
+  "hash": "036ee544948c9627"
  },
  "line:app/Sources/VixenEffectEditor/EffectEditorTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorTestScene.swift",
@@ -114,6 +130,10 @@
  "line:app/Sources/VixenSequencer/SequencerCommands.swift:ee4610a9fd858fec": {
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "ee4610a9fd858fec"
+ },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:4737c7648a83702f": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "4737c7648a83702f"
  },
  "line:app/Sources/VixenSequencer/SequencerContent.swift:b544ae993fa32a89": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",

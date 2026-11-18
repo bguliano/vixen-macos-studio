@@ -48,11 +48,20 @@ private struct EffectEditorContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            previewBar
+            // STUDIO-BEGIN inspector-header: effect name first, labelled preview switch, an empty state when nothing is selected
             if !model.effectName.isEmpty {
                 HeaderBar(model: model)
             }
+            previewBar
             Divider()
+            if model.effectName.isEmpty {
+                ContentUnavailableView {
+                    Label("No Effect Selected", systemImage: "slider.horizontal.3")
+                } description: {
+                    Text("Select an effect on the timeline to edit its colors, timing curves and other settings.")
+                }
+                .frame(maxHeight: .infinity)
+            } else {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(model.sections) { section in
@@ -60,10 +69,12 @@ private struct EffectEditorContent: View {
                     }
                     InformationBox(model: model)
                 }
-                .padding(.horizontal, 4)
-                .padding(.bottom, 8)
+                .padding(.horizontal, StudioMetrics.spacingS)
+                .padding(.bottom, StudioMetrics.spacingS)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            }
+            // STUDIO-END inspector-header
         }
         .controlSize(.small)
         .background(HostWindowReader(model: model))
@@ -150,20 +161,20 @@ private struct EffectEditorContent: View {
     }
 
     /// F5: always enabled, also with nothing selected.
+    // STUDIO-BEGIN preview-switch: one labelled switch for the live effect preview
     private var previewBar: some View {
-        HStack(spacing: 6) {
-            Text("Effect Preview")
-            Toggle("Effect Preview", isOn: $model.previewOn)
-                .toggleStyle(.switch)
-                .labelsHidden()
-                .controlSize(.mini)
-            Text(model.previewOn ? "On" : "Off")
+        Toggle(isOn: $model.previewOn) {
+            Text("Preview on lights while editing")
                 .foregroundStyle(.secondary)
-            Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .toggleStyle(.switch)
+        .controlSize(.mini)
+        .help("Shows the selected effect on the preview and real lights as you change it")
+        .padding(.horizontal, StudioMetrics.spacingM)
+        .padding(.vertical, StudioMetrics.spacingXS)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+    // STUDIO-END preview-switch
 }
 
 private struct HostWindowReader: NSViewRepresentable {
@@ -187,46 +198,40 @@ private struct HostWindowReader: NSViewRepresentable {
 }
 
 /// F7: the effect name, bold, centred; Save as Default; Reset to Built-in; help.
+// STUDIO-BEGIN inspector-title: the effect's name as the inspector title, with defaults in one labelled menu
 private struct HeaderBar: View {
     let model: EffectEditorModel
 
     var body: some View {
-        HStack(spacing: 6) {
-            Spacer(minLength: 0)
-            Text(model.effectName)
-                .font(.system(size: 10, weight: .bold))
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            Button {
-                model.saveAsDefault()
-            } label: {
-                Image(systemName: "square.and.arrow.down")
-            }
-            .buttonStyle(.borderless)
-            .help("Save as Default")
-            .disabled(!model.canSaveDefault)
-            Button {
-                model.resetDefault()
-            } label: {
-                Image(systemName: "arrow.counterclockwise")
-            }
-            .buttonStyle(.borderless)
-            .help("Reset to Built-in")
-            .disabled(!model.canSaveDefault || !model.hasStoredDefault)
-            if let url = URL(string: model.informationLink) {
-                Link(destination: url) {
-                    Image(systemName: "questionmark.circle")
+        HStack(alignment: .firstTextBaseline, spacing: StudioMetrics.spacingS) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.effectName)
+                    .font(.title3.weight(.semibold))
+                    .lineLimit(1)
+                if model.selection.count > 1 {
+                    Text("\(model.selection.count) effects selected")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-                .help("Help")
             }
+            Spacer(minLength: 0)
+            Menu("Defaults") {
+                Button("Save as Default") { model.saveAsDefault() }
+                    .disabled(!model.canSaveDefault)
+                Button("Reset to Built-in") { model.resetDefault() }
+                    .disabled(!model.canSaveDefault || !model.hasStoredDefault)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.borderless)
+            .fixedSize()
+            .help("Make these settings the starting point for new \(model.effectName) effects, or go back to Vixen's")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
+        .padding(.horizontal, StudioMetrics.spacingM)
+        .padding(.top, StudioMetrics.spacingS)
     }
 }
+// STUDIO-END inspector-title
 
-/// F11: the effect's text, wrapped, and More Info under it. An effect with no text has no box.
 private struct InformationBox: View {
     let model: EffectEditorModel
 
@@ -261,7 +266,7 @@ private struct SectionView: View {
             }
             .padding(.top, 2)
         } label: {
-            Text(section.name).font(.system(size: 11, weight: .semibold))
+            Text(section.name).font(.callout.weight(.semibold)) // STUDIO: readable section titles
         }
         .padding(.vertical, 2)
     }
