@@ -69,6 +69,7 @@ public struct MetalLayerView: NSViewRepresentable {
 
     public func makeNSView(context: Context) -> MetalLayerNSView {
         let view = MetalLayerNSView(frame: .init(x: 0, y: 0, width: 400, height: 300))
+        view.studioUseCanvasAppearance() // STUDIO: previews stay dark in light mode
         let ready = onReady
         DispatchQueue.main.async {
             view.metalLayer?.contentsScale = view.window?.backingScaleFactor ?? 2

@@ -36,7 +36,7 @@ public struct SchedulerScene: Scene {
 
     public var body: some Scene {
         Window("Sequence Package Export", id: WindowID.sequencePackageExport) {
-            PackageWizardRoot(importing: false).environment(model).preferredColorScheme(.dark)
+            PackageWizardRoot(importing: false).environment(model).studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 680, height: 500)
         .windowResizability(.contentMinSize)
@@ -44,7 +44,7 @@ public struct SchedulerScene: Scene {
         .restorationBehavior(.disabled)
 
         Window("Sequence Package Import", id: WindowID.sequencePackageImport) {
-            PackageWizardRoot(importing: true).environment(model).preferredColorScheme(.dark)
+            PackageWizardRoot(importing: true).environment(model).studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 680, height: 500)
         .windowResizability(.contentMinSize)
@@ -55,7 +55,7 @@ public struct SchedulerScene: Scene {
         Window("Export Wizard", id: WindowID.exportWizard) {
             ExportWizardRoot()
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 627, height: 575)
         .windowResizability(.contentMinSize)
@@ -65,7 +65,7 @@ public struct SchedulerScene: Scene {
         Window("Shows", id: WindowID.shows) {
             ShowsRoot()
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
@@ -75,7 +75,7 @@ public struct SchedulerScene: Scene {
         Window("Scheduler", id: WindowID.schedules) {
             SchedulesRoot()
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
@@ -84,7 +84,7 @@ public struct SchedulerScene: Scene {
         WindowGroup("Export Sequence", id: WindowID.exportSequence, for: String.self) { $path in
             ExportSequenceWindow(path: path)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)

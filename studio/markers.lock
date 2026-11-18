@@ -11,6 +11,138 @@
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
  },
+ "block:show-window": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "d83b18d2632de2f8"
+ },
+ "line:.gitattributes:bbd307d5f1ffa71c": {
+  "file": ".gitattributes",
+  "hash": "bbd307d5f1ffa71c"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:7edb2c216294df1a": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "7edb2c216294df1a"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:853c373e4ec5b1f9": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "853c373e4ec5b1f9"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:04bbdbb6039c5bf1": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "04bbdbb6039c5bf1"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenDialogs/ControllerMonitors.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenDialogs/DialogsTestScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenDialogs/DialogsTestScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenEffectEditor/EffectEditorTestScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenEffectEditor/EffectEditorTestScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenKit/KitSupport.swift:c59e89c754a19a8d": {
+  "file": "app/Sources/VixenKit/KitSupport.swift",
+  "hash": "c59e89c754a19a8d"
+ },
+ "line:app/Sources/VixenKit/MetalLayerView.swift:75e1aaef1d213b7c": {
+  "file": "app/Sources/VixenKit/MetalLayerView.swift",
+  "hash": "75e1aaef1d213b7c"
+ },
+ "line:app/Sources/VixenMarks/MarksTestScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenMarks/MarksTestScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenPreview/PreviewScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenPreview/PreviewScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenScheduler/ElementMapperSheet.swift:cd834aa34c5042c1": {
+  "file": "app/Sources/VixenScheduler/ElementMapperSheet.swift",
+  "hash": "cd834aa34c5042c1"
+ },
+ "line:app/Sources/VixenScheduler/ExportSequenceSheet.swift:4f23f8c5fe8627c9": {
+  "file": "app/Sources/VixenScheduler/ExportSequenceSheet.swift",
+  "hash": "4f23f8c5fe8627c9"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:06d49f52359b9f6f": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "06d49f52359b9f6f"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:69fac878491a5ab2": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "69fac878491a5ab2"
+ },
+ "line:app/Sources/VixenScheduler/SongInventoryWindow.swift:f7a2ab6762d80b54": {
+  "file": "app/Sources/VixenScheduler/SongInventoryWindow.swift",
+  "hash": "f7a2ab6762d80b54"
+ },
+ "line:app/Sources/VixenScheduler/Vixen2ImporterWindow.swift:9adc0298066308da": {
+  "file": "app/Sources/VixenScheduler/Vixen2ImporterWindow.swift",
+  "hash": "9adc0298066308da"
+ },
+ "line:app/Sources/VixenScheduler/Vixen2ImporterWindow.swift:a74f356ec03c14c6": {
+  "file": "app/Sources/VixenScheduler/Vixen2ImporterWindow.swift",
+  "hash": "a74f356ec03c14c6"
+ },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:b544ae993fa32a89": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "b544ae993fa32a89"
+ },
+ "line:app/Sources/VixenSequencer/SequencerDrops.swift:ebf4ae124e0f1c57": {
+  "file": "app/Sources/VixenSequencer/SequencerDrops.swift",
+  "hash": "ebf4ae124e0f1c57"
+ },
+ "line:app/Sources/VixenSequencer/SequencerLipSync.swift:7a7dc189e0a6ae72": {
+  "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
+  "hash": "7a7dc189e0a6ae72"
+ },
+ "line:app/Sources/VixenSequencer/SequencerLipSync.swift:bc1bd3dc11a0b764": {
+  "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
+  "hash": "bc1bd3dc11a0b764"
+ },
+ "line:app/Sources/VixenSequencer/SequencerScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenSequencer/SequencerScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenSetup/SetupScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenSetup/SetupScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenSetup/Window/TemplateRunner.swift:6417b208e912deba": {
+  "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",
+  "hash": "6417b208e912deba"
+ },
+ "line:app/Sources/VixenTimeline/TimelinePane.swift:dee5b47040e123bc": {
+  "file": "app/Sources/VixenTimeline/TimelinePane.swift",
+  "hash": "dee5b47040e123bc"
+ },
+ "line:app/Sources/VixenTimeline/TimelineTestScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenTimeline/TimelineTestScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenTools/PolygonEditor.swift:d24eb62f529443c0": {
+  "file": "app/Sources/VixenTools/PolygonEditor.swift",
+  "hash": "d24eb62f529443c0"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:288860d93ff8cd0d": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "288860d93ff8cd0d"
+ },
+ "line:crates/vixen-ffi/src/lib.rs:4401e1a2eb529ad6": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "4401e1a2eb529ad6"
+ },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",
   "hash": "058f1f709f3f68c6"

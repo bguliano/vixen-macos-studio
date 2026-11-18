@@ -16,7 +16,7 @@ public struct EffectEditorTestScene: Scene {
         Window("Effect Editor Test", id: "effect-editor-test") {
             EffectEditorTestView()
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 980, height: 980)
         .commands {

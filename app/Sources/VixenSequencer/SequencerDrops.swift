@@ -190,7 +190,7 @@ enum ParameterPicker {
         answer = pick
         labels = choices.map(\.label)
         let view = PickerContent(choices: choices, chosen: pick)
-        popover.contentViewController = NSHostingController(rootView: view.preferredColorScheme(.dark))
+        popover.contentViewController = NSHostingController(rootView: view.studioAppearance()) // STUDIO: follow the chosen appearance
         let inContent = content.convert(point, from: nil)
         popover.show(relativeTo: NSRect(origin: inContent, size: NSSize(width: 1, height: 1)), of: content, preferredEdge: .maxX)
         current = popover

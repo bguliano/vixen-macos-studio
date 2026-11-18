@@ -30,6 +30,7 @@ final class AdminModel {
     let version: VersionInfoRecord
 
     private(set) var title = "Vixen Administration"
+    private(set) var profileName: String? // STUDIO: the show window titles itself with the profile
     private(set) var progressValue = 0.0
     private(set) var progressText = ""
     private(set) var progressVisible = true
@@ -122,6 +123,7 @@ final class AdminModel {
         }
         if let profile {
             title = "Vixen Administration - \(profile.name) Profile"
+            profileName = profile.name // STUDIO: the show window titles itself with the profile
             logInfo(logger: "VixenApplication.VixenApplication", message: "Profile root : \(profile.folder)")
         }
 

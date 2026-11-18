@@ -17,6 +17,7 @@ public struct TimelinePane: NSViewRepresentable {
     public func makeNSView(context: Context) -> TimelineContainerView {
         // SwiftUI can take a view down and make it again while the window stays.
         canvas.resume()
+        canvas.view.studioUseCanvasAppearance() // STUDIO: the timeline stays dark in light mode
         return canvas.view
     }
 

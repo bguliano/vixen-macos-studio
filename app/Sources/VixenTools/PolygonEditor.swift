@@ -145,7 +145,7 @@ private struct PolygonSheet: View {
             }
             Divider()
             HStack { Spacer(); Button("Cancel") { model.close?(false) }.keyboardShortcut(.cancelAction); Button("OK") { model.close?(true) }.keyboardShortcut(.defaultAction) }.padding(12)
-        }.preferredColorScheme(.dark)
+        }.studioAppearance() // STUDIO: follow the chosen appearance
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
     }
 }

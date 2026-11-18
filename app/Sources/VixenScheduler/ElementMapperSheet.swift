@@ -21,7 +21,7 @@ enum ElementMapperPresenter {
     static func show(dialog: ElementMapperDialog, over parent: NSWindow?, completion: @escaping ([ElementMappingResult]?, String?) -> Void) {
                 let model = ElementMapperModel(dialog: dialog)
                 ElementMapperModel.current = model
-                let host = NSHostingController(rootView: ElementMapperSheet(model: model).preferredColorScheme(.dark))
+                let host = NSHostingController(rootView: ElementMapperSheet(model: model).studioAppearance()) // STUDIO: follow the chosen appearance
                 host.sizingOptions = []
                 let sheet = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
                 // Swift/ARC owns this window. AppKit's legacy release-on-close

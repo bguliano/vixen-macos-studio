@@ -235,7 +235,7 @@ public enum KitSheet {
     /// `content` gets the function that closes the sheet.
     public static func present<Content: View>(on parent: NSWindow, @ViewBuilder content: (_ dismiss: @escaping () -> Void) -> Content) {
         var close: () -> Void = {}
-        let host = NSHostingController(rootView: content({ close() }).preferredColorScheme(.dark))
+        let host = NSHostingController(rootView: content({ close() }).studioAppearance()) // STUDIO: follow the chosen appearance
         let sheet = NSWindow(contentViewController: host)
         sheet.styleMask = [.titled]
         sheet.isReleasedWhenClosed = false

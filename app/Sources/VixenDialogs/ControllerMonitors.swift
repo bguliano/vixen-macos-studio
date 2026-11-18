@@ -19,7 +19,7 @@ public struct ControllerMonitorScene: Scene {
         WindowGroup("Controller Output", id: ControllerMonitorCenter.windowID, for: String.self) { $controller in
             if let controller, let core = model.core {
                 ControllerMonitorWindow(context: core.dialogContext(), controller: controller)
-                    .preferredColorScheme(.dark)
+                    .studioAppearance() // STUDIO: follow the chosen appearance
             }
         }
         .defaultSize(width: 331, height: 302)
@@ -88,7 +88,7 @@ final class ControllerMonitorCenter {
             self?.messagePanels.removeAll { $0 === panel }
         }
         let view = ScrollingMessageSheet(heading: message.heading ?? "", message: message.text, onFinish: close)
-            .preferredColorScheme(.dark)
+            .studioAppearance() // STUDIO: follow the chosen appearance
         panel.contentViewController = NSHostingController(rootView: view)
         panel.center()
         panel.makeKeyAndOrderFront(nil)

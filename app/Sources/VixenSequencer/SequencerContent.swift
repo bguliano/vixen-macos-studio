@@ -449,7 +449,7 @@ final class FloatingPanelWindow: NSPanel, NSWindowDelegate {
         hidesOnDeactivate = false
         isReleasedWhenClosed = false
         delegate = self
-        contentView = NSHostingView(rootView: PanelContent(model: model, panel: panel).preferredColorScheme(.dark))
+        contentView = NSHostingView(rootView: PanelContent(model: model, panel: panel).studioAppearance()) // STUDIO: follow the chosen appearance
         setFrameAutosaveName("SequencerPanel-\(title)")
     }
 

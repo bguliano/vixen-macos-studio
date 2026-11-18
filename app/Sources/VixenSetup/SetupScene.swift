@@ -22,7 +22,7 @@ public struct SetupScene: Scene {
         Window("Display Setup", id: WindowID.displaySetup) {
             SetupRootView(model: setup)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
                 .background(SetupWindowOpeners(model: setup))
         }
         .defaultSize(width: 1281, height: 737)
@@ -31,7 +31,7 @@ public struct SetupScene: Scene {
 
         Window("Intelligent Fixture Wizard", id: SetupWindows.fixtureWizard) {
             FixtureWizardWindowContent(setup: setup)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
@@ -40,7 +40,7 @@ public struct SetupScene: Scene {
         #if DEBUG
         Window("Display Setup Sheets", id: "setup-sheets-test") {
             SetupSheetsTestView()
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)

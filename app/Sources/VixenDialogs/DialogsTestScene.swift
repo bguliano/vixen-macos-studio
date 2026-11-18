@@ -15,7 +15,7 @@ public struct DialogsTestScene: Scene {
         Window("Dialogs Test", id: "dialogs-test") {
             DialogsTestView()
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
                 .task { await model.start() }
         }
         .defaultSize(width: 980, height: 760)

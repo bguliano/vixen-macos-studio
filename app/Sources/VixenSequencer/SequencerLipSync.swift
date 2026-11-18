@@ -142,7 +142,7 @@ extension SequencerModel {
         let content = NSHostingView(rootView: LyricFailureSheet(word: word) { mapped in
             answer = mapped
             NSApp.stopModal()
-        }.preferredColorScheme(.dark))
+        }.studioAppearance()) // STUDIO: follow the chosen appearance
         sheet.contentView = content
         sheet.setContentSize(content.fittingSize)
         window.beginSheet(sheet)
@@ -224,7 +224,7 @@ final class LyricConverterWindow: NSPanel, NSWindowDelegate {
             cursorPosition: { [weak model] in model?.shell?.cursorTicks() ?? 0 },
             pasteAtTime: { [weak model] ticks in model?.pasteAtTime(ticks: ticks) ?? 0 }
         )
-        contentView = NSHostingView(rootView: view.preferredColorScheme(.dark))
+        contentView = NSHostingView(rootView: view.studioAppearance()) // STUDIO: follow the chosen appearance
         minSize = NSSize(width: 320, height: 440)
     }
 

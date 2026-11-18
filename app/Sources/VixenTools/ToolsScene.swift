@@ -96,7 +96,7 @@ private struct PropEditorRoot: View {
             }.font(.caption).padding(.horizontal, 8).frame(height: 24)
         }
         .frame(minWidth: 740, minHeight: 540)
-        .preferredColorScheme(.dark)
+        .studioAppearance() // STUDIO: follow the chosen appearance
         .focusedSceneValue(\.propEditor, model)
         .background(PropWindowAttachment(model: model, app: app))
         .onAppear { PropEditorHarness.current = model; registry.active = model }

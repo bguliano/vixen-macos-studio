@@ -17,14 +17,14 @@ public struct TimelineTestScene: Scene {
         WindowGroup("Timeline", id: WindowID.sequencer, for: SequenceDocumentRef.self) { $ref in
             TimelineDocumentView(ref: ref ?? .new())
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 1400, height: 900)
 
         Window("Timeline Test", id: "timeline-test") {
             TimelineDocumentView(ref: .fromEnvironment)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 1400, height: 900)
         .commands {

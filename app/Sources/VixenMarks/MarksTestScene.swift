@@ -17,7 +17,7 @@ public struct MarksTestScene: Scene {
         Window("Marks Test", id: "marks-test") {
             MarksTestView(shared: shared)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
                 .task { await model.start() }
         }
         .defaultSize(width: 780, height: 560)
@@ -27,7 +27,7 @@ public struct MarksTestScene: Scene {
         // The sequencer window's Tools > LipSync > Lyric Converter, for this window. Nothing pastes here: there's no timeline.
         Window("LipSync Text Convert", id: MarksTestScene.lyricConverterID) {
             MarksTestLyricConverter(shared: shared)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .windowResizability(.contentMinSize)
         .defaultSize(width: 320, height: 440)

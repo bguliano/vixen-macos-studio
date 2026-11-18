@@ -109,7 +109,7 @@ enum TemplateRunner {
                 window.endSheet(panel)
                 continuation.resume(returning: value)
             }
-            let host = NSHostingController(rootView: view.preferredColorScheme(.dark))
+            let host = NSHostingController(rootView: view.studioAppearance()) // STUDIO: follow the chosen appearance
             // Sized once: a sheet that follows its content's preferred size can ask for constraint passes without end as it animates in, which AppKit answers with an exception.
             host.sizingOptions = []
             let size = host.view.fittingSize

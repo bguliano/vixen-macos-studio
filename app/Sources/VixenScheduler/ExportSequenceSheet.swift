@@ -16,7 +16,7 @@ enum ExportSheetPresenter {
 
     static func show(dialog: ExportDialog, over parent: NSWindow?) {
         let model = ExportSheetModel(dialog: dialog)
-        let host = NSHostingController(rootView: ExportSequenceView(model: model).preferredColorScheme(.dark))
+        let host = NSHostingController(rootView: ExportSequenceView(model: model).studioAppearance()) // STUDIO: follow the chosen appearance
         // A fixed size, as upstream's dialog: letting the window follow the content can loop between the note's wrapping and the window's height.
         host.sizingOptions = []
         let size = host.view.fittingSize

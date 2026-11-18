@@ -17,7 +17,7 @@ public struct PreviewScene: Scene {
         WindowGroup("Preview Configuration", id: WindowID.previewSetup, for: String.self) { $previewID in
             DesignerWindowRoot(previewID: previewID)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         // F1's client size, less the 24 px menu strip that moves to the menu bar.
         .defaultSize(width: 1194, height: 601)

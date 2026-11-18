@@ -19,14 +19,16 @@ public struct AdministrationScene: Scene {
     }
 
     public var body: some Scene {
-        Window("Vixen Administration", id: WindowID.administration) {
-            AdministrationView()
+        // STUDIO-BEGIN show-window: Studio's show window replaces the administration window
+        Window("Vixen Studio", id: WindowID.administration) {
+            StudioShowWindow()
                 .environment(admin)
                 .environment(model)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
-        .defaultSize(width: 472, height: 578)
+        .defaultSize(width: 1080, height: 680)
         .windowResizability(.contentMinSize)
+        // STUDIO-END show-window
         // Always, even when the app starts by being asked to open a file, since the rest of the launch happens in this window.
         .defaultLaunchBehavior(.presented)
         .restorationBehavior(.disabled)
@@ -35,15 +37,15 @@ public struct AdministrationScene: Scene {
         }
 
         Settings {
-            OptionsForm()
+            StudioSettingsView() // STUDIO: Studio's tabbed Settings, with Vixen's options as the Engine tab
                 .environment(admin)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
 
         Window("About Vixen", id: WindowID.about) {
             AboutView()
                 .environment(admin)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
@@ -51,7 +53,7 @@ public struct AdministrationScene: Scene {
 
         Window("Installed Modules", id: WindowID.installedModules) {
             InstalledModulesView()
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
@@ -60,7 +62,7 @@ public struct AdministrationScene: Scene {
         Window("Vixen Release Notes", id: WindowID.releaseNotes) {
             ReleaseNotesView()
                 .environment(admin)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 774, height: 571)
         .defaultLaunchBehavior(.suppressed)
@@ -69,7 +71,7 @@ public struct AdministrationScene: Scene {
         Window("Instrumentation", id: WindowID.instrumentation) {
             InstrumentationView()
                 .environment(admin)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 807, height: 437)
         .defaultLaunchBehavior(.suppressed)

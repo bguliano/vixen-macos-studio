@@ -46,7 +46,7 @@ enum SongInventoryPresenter {
             let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
             // Swift/ARC owns the window, including the standalone close path.
             window.isReleasedWhenClosed = false
-            let host = NSHostingController(rootView: SongInventoryViewContent(model: model).preferredColorScheme(.dark)); host.sizingOptions = []
+            let host = NSHostingController(rootView: SongInventoryViewContent(model: model).studioAppearance()); host.sizingOptions = [] // STUDIO: follow the chosen appearance
             window.contentViewController = host; window.contentMinSize = .init(width: 650, height: 420); window.setContentSize(.init(width: 800, height: 600)); window.title = "Song Inventory"
             model.window = window; window.delegate = model.delegate; model.delegate.model = model
             SongInventoryModel.current = model

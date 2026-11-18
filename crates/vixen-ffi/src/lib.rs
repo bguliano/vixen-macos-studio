@@ -16,6 +16,8 @@ pub mod sequence;
 pub mod admin;
 #[cfg(feature = "admin")]
 mod web;
+#[cfg(feature = "admin")]
+pub mod studio_library; // STUDIO: the show window's sequence library
 #[cfg(feature = "dialogs")]
 pub mod dialogs;
 #[cfg(feature = "effecteditor")]

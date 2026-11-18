@@ -40,7 +40,7 @@ enum Vixen2Presenter {
         let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 680, height: 370), styleMask: [.titled], backing: .buffered, defer: false)
         // Swift/ARC owns the window, including the standalone close path.
         window.isReleasedWhenClosed = false
-        let host = NSHostingController(rootView: Vixen2ConverterView(model: model).preferredColorScheme(.dark)); host.sizingOptions = []
+        let host = NSHostingController(rootView: Vixen2ConverterView(model: model).studioAppearance()); host.sizingOptions = [] // STUDIO: follow the chosen appearance
         window.contentViewController = host; window.setContentSize(.init(width: 680, height: 370)); window.title = "Vixen 2 to Vixen 3 Converter"
         model.window = window; Vixen2ConverterModel.current = model
         model.complete = { [weak window] session in
@@ -132,7 +132,7 @@ enum Vixen2MapPresenter {
         let window = NSWindow(contentRect: .init(x: 0, y: 0, width: 1080, height: 620), styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         // Swift/ARC owns the window, including the standalone close path.
         window.isReleasedWhenClosed = false
-        let host = NSHostingController(rootView: Vixen2MapView(model: model).preferredColorScheme(.dark)); host.sizingOptions = []
+        let host = NSHostingController(rootView: Vixen2MapView(model: model).studioAppearance()); host.sizingOptions = [] // STUDIO: follow the chosen appearance
         window.contentViewController = host; window.contentMinSize = .init(width: 1000, height: 400); window.setContentSize(.init(width: 1080, height: 620)); window.title = "Vixen 2.x Channel Mapping"
         model.window = window; Vixen2MapModel.current = model
         model.complete = { [weak window, weak model] accepted in

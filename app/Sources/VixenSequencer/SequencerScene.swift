@@ -18,7 +18,7 @@ public struct SequencerScene: Scene {
             SequencerWindow(ref: ref)
                 .environment(model)
                 .environment(registry)
-                .preferredColorScheme(.dark)
+                .studioAppearance() // STUDIO: follow the chosen appearance
         }
         .defaultSize(width: 1440, height: 900)
         // Sequences reopen from the recent list, not from the system's window restoration.
