@@ -1,4 +1,8 @@
 {
+ "block:about": {
+  "file": "app/Sources/VixenAdmin/SmallWindows.swift",
+  "hash": "95edbf234c18e8e3"
+ },
  "block:app-identity": {
   "file": "app/Info.plist",
   "hash": "357f99168b05089a"
@@ -63,6 +67,14 @@
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "853c373e4ec5b1f9"
  },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:14a0a69bfbff0862": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "14a0a69bfbff0862"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:a80511a1c709127b": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "a80511a1c709127b"
+ },
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:04bbdbb6039c5bf1": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "04bbdbb6039c5bf1"
@@ -70,6 +82,10 @@
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:957aa3a369122b22": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "957aa3a369122b22"
  },
  "line:app/Sources/VixenDialogs/ControllerMonitors.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",

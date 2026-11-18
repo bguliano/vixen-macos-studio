@@ -55,7 +55,7 @@ private struct AboutMenuItem: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Button("About Vixen") { openWindow(id: WindowID.about) }
+        Button("About Vixen Studio") { openWindow(id: WindowID.about) } // STUDIO: Studio's name
     }
 }
 
@@ -176,7 +176,7 @@ private struct HelpMenuItems: View {
             Button("Check for Updates") { admin.sheet = .checkForUpdates }
                 .disabled(admin.version.isTestBuild || state.isBusy)
             Button("Release Notes") { openWindow(id: WindowID.releaseNotes) }
-            Button("About Vixen") { openWindow(id: WindowID.about) }
+            // STUDIO: About lives only in the app menu, its one place on the Mac
         }
         .disabled(!state.helpAvailable)
     }

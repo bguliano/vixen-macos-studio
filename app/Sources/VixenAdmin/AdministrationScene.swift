@@ -42,7 +42,7 @@ public struct AdministrationScene: Scene {
                 .studioAppearance() // STUDIO: follow the chosen appearance
         }
 
-        Window("About Vixen", id: WindowID.about) {
+        Window("About Vixen Studio", id: WindowID.about) { // STUDIO: Studio's name
             AboutView()
                 .environment(admin)
                 .studioAppearance() // STUDIO: follow the chosen appearance
