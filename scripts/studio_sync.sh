@@ -56,3 +56,14 @@ if ! python3 scripts/studio_markers.py check; then
 fi
 git commit --no-edit
 echo "Merged vanilla into $(git branch --show-current)."
+# Vanilla changes to views Studio replaced don't reach the app on their own; list them for porting.
+changed="$(git diff --name-only HEAD^1 HEAD)"
+ported=""
+while IFS= read -r line; do
+    case "$line" in ''|'#'*) continue ;; esac
+    file="${line%%  ->*}"
+    if printf '%s\n' "$changed" | grep -qxF "$file"; then ported="$ported\n  $line"; fi
+done < studio/replaced-views.txt
+if [ -n "$ported" ]; then
+    printf 'Vanilla changed views that Studio replaced. Port these by hand:%b\n' "$ported"
+fi

@@ -73,7 +73,7 @@ private final class ElementTreeProvider: OutlineDataProvider {
 }
 
 /// The tree alone, so nothing else in the panel makes SwiftUI look at it again.
-private struct ElementOutline: View {
+struct ElementOutline: View { // STUDIO: shared with StudioElementsPanel
     let model: SetupModel
     @State private var provider: ElementTreeProvider?
 
@@ -239,7 +239,7 @@ private final class ControllerTreeProvider: OutlineDataProvider {
     }
 }
 
-private struct ControllerOutline: View {
+struct ControllerOutline: View { // STUDIO: shared with StudioControllersPanel
     let model: SetupModel
     @State private var provider: ControllerTreeProvider?
 

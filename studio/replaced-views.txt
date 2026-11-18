@@ -1,0 +1,7 @@
+# Vanilla files whose views Studio replaced with its own (left in place, but no longer shown, or partly bypassed).
+# When a vanilla merge changes one of these, port the change to the Studio view by hand.
+# <vanilla file>  ->  <Studio replacement>
+app/Sources/VixenAdmin/AdministrationView.swift  ->  app/Sources/VixenAdmin/StudioShowWindow.swift
+app/Sources/VixenSequencer/ToolbarBand.swift  ->  app/Sources/VixenSequencer/StudioSequencerToolbar.swift
+app/Sources/VixenSequencer/EffectsPanel.swift  ->  app/Sources/VixenSequencer/StudioEffectsLibrary.swift
+app/Sources/VixenSetup/Window/SetupPanels.swift  ->  app/Sources/VixenSetup/Window/StudioSetupPanels.swift (ElementsPanel, ControllersPanel)

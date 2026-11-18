@@ -56,6 +56,12 @@ A few vanilla files are rewritten wholesale for Studio (`README.md`, `docs/UI_GU
 `ours` merge driver, so vanilla's edits to them never overwrite Studio's. Read vanilla's change to such a file in the
 merge's diff and carry over anything that still applies.
 
+## Replaced views
+
+Where Studio redesigned a window, it usually added its own view and left vanilla's file in place, unused or partly
+bypassed, so merges stay clean. Those pairs are listed in [`studio/replaced-views.txt`](studio/replaced-views.txt).
+After a merge, `scripts/studio_sync.sh` lists any of them vanilla changed, so the change can be ported by hand.
+
 ## Engine changes
 
 Studio may change the Rust engine (`crates/`). Each change is marked as above, and listed in the table below with the

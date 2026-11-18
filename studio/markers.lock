@@ -23,6 +23,10 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "2e68e2f86a0f473e"
  },
+ "block:patching-header": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "601aaf96b1858243"
+ },
  "block:preview-switch": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "3783f94619bccede"
@@ -30,6 +34,10 @@
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
+ },
+ "block:setup-columns": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "51d5f65f76d74ab9"
  },
  "block:show-window": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
@@ -162,6 +170,14 @@
  "line:app/Sources/VixenSetup/SetupScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSetup/SetupScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:a6322db6ab16ebf2": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "a6322db6ab16ebf2"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:c5ec24a2a8e547ad": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "c5ec24a2a8e547ad"
  },
  "line:app/Sources/VixenSetup/Window/TemplateRunner.swift:6417b208e912deba": {
   "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",

@@ -37,13 +37,15 @@ struct SetupRootView: View {
 
     private var content: some View {
         HSplitView {
-            ElementsPanel(model: model)
-                .frame(minWidth: 260, idealWidth: 320, maxHeight: .infinity)
+            // STUDIO-BEGIN setup-columns: Studio's labelled Elements and Controllers columns
+            StudioElementsPanel(model: model)
+                .frame(minWidth: 280, idealWidth: 320, maxHeight: .infinity)
                 .background(SplitViewStart())
             PatchingPanel(model: model)
                 .frame(minWidth: 480, idealWidth: 640, maxHeight: .infinity)
-            ControllersPanel(model: model)
-                .frame(minWidth: 280, idealWidth: 320, maxHeight: .infinity)
+            StudioControllersPanel(model: model)
+                .frame(minWidth: 300, idealWidth: 340, maxHeight: .infinity)
+            // STUDIO-END setup-columns
         }
         .frame(minWidth: 1100, minHeight: 640)
         .overlay(alignment: .top) {
@@ -64,16 +66,30 @@ private struct PatchingPanel: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            SetupPanelHeader(title: "Patching")
-                .padding(.horizontal, 8)
-                .padding(.top, 8)
-            Picker("Patching view", selection: $model.usesGraphicalView) {
-                Text("Simple Patching").tag(false)
-                Text("Graphical View").tag(true)
+            // STUDIO-BEGIN patching-header: a title with a segmented view switch, and guidance until something is selected
+            HStack {
+                Text("Patching")
+                    .font(.headline)
+                Spacer()
+                Picker("Patching view", selection: $model.usesGraphicalView) {
+                    Text("Simple").tag(false)
+                    Text("Graphical").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .help("Simple patches selected elements to selected outputs in order; Graphical shows every connection")
             }
-            .pickerStyle(.radioGroup)
-            .horizontalRadioGroupLayout()
-            .labelsHidden()
+            .padding(.horizontal, StudioMetrics.spacingM)
+            .padding(.top, StudioMetrics.spacingM)
+            if !model.usesGraphicalView, model.elementCount == 0, !model.controllerPanel.anyController {
+                Label("Select elements on the left and controllers or outputs on the right, then patch them here.", systemImage: "arrow.left.and.right")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, StudioMetrics.spacingM)
+            }
+            // STUDIO-END patching-header
             ZStack {
                 SimplePatchingView(model: model)
                     .opacity(model.usesGraphicalView ? 0 : 1)
