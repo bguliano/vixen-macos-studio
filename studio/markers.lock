@@ -47,6 +47,10 @@
   "file": "scripts/build_app.sh",
   "hash": "3350ed5c33b09d3b"
  },
+ "block:mcp-lock-dependency": {
+  "file": "Cargo.lock",
+  "hash": "92d722e5d7a340d8"
+ },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
   "hash": "431691d95a53a991"
@@ -118,6 +122,14 @@
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
+ },
+ "line:Cargo.lock:9e38d460bcd2c432": {
+  "file": "Cargo.lock",
+  "hash": "9e38d460bcd2c432"
+ },
+ "line:Cargo.lock:b9eb6b16d05a8117": {
+  "file": "Cargo.lock",
+  "hash": "b9eb6b16d05a8117"
  },
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",
