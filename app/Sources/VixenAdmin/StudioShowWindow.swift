@@ -1,3 +1,4 @@
+import StudioAgent
 import SwiftUI
 import VixenBridge
 import VixenKit
@@ -32,6 +33,7 @@ struct StudioShowWindow: View {
     @Environment(\.openWindow) private var openWindow
     @SceneStorage("studio.section") private var selection: StudioSection = .sequences
     @State private var library = StudioLibrary()
+    @State private var agents = StudioAgentActivity()
 
     var body: some View {
         StudioSplitView {
@@ -54,7 +56,11 @@ struct StudioShowWindow: View {
         .environment(library)
         .onAppear { admin.openWindow = openWindow }
         .task { await admin.start() }
-        .task(id: admin.startupFinished) { await library.reload(admin: admin) }
+        .task(id: admin.startupFinished) {
+            await library.reload(admin: admin)
+            if admin.startupFinished, let core = admin.app.core { agents.observe(core: core) }
+        }
+        .onChange(of: agents.revision) { Task { await library.reload(admin: admin) } }
         .onChange(of: admin.recent.map(\.path)) { Task { await library.reload(admin: admin) } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             Task { await library.reload(admin: admin) }
@@ -151,6 +157,9 @@ struct StudioShowWindow: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            StudioAgentStatusButton(activity: agents)
+        }
         ToolbarItem(placement: .primaryAction) {
             StudioLiveOutputToggle()
         }

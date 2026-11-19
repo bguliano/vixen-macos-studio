@@ -127,6 +127,10 @@
   "file": "app/Package.swift",
   "hash": "adb4aab7e4a6e402"
  },
+ "line:app/Package.swift:d507a04f598d91f8": {
+  "file": "app/Package.swift",
+  "hash": "d507a04f598d91f8"
+ },
  "line:app/Sources/VixenAdmin/AdminModel.swift:7edb2c216294df1a": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "7edb2c216294df1a"

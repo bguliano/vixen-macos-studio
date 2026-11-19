@@ -52,7 +52,7 @@ let package = Package(
         .target(name: "VixenKit", dependencies: ["VixenBridge"], path: "Sources/VixenKit", swiftSettings: uiSettings),
     ] + areas.map { area in
         let others = (areaDependencies[area] ?? []).filter(areas.contains).map { Target.Dependency.target(name: $0) }
-        return .target(name: area, dependencies: ["VixenKit", "VixenBridge"] + others, path: "Sources/\(area)", swiftSettings: uiSettings)
+        return .target(name: area, dependencies: ["VixenKit", "VixenBridge", "StudioAgent"] + others, path: "Sources/\(area)", swiftSettings: uiSettings) // STUDIO: areas show agent activity
     } + [
         .executableTarget(
             name: "VixenApp",

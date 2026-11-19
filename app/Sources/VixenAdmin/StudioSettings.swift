@@ -8,6 +8,9 @@ struct StudioSettingsView: View {
             Tab("General", systemImage: "gearshape") {
                 StudioGeneralSettings()
             }
+            Tab("Agents", systemImage: "sparkles") {
+                StudioAgentSettings()
+            }
             Tab("Engine", systemImage: "cpu") {
                 OptionsForm()
             }
