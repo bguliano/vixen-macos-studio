@@ -44,7 +44,7 @@ struct StudioShowWindow: View {
         .navigationTitle(admin.profileName ?? "Vixen Studio")
         .navigationSubtitle(admin.version.versionName)
         .toolbar { toolbar }
-        .frame(minWidth: 860, minHeight: 520)
+        .frame(minWidth: selection == .display && StudioDisplayPane.make != nil ? 1060 : 860, minHeight: 520)
         .background(WindowReader { admin.attach(window: $0) })
         .background(StudioWindowOpenerRegistration())
         .alerts(from: admin.alerts)
@@ -54,7 +54,19 @@ struct StudioShowWindow: View {
                 .environment(admin)
         }
         .environment(library)
-        .onAppear { admin.openWindow = openWindow }
+        .onAppear {
+            admin.openWindow = openWindow
+            StudioDisplayPane.reveal = { choose(.display) }
+            // The sidebar's rows aren't reachable by a script's click, so `{ "action": "studioSection", "name": "display" }` picks one.
+            if UITestHarness.isActive {
+                UITestHarness.customActions["studioSection"] = { step in
+                    guard let section = step.name.flatMap(StudioSection.init(rawValue:)) else { return (false, "no section \(step.name ?? "")") }
+                    choose(section)
+                    return (true, nil)
+                }
+                UITestHarness.customActions["studioSectionNow"] = { _ in (true, selection.rawValue) }
+            }
+        }
         .task { await admin.start() }
         .task(id: admin.startupFinished) {
             await library.reload(admin: admin)
@@ -70,7 +82,7 @@ struct StudioShowWindow: View {
     // MARK: Sidebar
 
     private var sidebar: some View {
-        List(selection: Binding(get: { selection }, set: { if let new = $0 { selection = new } })) {
+        List(selection: Binding(get: { selection }, set: { if let new = $0 { choose(new) } })) {
             Section("Show") {
                 ForEach(StudioSection.allCases) { section in
                     Label(section.title, systemImage: section.systemImage)
@@ -81,6 +93,18 @@ struct StudioShowWindow: View {
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) { sidebarFooter }
+    }
+
+    /// Display Setup gets a say before the window leaves it, since its edits wait for Apply Changes.
+    private func choose(_ new: StudioSection) {
+        guard new != selection else { return }
+        guard selection == .display, let confirmLeave = StudioDisplayPane.confirmLeave else {
+            selection = new
+            return
+        }
+        Task {
+            if await confirmLeave() { selection = new }
+        }
     }
 
     private func badge(for section: StudioSection) -> Int {
@@ -120,12 +144,16 @@ struct StudioShowWindow: View {
         case .sequences:
             StudioSequencesPane()
         case .display:
-            StudioAreaPane(
-                section: .display,
-                summary: "Your props, groups and elements, the controllers that drive them, and the patching between them.",
-                stats: displayStats,
-                primary: ("Open Display Setup", { admin.showDisplaySetup() })
-            )
+            if let pane = StudioDisplayPane.make {
+                pane()
+            } else {
+                StudioAreaPane(
+                    section: .display,
+                    summary: "Your props, groups and elements, the controllers that drive them, and the patching between them.",
+                    stats: displayStats,
+                    primary: ("Open Display Setup", { admin.showDisplaySetup() })
+                )
+            }
         case .previews:
             StudioAreaPane(
                 section: .previews,

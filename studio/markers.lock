@@ -85,7 +85,15 @@
  },
  "block:setup-columns": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
-  "hash": "51d5f65f76d74ab9"
+  "hash": "b44fcb6ab79727bc"
+ },
+ "block:setup-inline": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "5381a57920b53aae"
+ },
+ "block:setup-pane": {
+  "file": "app/Sources/VixenSetup/SetupScene.swift",
+  "hash": "bcab80b9586a49f9"
  },
  "block:shared-sequence-wrapper": {
   "file": "crates/vixen-ffi/src/sequence.rs",
@@ -93,7 +101,7 @@
  },
  "block:show-window": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
-  "hash": "d83b18d2632de2f8"
+  "hash": "fddef2a35d3b6a92"
  },
  "block:status-bar": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
@@ -138,6 +146,10 @@
  "line:app/Sources/VixenAdmin/AdminModel.swift:853c373e4ec5b1f9": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "853c373e4ec5b1f9"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:9c965e5f2bffb967": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "9c965e5f2bffb967"
  },
  "line:app/Sources/VixenAdmin/AdministrationCommands.swift:14a0a69bfbff0862": {
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
@@ -263,6 +275,14 @@
   "file": "app/Sources/VixenSetup/SetupScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenSetup/Window/SetupModel.swift:b70bbb9c17d64e79": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "b70bbb9c17d64e79"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupModel.swift:be7219624c22a2ee": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "be7219624c22a2ee"
+ },
  "line:app/Sources/VixenSetup/Window/SetupPanels.swift:a6322db6ab16ebf2": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "a6322db6ab16ebf2"
@@ -270,6 +290,14 @@
  "line:app/Sources/VixenSetup/Window/SetupPanels.swift:c5ec24a2a8e547ad": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "c5ec24a2a8e547ad"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupRootView.swift:0acd5178f9087bb3": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "0acd5178f9087bb3"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupRootView.swift:9736590aa2292657": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "9736590aa2292657"
  },
  "line:app/Sources/VixenSetup/Window/TemplateRunner.swift:6417b208e912deba": {
   "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",

@@ -6,19 +6,26 @@ import VixenKit
 /// The window's three columns at 25%, 50% and 25%, with its prompts.
 struct SetupRootView: View {
     @Bindable var model: SetupModel
+    var inline = false // STUDIO: true inside the show window's Display section, which owns opening and closing
 
     var body: some View {
         Group {
             if model.session == nil {
                 ProgressView("Display Setup")
-                    .frame(minWidth: 1100, minHeight: 640)
+                    .frame(minWidth: inline ? 820 : 1100, minHeight: inline ? 480 : 640) // STUDIO: fits the show window
             } else {
                 content
                     .id(model.openCount)
             }
         }
-        .background(SetupWindowAccess(model: model))
-        .onAppear { model.windowOpened() }
+        // STUDIO-BEGIN setup-inline: the show window is not Display Setup's window, so it never closes or delegates it
+        .background {
+            if !inline {
+                SetupWindowAccess(model: model)
+            }
+        }
+        .onAppear { if !inline { model.windowOpened() } }
+        // STUDIO-END setup-inline
         .alert(
             model.alert?.title ?? "",
             isPresented: Binding(get: { model.alert != nil }, set: { _ in }),
@@ -39,15 +46,15 @@ struct SetupRootView: View {
         HSplitView {
             // STUDIO-BEGIN setup-columns: Studio's labelled Elements and Controllers columns
             StudioElementsPanel(model: model)
-                .frame(minWidth: 280, idealWidth: 320, maxHeight: .infinity)
+                .frame(minWidth: inline ? 220 : 280, idealWidth: 320, maxHeight: .infinity)
                 .background(SplitViewStart())
             PatchingPanel(model: model)
-                .frame(minWidth: 480, idealWidth: 640, maxHeight: .infinity)
-            StudioControllersPanel(model: model)
-                .frame(minWidth: 300, idealWidth: 340, maxHeight: .infinity)
+                .frame(minWidth: inline ? 360 : 480, idealWidth: 640, maxHeight: .infinity)
+            StudioControllersPanel(model: model, inline: inline)
+                .frame(minWidth: inline ? 240 : 300, idealWidth: 340, maxHeight: .infinity)
             // STUDIO-END setup-columns
         }
-        .frame(minWidth: 1100, minHeight: 640)
+        .frame(minWidth: inline ? 820 : 1100, minHeight: inline ? 480 : 640) // STUDIO: fits the show window
         .overlay(alignment: .top) {
             if model.isBusy {
                 ProgressView()

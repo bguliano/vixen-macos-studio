@@ -579,7 +579,7 @@ final class AdminModel {
     func showDisplaySetup() {
         Task {
             await savePendingOptions()
-            openWindow?(id: WindowID.displaySetup)
+            if let reveal = StudioDisplayPane.reveal { reveal() } else { openWindow?(id: WindowID.displaySetup) } // STUDIO: Display Setup is the show window's Display section
         }
     }
 

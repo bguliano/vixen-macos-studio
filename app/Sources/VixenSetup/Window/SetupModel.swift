@@ -193,6 +193,7 @@ final class SetupModel {
             isClosing = false
             app.beginSystemConfigSession()
             window?.makeKeyAndOrderFront(nil)
+            if window == nil { StudioDisplayPane.reveal?() } // STUDIO: the show window's pane brings the edits back on screen
             Task {
                 _ = await ask("Display Setup", "The display couldn't be saved. Your changes are still here.\n\n\(failure)", [.init(title: "OK", value: 0)])
             }
@@ -845,7 +846,7 @@ final class SetupModel {
             if let root = app.dataRoot {
                 panel.directoryURL = URL(fileURLWithPath: root).appending(path: "Sequence")
             }
-            if let window {
+            if let window = window ?? StudioDisplayPane.hostWindow { // STUDIO: attach to the show window when Display Setup is its pane
                 let answer = await panel.beginSheetModal(for: window)
                 destination = answer == .OK ? panel.url : nil
             } else {

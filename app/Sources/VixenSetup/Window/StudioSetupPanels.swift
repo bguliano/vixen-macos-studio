@@ -175,6 +175,7 @@ struct StudioElementsPanel: View {
 
 struct StudioControllersPanel: View {
     @Bindable var model: SetupModel
+    var inline = false
 
     var body: some View {
         let panel = model.controllerPanel
@@ -253,16 +254,19 @@ struct StudioControllersPanel: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            HStack(spacing: StudioMetrics.spacingS) {
-                Button("Help") { model.help() }
-                Spacer(minLength: 0)
-                Button("Cancel") { model.cancel() }
-                    .keyboardShortcut(.cancelAction)
-                Button("Save") { model.ok() }
-                    .keyboardShortcut(.defaultAction)
-                    .help("Save the display and controller changes and close Display Setup")
+            // In the show window the pane's own bar applies or discards, across the whole width.
+            if !inline {
+                HStack(spacing: StudioMetrics.spacingS) {
+                    Button("Help") { model.help() }
+                    Spacer(minLength: 0)
+                    Button("Cancel") { model.cancel() }
+                        .keyboardShortcut(.cancelAction)
+                    Button("Save") { model.ok() }
+                        .keyboardShortcut(.defaultAction)
+                        .help("Save the display and controller changes and close Display Setup")
+                }
+                .controlSize(.regular)
             }
-            .controlSize(.regular)
         }
         .padding(StudioMetrics.spacingM)
     }

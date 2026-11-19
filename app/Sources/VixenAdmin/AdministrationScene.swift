@@ -26,7 +26,7 @@ public struct AdministrationScene: Scene {
                 .environment(model)
                 .studioAppearance() // STUDIO: follow the chosen appearance
         }
-        .defaultSize(width: 1080, height: 680)
+        .defaultSize(width: 1320, height: 780)
         .windowResizability(.contentMinSize)
         // STUDIO-END show-window
         // Always, even when the app starts by being asked to open a file, since the rest of the launch happens in this window.

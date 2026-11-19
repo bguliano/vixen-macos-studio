@@ -12,7 +12,11 @@ public struct SetupScene: Scene {
 
     public init(model: AppModel) {
         self.model = model
-        _setup = State(initialValue: SetupModel(app: model))
+        // STUDIO-BEGIN setup-pane: one model, shared by the show window's Display pane and the window scripts still open
+        let shared = SetupModel.studioShared(app: model)
+        _setup = State(initialValue: shared)
+        SetupModel.registerStudioPane(model: shared, app: model)
+        // STUDIO-END setup-pane
         TemplateRunner.register()
         TreeEditRunner.register()
         ElementTagManagerPresenter.register(app: model)
