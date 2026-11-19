@@ -258,6 +258,10 @@ private struct StudioAudioMenu: View {
             Button(ui?.removeAudioEnabled == true ? "Change Audio…" : "Add Audio…") { model.associateAudio() }
             Button("Remove Audio") { model.removeAudio() }
                 .disabled(!(ui?.removeAudioEnabled ?? false))
+            #if canImport(VixenMarks)
+            Button("Detect Beats and Bars…") { model.sheet = .beatsAndBars }
+                .disabled(!(ui?.beatBarEnabled ?? false))
+            #endif
             Divider()
             Section("Output Device") {
                 ForEach(devices, id: \.id) { device in

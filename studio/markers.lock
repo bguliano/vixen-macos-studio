@@ -287,6 +287,10 @@
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenSequencer/SequencerScene.swift:6de271cff069801d": {
+  "file": "app/Sources/VixenSequencer/SequencerScene.swift",
+  "hash": "6de271cff069801d"
+ },
  "line:app/Sources/VixenSequencer/StatusBarView.swift:11dd5e48eedf0723": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
   "hash": "11dd5e48eedf0723"

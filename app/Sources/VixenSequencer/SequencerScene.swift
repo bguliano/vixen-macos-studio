@@ -115,7 +115,7 @@ enum SequencerMenuBar {
             let hide: Bool
             if item === sequence || item === ours {
                 hide = !inFront
-            } else if administrationOnly.contains(item.title) || item.title == "Tools" {
+            } else if administrationOnly.contains(item.title) || (item.title == "Tools" && ours != nil) { // STUDIO: never hide the only Tools menu (SwiftUI can merge both into one)
                 hide = inFront
             } else {
                 continue
