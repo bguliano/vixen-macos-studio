@@ -23,6 +23,10 @@
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
  },
+ "block:harness-exit-cleanup": {
+  "file": "app/Sources/VixenKit/UITestHarness.swift",
+  "hash": "a1c56cede6ddf219"
+ },
  "block:inspector-header": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "b8f3800be69a9f46"
@@ -139,6 +143,10 @@
   "file": "app/Package.swift",
   "hash": "d507a04f598d91f8"
  },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:1ab8146cee0f3b02": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "1ab8146cee0f3b02"
+ },
  "line:app/Sources/VixenAdmin/AdminModel.swift:7edb2c216294df1a": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "7edb2c216294df1a"
@@ -194,6 +202,10 @@
  "line:app/Sources/VixenKit/MetalLayerView.swift:75e1aaef1d213b7c": {
   "file": "app/Sources/VixenKit/MetalLayerView.swift",
   "hash": "75e1aaef1d213b7c"
+ },
+ "line:app/Sources/VixenKit/UITestHarness.swift:6ddc4b081b1dc69a": {
+  "file": "app/Sources/VixenKit/UITestHarness.swift",
+  "hash": "6ddc4b081b1dc69a"
  },
  "line:app/Sources/VixenKit/UITestHarness.swift:e0b2a61395d4fade": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",

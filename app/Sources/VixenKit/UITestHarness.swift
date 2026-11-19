@@ -21,6 +21,10 @@ public enum UITestHarness {
     /// Says which windows stay where they are rather than going off screen, for a test that needs one really showing: a Metal layer
     /// draws nothing while its window is hidden.
     public static var staysOnScreen: ((NSWindow) -> Bool)?
+    // STUDIO-BEGIN harness-exit-cleanup: `quit` exits at once, so whatever must not outlive the run (the MCP socket) stops here first
+    /// Runs just before a script's `quit` exits. Keep it quick and silent: no saves, no controller stops.
+    public static var beforeExit: (() -> Void)?
+    // STUDIO-END harness-exit-cleanup
 
     /// Writes a line to `notes.txt` in the output folder, for what a test shouldn't really do, like opening a browser.
     public static func note(_ line: String) {
@@ -246,6 +250,7 @@ private final class Runner {
         }
         let failed = results.filter { !$0.ok }.count
         print("UI test finished: \(results.count) steps, \(failed) failed")
+        UITestHarness.beforeExit?() // STUDIO: release the MCP socket before exiting
         exit(failed == 0 ? 0 : 1)
     }
 

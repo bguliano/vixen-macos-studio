@@ -39,6 +39,7 @@ Generated VixenCore methods:
 - studioDisplayEvents(afterRevision:) returns up to 100 events. Event revision is NOT the display revision used for expectedRevision.
 - studioAgentSnapshot() returns authoritative clients, active tools and bounded recent outcomes; use on attachment/reconnect/gaps.
 - studioStartMcp() throws on startup failure; studioMcpIsRunning() reports installed server state.
+- studioStopMcp() drops only the listener (removing its socket) for exits that skip shutdown. The UI test harness calls it from `UITestHarness.beforeExit` before `quit` exits, so consecutive script runs on one profile each get a live server.
 - studioAllowAgentsLiveOutput() / studioSetAllowAgentsLiveOutput(allowed:) are local-UI-only. Permission resets OFF each launch. Revocation stops agent-started controllers/test context. MCP has no setter.
 
 StudioAgentActivity.observe(core:) is an @Observable MainActor adapter, built as a separate Swift module. It loads snapshots on attachment/callback, tracks clients/current tools/recent outcomes and exposes changedDocumentId. The coordinator owns toolbar/pane presentation. No existing Swift views were restyled here.
@@ -77,5 +78,22 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 - Schedule creation is disabled until local review; no program-launch actions or silent profile switching.
 - Preview edits must not race an old private native-designer working copy. Redesigned UI event/reload integration remains the coordinator's lane.
 - Undo is bounded by count, not bytes; huge profiles may be memory-intensive. Audio analysis: 100 MiB input/15 minutes. Templates: 4096 leaves. Long tasks have no MCP cancellation yet.
+- A socket left by a crash or force-quit blocks the next launch of that profile: the app logs "Could not start MCP server … Address already in use" and Settings ▸ Agents shows Not running, and the bridge refuses the endpoint rather than falling back to headless. Remove the file named in the log by hand. See the proposal below.
+
+## Proposal: stale-socket recovery (not implemented)
+
+Status: proposed for owner review. The current rule (stale endpoints fail closed, no stale-lock stealing) stays in force until this is approved.
+
+Recover a leftover endpoint only when it provably has no owner, in one place used by both the app's `SocketServer::start` and the headless bridge's fallback:
+
+1. The caller already holds the profile's exclusive Vixen `.lock` (the app takes it at startup; headless takes it before serving). No lock, no recovery: another Vixen may own the profile. The `.lock` itself is never stolen.
+2. The socket directory and file pass `secure()` unchanged: same uid, directory 0700 and not a symlink, file is a socket, mode 0600, not a symlink.
+3. `connect()` to the endpoint returns `ECONNREFUSED`. Any other result fails closed as today: a successful connection means a live server, and timeouts, `EACCES`, `ENOENT` races or other errors keep the existing error.
+4. Re-check with `symlink_metadata` that the device and inode match what step 2 inspected, unlink that path once, then `bind`. If `bind` still fails, report it as today. No retry loops.
+5. Log one warning naming the removed path, for example `[Vixen.Studio.MCP] Removed stale MCP socket <path> (no listener; profile lock held)`.
+
+Why it is safe: socket paths are per profile, so a refused socket for a profile whose exclusive lock this process holds can only belong to a dead process. The same-user check keeps the trust boundary where it is now. The device and inode recheck narrows the time-of-check window to a same-user process deliberately racing the unlink, which the current model already treats as out of scope. Nothing is removed for a profile this process doesn't own.
+
+Tests to add with it: start the app over a refused socket left by a killed process and expect a running server and one log line; a symlinked, wrong-mode or foreign-uid endpoint stays fail-closed; a live listener is never removed; and with no lock held (another process owns the profile) nothing is touched.
 
 See MCP-CLIENTS.md for setup and MCP-INTEGRATION.md for verification/marked-file handoff. Use tools/list for exact schemas.

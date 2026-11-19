@@ -141,4 +141,9 @@ impl VixenCore {
     pub fn studio_mcp_is_running(&self) -> bool {
         self.inner.studio_display.runtime.lock().is_some()
     }
+    /// Drops the MCP listener, which removes its socket, without the rest of shutdown. For exits that skip `shutdown`, such as
+    /// the UI test harness's `quit`. Commands already running finish; new connections are refused.
+    pub fn studio_stop_mcp(&self) {
+        self.inner.studio_display.runtime.lock().take();
+    }
 }
