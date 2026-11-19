@@ -17,7 +17,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("Use a show copy, not the original archive".into());
     }
-    if let Some(mut socket) = studio_mcp::socket::connect(&root)? {
+    // A refused endpoint is a dead app's leftover only if nothing holds the profile: take the lock first (it fails if any lock,
+    // stale or not, is there), then remove the endpoint and serve headless. A live app keeps its lock, so it is never touched.
+    let connected = match studio_mcp::socket::connect(&root) {
+        Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
+            let lock = vixen_io::lock::create_lock_file(&root)
+                .map_err(|_| "MCP endpoint is refusing connections and the profile is locked; open the app, or remove the stale socket")?;
+            let path = studio_mcp::socket::socket_path(&root)?;
+            let recovered = studio_mcp::socket::recover_stale(&path, studio_mcp::socket::lock_held_here(&root));
+            let _ = vixen_io::lock::try_remove_lock_file(&lock);
+            if !recovered? {
+                return Err("MCP endpoint is refusing connections; it was not removed".into());
+            }
+            studio_mcp::socket::connect(&root)?
+        }
+        other => other?,
+    };
+    if let Some(mut socket) = connected {
         let mut reader = socket.try_clone()?;
         let inbound =
             std::thread::spawn(move || std::io::copy(&mut reader, &mut std::io::stdout().lock()));

@@ -8,7 +8,7 @@ Implemented: local bridge/in-app socket, shared live display undo, sequence auth
 
 - vixen-studio-mcp --profile /absolute/profile speaks newline-delimited JSON-RPC on stdio. Logs stay off stdout.
 - Prefer the profile-specific Unix socket under ~/Library/Application Support/Vixen Studio/. Directory 0700, socket 0600, same-user ownership, no symlink endpoints.
-- Canonical-profile handshake prevents wrong-show attachment. Only a missing socket permits headless fallback. Existing stale/broken/insecure endpoints fail closed.
+- Canonical-profile handshake prevents wrong-show attachment. Headless fallback needs a missing socket, or a provably ownerless one (see Stale-socket recovery). Broken, insecure or otherwise unproven endpoints fail closed.
 - Headless takes Vixen's exclusive .lock; the app recognizes the lowercase bridge as a live owner. No stale-lock stealing. Headless is always muted and starts no app services.
 - VixenCore.start installs the server. Lower-level VixenCore.open is a test constructor; call studioStartMcp explicitly when using it. Shutdown rejects commands and drops the listener before releasing the profile lock.
 - Max eight clients, 1 MiB requests, 8 MiB responses, 120-second idle reads, 30-second writes, bounded list pages. Same-user permissions are the trust boundary, not a sandbox against same-user malware.
@@ -78,22 +78,20 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 - Schedule creation is disabled until local review; no program-launch actions or silent profile switching.
 - Preview edits must not race an old private native-designer working copy. Redesigned UI event/reload integration remains the coordinator's lane.
 - Undo is bounded by count, not bytes; huge profiles may be memory-intensive. Audio analysis: 100 MiB input/15 minutes. Templates: 4096 leaves. Long tasks have no MCP cancellation yet.
-- A socket left by a crash or force-quit blocks the next launch of that profile: the app logs "Could not start MCP server … Address already in use" and Settings ▸ Agents shows Not running, and the bridge refuses the endpoint rather than falling back to headless. Remove the file named in the log by hand. See the proposal below.
+- A socket left by a crash or force-quit is recovered automatically under the rules below. One that fails them (wrong owner or mode, a symlink, something answering, or a profile lock this process doesn't hold) still blocks the server; the log names the file.
 
-## Proposal: stale-socket recovery (not implemented)
+## Stale-socket recovery
 
-Status: proposed for owner review. The current rule (stale endpoints fail closed, no stale-lock stealing) stays in force until this is approved.
+A crash or force-quit leaves the endpoint behind. `socket::recover_stale` removes it only when it provably has no owner, and never touches the profile `.lock`:
 
-Recover a leftover endpoint only when it provably has no owner, in one place used by both the app's `SocketServer::start` and the headless bridge's fallback:
+1. This process holds the profile's exclusive Vixen lock (`lock_held_here`: `.lock` is a regular same-user file naming this pid on this machine). The app takes it at startup, before the server starts. Lock taking itself is unchanged: a dead process's lock is cleared only by vanilla's existing `IsProfileLocked` check.
+2. The directory and socket pass `secure()`: same uid, directory 0700, socket type, mode 0600, no symlinks.
+3. `connect()` returns `ECONNREFUSED`. A connection means a live server and is left alone; any other error is returned.
+4. The device and inode still match what was inspected; the path is unlinked once and bound again. No retry loops.
+5. One warning is logged: `[Vixen.Studio.MCP] Removed stale MCP socket <path> (no listener; profile lock held)`.
 
-1. The caller already holds the profile's exclusive Vixen `.lock` (the app takes it at startup; headless takes it before serving). No lock, no recovery: another Vixen may own the profile. The `.lock` itself is never stolen.
-2. The socket directory and file pass `secure()` unchanged: same uid, directory 0700 and not a symlink, file is a socket, mode 0600, not a symlink.
-3. `connect()` to the endpoint returns `ECONNREFUSED`. Any other result fails closed as today: a successful connection means a live server, and timeouts, `EACCES`, `ENOENT` races or other errors keep the existing error.
-4. Re-check with `symlink_metadata` that the device and inode match what step 2 inspected, unlink that path once, then `bind`. If `bind` still fails, report it as today. No retry loops.
-5. Log one warning naming the removed path, for example `[Vixen.Studio.MCP] Removed stale MCP socket <path> (no listener; profile lock held)`.
+The app runs this when `bind` reports `AddrInUse`. The bridge runs it when its connection is refused: it first creates the lock, which fails if any lock file exists, stale or not, then recovers, releases the lock and serves headless. So a bridge never clears a crashed app's lock; relaunching the app does that and recovers the socket.
 
-Why it is safe: socket paths are per profile, so a refused socket for a profile whose exclusive lock this process holds can only belong to a dead process. The same-user check keeps the trust boundary where it is now. The device and inode recheck narrows the time-of-check window to a same-user process deliberately racing the unlink, which the current model already treats as out of scope. Nothing is removed for a profile this process doesn't own.
-
-Tests to add with it: start the app over a refused socket left by a killed process and expect a running server and one log line; a symlinked, wrong-mode or foreign-uid endpoint stays fail-closed; a live listener is never removed; and with no lock held (another process owns the profile) nothing is touched.
+Verified: unit tests for each rule (`cargo test -p studio-mcp --lib stale_tests`); on a show copy, force-killing the app left the socket and lock, a bridge then failed closed, relaunching logged one removal and served the live session, and with no app and no lock the bridge recovered the endpoint and served headless.
 
 See MCP-CLIENTS.md for setup and MCP-INTEGRATION.md for verification/marked-file handoff. Use tools/list for exact schemas.

@@ -1,4 +1,5 @@
-//! Same-user local transport. No TCP, automatic stale-socket removal, or network output.
+//! Same-user local transport. No TCP or network output. A leftover endpoint is removed only when it provably has no owner
+//! (`recover_stale`); everything else fails closed.
 use crate::{Server, MAX_MESSAGE};
 use std::{
     fs,
@@ -58,7 +59,14 @@ impl SocketServer {
             fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
         }
         secure(dir, false)?;
-        let listener = UnixListener::bind(&path)?;
+        let listener = match UnixListener::bind(&path) {
+            Err(e) if e.kind() == io::ErrorKind::AddrInUse
+                && recover_stale(&path, lock_held_here(core.paths.root()))? =>
+            {
+                UnixListener::bind(&path)?
+            }
+            other => other?,
+        };
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
         let inode = fs::metadata(&path)?.ino();
         listener.set_nonblocking(true)?;
@@ -125,6 +133,45 @@ fn handle(mut stream: UnixStream, core: Arc<AppCore>) -> io::Result<()> {
     crate::serve(&mut Server::from_core(core), input, stream)
 }
 /// None only when no endpoint exists. Any existing-but-broken endpoint fails closed.
+/// Whether this process holds the profile's exclusive Vixen lock: the lock file is a regular file naming this pid on this machine.
+pub fn lock_held_here(profile: &Path) -> bool {
+    let lock = profile.join(vixen_io::lock::LOCK_FILE);
+    let Ok(metadata) = fs::symlink_metadata(&lock) else { return false };
+    if !metadata.is_file() || metadata.uid() != unsafe { libc::geteuid() } {
+        return false;
+    }
+    let Ok(text) = fs::read_to_string(&lock) else { return false };
+    text.trim() == format!("{}@{}", std::process::id(), vixen_io::lock::machine_name())
+}
+
+/// A leftover endpoint from a crash or force-quit. Removed, and true returned, only if all of these hold:
+/// this process holds the profile lock (`lock_held`), the directory and socket pass `secure`, `connect` is refused (no listener),
+/// and the path is still the same file (device and inode) just before unlinking. Anything else returns false or the error, and
+/// the caller fails closed as before. Never retries; never touches the profile lock.
+pub fn recover_stale(path: &Path, lock_held: bool) -> io::Result<bool> {
+    if !lock_held {
+        return Ok(false);
+    }
+    secure(path.parent().ok_or_else(|| io::Error::other("socket has no directory"))?, false)?;
+    secure(path, true)?;
+    let seen = fs::symlink_metadata(path)?;
+    match UnixStream::connect(path) {
+        Ok(_) => return Ok(false), // a live server owns it
+        Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {}
+        Err(e) => return Err(e),
+    }
+    let now = fs::symlink_metadata(path)?;
+    if now.dev() != seen.dev() || now.ino() != seen.ino() {
+        return Ok(false);
+    }
+    fs::remove_file(path)?;
+    vixen_session::logging::warn(
+        "Vixen.Studio.MCP",
+        &format!("Removed stale MCP socket {} (no listener; profile lock held)", path.display()),
+    );
+    Ok(true)
+}
+
 pub fn connect(profile: &Path) -> io::Result<Option<UnixStream>> {
     let path = socket_path(profile)?;
     match fs::symlink_metadata(&path) {
@@ -149,4 +196,85 @@ pub fn connect(profile: &Path) -> io::Result<Option<UnixStream>> {
     }
     stream.set_read_timeout(None)?;
     Ok(Some(stream))
+}
+
+#[cfg(test)]
+mod stale_tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    fn dir(tag: &str) -> PathBuf {
+        let d = PathBuf::from(format!("/tmp/vxs-{tag}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        fs::set_permissions(&d, fs::Permissions::from_mode(0o700)).unwrap();
+        d
+    }
+    /// A socket with no listener: binding then dropping leaves the file behind, as a crash does.
+    fn leftover(path: &Path, mode: u32) {
+        drop(UnixListener::bind(path).unwrap());
+        fs::set_permissions(path, fs::Permissions::from_mode(mode)).unwrap();
+    }
+
+    #[test]
+    fn removes_a_refused_socket_only_with_the_lock() {
+        let d = dir("refused");
+        let s = d.join("mcp.sock");
+        leftover(&s, 0o600);
+        assert!(!recover_stale(&s, false).unwrap(), "no lock, no recovery");
+        assert!(s.exists());
+        assert!(recover_stale(&s, true).unwrap());
+        assert!(!s.exists());
+        UnixListener::bind(&s).unwrap();
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn never_removes_a_live_listener() {
+        let d = dir("live");
+        let s = d.join("mcp.sock");
+        let _listener = UnixListener::bind(&s).unwrap();
+        fs::set_permissions(&s, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(!recover_stale(&s, true).unwrap());
+        assert!(s.exists());
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn insecure_or_linked_endpoints_stay_fail_closed() {
+        let d = dir("insecure");
+        let open = d.join("open.sock");
+        leftover(&open, 0o644);
+        assert!(recover_stale(&open, true).is_err());
+        assert!(open.exists());
+        let target = d.join("target.sock");
+        leftover(&target, 0o600);
+        let link = d.join("link.sock");
+        symlink(&target, &link).unwrap();
+        assert!(recover_stale(&link, true).is_err());
+        assert!(target.exists() && fs::symlink_metadata(&link).is_ok());
+        let file = d.join("file.sock");
+        fs::write(&file, b"").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        assert!(recover_stale(&file, true).is_err());
+        assert!(file.exists());
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn lock_is_held_only_when_it_names_this_process() {
+        let d = dir("lock");
+        let lock = d.join(vixen_io::lock::LOCK_FILE);
+        assert!(!lock_held_here(&d));
+        fs::write(&lock, format!("{}@{}", std::process::id(), vixen_io::lock::machine_name())).unwrap();
+        assert!(lock_held_here(&d));
+        fs::write(&lock, format!("1@{}", vixen_io::lock::machine_name())).unwrap();
+        assert!(!lock_held_here(&d));
+        fs::remove_file(&lock).unwrap();
+        let real = d.join("real");
+        fs::write(&real, format!("{}@{}", std::process::id(), vixen_io::lock::machine_name())).unwrap();
+        symlink(&real, &lock).unwrap();
+        assert!(!lock_held_here(&d), "a linked lock never counts");
+        let _ = fs::remove_dir_all(d);
+    }
 }
