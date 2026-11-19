@@ -147,3 +147,27 @@ impl VixenCore {
         self.inner.studio_display.runtime.lock().take();
     }
 }
+
+#[uniffi::export]
+impl VixenCore {
+    /// Publishes the live Display pane's working copy as one shared-undo transaction. Returns JSON {changed, revision, label?}.
+    /// Fails with "Display changed; refresh before retrying" when the display moved past `expected_revision`, or with
+    /// "Live Output is on" while non-muted execution is open.
+    pub fn studio_publish_display_setup(
+        &self,
+        session: Arc<crate::setup::DisplaySetupSession>,
+        expected_revision: u64,
+        cleanup: bool,
+    ) -> Result<String, FfiError> {
+        let mut working = session.inner.write();
+        self.inner
+            .studio_display
+            .publish_setup(&self.inner, &mut working, expected_revision, cleanup)
+            .map(|v| v.to_string())
+            .map_err(FfiError::new)
+    }
+    /// Why local display edits are paused right now, or nil.
+    pub fn studio_display_edit_block(&self) -> Option<String> {
+        self.inner.studio_display.ui_edit_block(&self.inner).map(Into::into)
+    }
+}

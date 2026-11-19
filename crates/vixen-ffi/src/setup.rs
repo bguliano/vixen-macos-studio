@@ -797,7 +797,7 @@ pub struct SetupCommitProgress {
 #[derive(uniffi::Object)]
 pub struct DisplaySetupSession {
     core: Arc<AppCore>,
-    inner: RwLock<SetupSession>,
+    pub(crate) inner: RwLock<SetupSession>, // STUDIO: the live Display pane publishes this working copy (studio_agent.rs)
     progress: Mutex<SetupCommitProgress>,
 }
 

@@ -7,11 +7,15 @@ import SwiftUI
 public enum StudioDisplayPane {
     /// Builds the pane. Nil in a build without Display Setup, where the show window keeps its summary and the separate window.
     public static var make: (() -> AnyView)?
-    /// Asked before the show window leaves the Display section: false keeps it there. Clean edits close quietly; unapplied
-    /// ones ask to apply, discard or keep editing.
+    /// Asked before the show window leaves the Display section: false keeps it there. The live pane publishes and saves what
+    /// it holds, then lets its working copy go.
     public static var confirmLeave: (() async -> Bool)?
     /// Brings the Display section forward, for Setup Display in the menus and a failed apply that needs its edits back on screen.
     public static var reveal: (() -> Void)?
+    /// Publishes and saves anything the pane still holds. The app awaits it before shutting down.
+    public static var flush: (() async -> Void)?
+    /// Turns Live Output off, for the pane's notice while editing is paused.
+    public static var stopLiveOutput: (() -> Void)?
     /// The window hosting the pane, for the few dialogs Display Setup attaches as sheets.
     public static weak var hostWindow: NSWindow?
 }

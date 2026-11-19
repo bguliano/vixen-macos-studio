@@ -57,6 +57,7 @@ struct StudioShowWindow: View {
         .onAppear {
             admin.openWindow = openWindow
             StudioDisplayPane.reveal = { choose(.display) }
+            StudioDisplayPane.stopLiveOutput = { admin.stopExecution() }
             // The sidebar's rows aren't reachable by a script's click, so `{ "action": "studioSection", "name": "display" }` picks one.
             if UITestHarness.isActive {
                 UITestHarness.customActions["studioSection"] = { step in

@@ -126,6 +126,8 @@ impl SetupSession {
     /// Brings `self.system` up to date, part by part. A part that hasn't changed isn't touched, so its bytes stay what the file had.
     // STUDIO-BEGIN display-materialize: materialize a candidate transaction without saving or hardware side effects
     pub(crate) fn studio_materialize(&mut self) { self.write_working_parts(); }
+    /// The cleanup Display Setup's OK confirms (orphaned filters and property data), for the live pane when it is left.
+    pub(crate) fn studio_confirm_cleanup(&mut self) { self.apply_confirmed_changes(); }
     // STUDIO-END display-materialize
     fn write_working_parts(&mut self) {
         // Everything on the removal lists goes in one pass, unless it's still in use: one store rebuild rather than one per entry.

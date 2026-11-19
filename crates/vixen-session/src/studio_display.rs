@@ -272,6 +272,86 @@ impl StudioDisplay {
         Ok(json!({"changed":true,"revision":revision,"result":result}))
     }
 }
+/// Why the local Display pane can't publish right now, if it can't. Publishing rebuilds the running graph, which can restart controllers.
+pub const LIVE_OUTPUT_BLOCK: &str = "Live Output is on";
+impl StudioDisplay {
+    pub fn ui_edit_block(&self, core: &AppCore) -> Option<&'static str> {
+        (core.playback.hardware_allowed() && core.execution().is_open()).then_some(LIVE_OUTPUT_BLOCK)
+    }
+    /// The Display pane's live edit. Its working copy already holds edits made through Display Setup's own algorithms; this publishes
+    /// them as one undoable transaction on the shared history, as `execute` publishes a command's candidate. `expected_revision` is the
+    /// display revision the working copy was opened at or last published: anything newer (an agent, undo, another writer) refuses, and
+    /// the pane reloads. Afterwards the working copy matches the display and is clean again.
+    pub fn publish_setup(
+        &self,
+        core: &AppCore,
+        session: &mut SetupSession,
+        expected_revision: u64,
+        cleanup: bool,
+    ) -> Result<Value, String> {
+        let mut state = self.state.lock();
+        if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
+            return Err("Profile is closing".into());
+        }
+        let actual = core.display.revision();
+        if state.revision != actual {
+            state.undo.clear();
+            state.redo.clear();
+            state.revision = actual;
+        }
+        if expected_revision != actual {
+            return Err("Display changed; refresh before retrying".into());
+        }
+        if let Some(block) = self.ui_edit_block(core) {
+            return Err(block.into());
+        }
+        if cleanup {
+            session.studio_confirm_cleanup();
+        }
+        if !session.is_dirty() {
+            return Ok(json!({"changed":false,"revision":actual}));
+        }
+        let d = &session.dirty;
+        let label = if d.controllers && !d.tree && !d.flow {
+            "Edit Controllers"
+        } else if d.run_state && !d.tree && !d.flow && !d.controllers {
+            "Start or Stop Controllers"
+        } else if d.flow && !d.tree {
+            "Patching"
+        } else if d.tree && !d.controllers {
+            "Edit Elements"
+        } else if d.tags && !d.tree {
+            "Edit Tags"
+        } else if cleanup && !d.tree {
+            "Remove Unused Filters"
+        } else {
+            "Edit Display"
+        };
+        let before = core.system.read().clone();
+        session.studio_materialize();
+        core.apply_display(session.system.clone());
+        session.dirty = Default::default();
+        state.undo.push(Entry {
+            label: label.into(),
+            system: before,
+        });
+        if state.undo.len() > HISTORY_LIMIT {
+            state.undo.remove(0);
+        }
+        state.redo.clear();
+        state.revision = core.display.revision();
+        let revision = state.revision;
+        drop(state);
+        self.publish(StudioEvent {
+            document_id: None,
+            revision,
+            kind: "displayChanged".into(),
+            command: "display_setup".into(),
+            agent: false,
+        });
+        Ok(json!({"changed":true,"revision":revision,"label":label}))
+    }
+}
 fn text<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
     args[key]
         .as_str()
@@ -403,6 +483,37 @@ fn edit(s: &mut SetupSession, command: &str, args: &Value) -> Result<Value, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn display_pane_publishes_live_with_shared_undo() {
+        let root = std::env::temp_dir().join(format!("studio-pane-{}", Uuid::new_v4()));
+        let core = Arc::new(AppCore::open(root.clone(), true).unwrap());
+        let start = core.display.revision();
+        let mut pane = SetupSession::open(&core);
+        // Nothing edited: nothing published.
+        let clean = core.studio_display.publish_setup(&core, &mut pane, start, false).unwrap();
+        assert_eq!(clean["changed"], false);
+        pane.add_element(None, "Arch");
+        let published = core.studio_display.publish_setup(&core, &mut pane, start, false).unwrap();
+        assert_eq!(published["changed"], true);
+        assert_eq!(published["label"], "Edit Elements");
+        assert!(!pane.is_dirty());
+        assert_eq!(core.system.read().tree.len(), 1);
+        let after = published["revision"].as_u64().unwrap();
+        assert_eq!(core.studio_display.history()["undo"][0], "Edit Elements");
+        // A stale working copy refuses rather than overwriting newer work.
+        pane.add_element(None, "Tree");
+        assert!(core.studio_display.publish_setup(&core, &mut pane, start, false).is_err());
+        // The pane's step undoes on the same history agents use.
+        let mut fresh = SetupSession::open(&core);
+        fresh.add_element(None, "Star");
+        core.studio_display.publish_setup(&core, &mut fresh, after, false).unwrap();
+        assert_eq!(core.system.read().tree.len(), 2);
+        core.studio_display.execute(&core, "display_undo", &json!({}), false).unwrap();
+        assert_eq!(core.system.read().tree.len(), 1);
+        core.studio_display.execute(&core, "display_undo", &json!({}), false).unwrap();
+        assert_eq!(core.system.read().tree.len(), 0);
+        let _ = std::fs::remove_dir_all(root);
+    }
     #[test]
     fn ui_agent_share_history_validation_and_notifications() {
         let root = std::env::temp_dir().join(format!("studio-display-{}", Uuid::new_v4()));

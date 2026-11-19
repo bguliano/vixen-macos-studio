@@ -145,6 +145,34 @@ final class SetupModel {
         controllerTypeID = controllerTypes.first?.id ?? ""
     }
 
+    // STUDIO-BEGIN setup-live: the show window's Display pane edits live, so its working copy opens and closes without a system configuration session
+    /// The display revision the live working copy matches. Publishing refuses once the display has moved past it.
+    @ObservationIgnored var studioBaseRevision: UInt64 = 0
+    /// Opens a working copy for the live pane. Unlike `windowOpened`, the app stays usable: edits publish one at a time.
+    func studioOpenLive() {
+        guard session == nil, !isClosing, let core = app.core else { return }
+        openedAt = CACurrentMediaTime()
+        openCount += 1
+        resetForNewWindow()
+        Task {
+            // The revision is read first, so a publication racing the open makes the copy look stale rather than current.
+            let (revision, opened) = await offMain { (core.displayRevision(), core.openDisplaySetup()) }
+            studioBaseRevision = revision
+            session = opened
+            await loadTrees()
+        }
+    }
+
+    /// Lets the live working copy go. Nothing is discarded: every edit was already published.
+    func studioCloseLive() {
+        guard let session else { return }
+        Self.releaseOffMain(session)
+        self.session = nil
+        fixtureWizard = nil
+        dismissWizardWindow?()
+    }
+    // STUDIO-END setup-live
+
     /// F6. The window goes away, the Administration window shows the progress, and the working copy reaches the system off the main thread. If the save fails the window comes back with its work.
     func ok() {
         guard let session, !isClosing else { return }

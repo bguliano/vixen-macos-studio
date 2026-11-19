@@ -24,7 +24,7 @@ Display, preview-prop and show/schedule edits share one profile undo stack (20 f
 
 Sequences use the same registered Arc<Mutex<SequenceSession>> and UndoStack as UI windows. Agent effects/timing/parameters/layers/marks record native undo actions grouped with (Agent). StudioSettings adds reversible length/layer configuration. UI opening a saved agent document reuses the existing session; unsaved documents are obtained by sequence ID. Rendering uses the real engine schedule.
 
-Legacy openDisplaySetup/commit/discard remains unchanged for compatibility. External/legacy display publication invalidates old Studio history on the next command rather than undoing unrelated edits. The new sidebar pane must use Studio commands/snapshots only.
+The show window's Display pane edits in a Display Setup working copy and publishes it with studioPublishDisplaySetup(session:expectedRevision:cleanup:): published exactly as a command's validated candidate is, one undo entry per publication (labels such as Edit Elements, Patching, Edit Controllers), refused when the display moved past expectedRevision or while non-muted execution is open (studioDisplayEditBlock). Legacy openDisplaySetup/commit/discard remains unchanged for compatibility. External/legacy display publication invalidates old Studio history on the next command rather than undoing unrelated edits. The new sidebar pane must use Studio commands/snapshots only.
 
 ## Swift integration contract
 

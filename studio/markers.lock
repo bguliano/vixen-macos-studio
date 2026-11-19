@@ -17,7 +17,7 @@
  },
  "block:display-materialize": {
   "file": "crates/vixen-session/src/setup/commit.rs",
-  "hash": "9c96b5a3e33e7cc2"
+  "hash": "73786ef58dc7140c"
  },
  "block:exclusive-save-temp": {
   "file": "crates/vixen-io/src/file.rs",
@@ -46,10 +46,6 @@
  "block:mcp-helper-bundle": {
   "file": "scripts/build_app.sh",
   "hash": "3350ed5c33b09d3b"
- },
- "block:mcp-lock-dependency": {
-  "file": "Cargo.lock",
-  "hash": "92d722e5d7a340d8"
  },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
@@ -95,6 +91,10 @@
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "5381a57920b53aae"
  },
+ "block:setup-live": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "2fa672e1057edf3e"
+ },
  "block:setup-pane": {
   "file": "app/Sources/VixenSetup/SetupScene.swift",
   "hash": "bcab80b9586a49f9"
@@ -119,14 +119,6 @@
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
  },
- "line:Cargo.lock:9e38d460bcd2c432": {
-  "file": "Cargo.lock",
-  "hash": "9e38d460bcd2c432"
- },
- "line:Cargo.lock:b9eb6b16d05a8117": {
-  "file": "Cargo.lock",
-  "hash": "b9eb6b16d05a8117"
- },
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",
   "hash": "230f6039ffff686f"
@@ -146,6 +138,10 @@
  "line:app/Sources/VixenAdmin/AdminModel.swift:1ab8146cee0f3b02": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "1ab8146cee0f3b02"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:513060f03030b238": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "513060f03030b238"
  },
  "line:app/Sources/VixenAdmin/AdminModel.swift:7edb2c216294df1a": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
@@ -362,6 +358,10 @@
  "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "d1100fa74313d8ae"
+ },
+ "line:crates/vixen-ffi/src/setup.rs:d66988b1b137012f": {
+  "file": "crates/vixen-ffi/src/setup.rs",
+  "hash": "d66988b1b137012f"
  },
  "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
   "file": "crates/vixen-io/src/file.rs",

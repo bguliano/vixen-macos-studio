@@ -340,6 +340,7 @@ final class AdminModel {
         }
         // Quitting closes a Settings window that's still open, and its changes save as closing it would.
         await savePendingOptions()
+        await StudioDisplayPane.flush?() // STUDIO: the live Display pane publishes and saves its last edit
         while core.isSaving() {
             logWarn(logger: "VixenApplication.VixenApplication", message: "Waiting for save to finish before closing.")
             try? await Task.sleep(for: .milliseconds(250))
