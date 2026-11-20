@@ -7,6 +7,6 @@ edition.workspace = true
 vixen-core = { path = "../vixen-core" }
 thiserror.workspace = true
 uuid.workspace = true
-zstd = "0.13"
+zstd = "0.14"
 base64 = "0.22"
 serde_json.workspace = true
