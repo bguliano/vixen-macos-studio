@@ -324,8 +324,10 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
         let mut s = shared.lock();
-        let old = s.marks().to_vec();
+        let mut old = s.marks().to_vec();
         let mut combined = old.clone();
+        // Undo restores marks into collections it knows and never removes a collection, so it gets the new ones empty.
+        old.extend(marks.iter().map(|c| MarkCollection { marks: Vec::new(), ..c.clone() }));
         combined.extend(marks);
         s.set_marks(combined);
         record(
@@ -514,7 +516,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
                 marks.push(Mark::new(TimeSpan::from_ms(value)));
             }
             if let Some(texts)=a.get("texts"){let texts=texts.as_array().ok_or("texts must be an array")?;if texts.len()!=marks.len(){return Err("texts must match timesMs length".into())}for (mark,text) in marks.iter_mut().zip(texts){mark.text=text.as_str().filter(|s|s.len()<=256).ok_or("Mark text must be <=256 bytes")?.into();}}
-            let old = s.marks().to_vec();
+            let mut old = s.marks().to_vec();
             let mut collections = old.clone();
             let mut collection = MarkCollection::default();
             collection.collection_type=match a["collectionType"].as_str().unwrap_or("generic"){"generic"=>vixen_core::marks::MarkCollectionType::Generic,"phrase"=>vixen_core::marks::MarkCollectionType::Phrase,"word"=>vixen_core::marks::MarkCollectionType::Word,"phoneme"=>vixen_core::marks::MarkCollectionType::Phoneme,"state"=>vixen_core::marks::MarkCollectionType::State,_=>return Err("Invalid collectionType".into())};
@@ -522,6 +524,8 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             collection.marks = marks;
             collection.sort_marks();
             let id = collection.id;
+            // Undo restores marks into collections it knows and never removes a collection, so it gets the new one empty.
+            old.push(MarkCollection { marks: Vec::new(), ..collection.clone() });
             collections.push(collection);
             s.set_marks(collections);
             record(
@@ -1492,6 +1496,41 @@ mod tests {
         wav.extend_from_slice(&(data.len() as u32).to_le_bytes());
         wav.extend_from_slice(&data);
         std::fs::write(path, wav).unwrap();
+    }
+
+    #[test]
+    fn marks_create_and_music_marks_undo_empties_added_collections() {
+        let root = std::env::temp_dir().join(format!("studio-marks-undo-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        std::fs::create_dir_all(core.paths.media_dir()).unwrap();
+        let beats: Vec<f64> = (1..16).map(|i| i as f64 * 500.0).collect();
+        click_track(&core.paths.media_dir().join("clicks.wav"), 8.0, &beats, &[]);
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let id = run("sequence_create", json!({"lengthMs":8000,"media":"clicks.wav"}))["sequenceId"].clone();
+        let marks = || run("sequence_marks", json!({"sequenceId":id}));
+        let empty = |v: &Value| v.as_array().unwrap().iter().all(|c| c["marks"].as_array().unwrap().is_empty());
+
+        run("marks_create", json!({"sequenceId":id,"name":"Hits","timesMs":[100,200,300]}));
+        let created = marks();
+        assert!(!empty(&created));
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert!(empty(&marks()), "{}", marks());
+        run("sequence_redo", json!({"sequenceId":id}));
+        assert_eq!(marks(), created, "redo puts every mark back");
+
+        run("sequence_music_marks", json!({"sequenceId":id,"media":"clicks.wav"}));
+        let music = marks();
+        let music_count = |v: &Value| v.as_array().unwrap().iter().filter(|c| c["name"].as_str().unwrap().starts_with("Music")).map(|c| c["marks"].as_array().unwrap().len()).sum::<usize>();
+        assert!(music_count(&music) > 0, "{music}");
+        run("sequence_undo", json!({"sequenceId":id}));
+        let undone = marks();
+        assert_eq!(music_count(&undone), 0, "{undone}");
+        assert_eq!(undone.as_array().unwrap().iter().find(|c| c["name"] == "Hits").unwrap()["marks"].as_array().unwrap().len(), 3, "earlier marks stay");
+        run("sequence_redo", json!({"sequenceId":id}));
+        assert_eq!(marks(), music, "redo puts every mark back");
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]
