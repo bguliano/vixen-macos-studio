@@ -138,6 +138,10 @@ pub struct SequenceSession {
     /// Gets a message after each finished batch, until someone takes it.
     finished_batches: Option<mpsc::Receiver<()>>,
     results: Arc<Mutex<Vec<RenderResult>>>,
+    // STUDIO-BEGIN render-queue-dedupe: never queue a render twice for one generation; rapid edits re-queued every pending effect each time
+    /// The generation each effect was last queued at, until its result is applied. `render_all_dirty` skips one already on its way.
+    queued_generations: std::collections::HashMap<EffectId, u64>,
+    // STUDIO-END render-queue-dedupe
     pub counters: Arc<RenderCounters>,
     effect_defaults: Option<Arc<Mutex<vixen_io::effect_defaults::EffectDefaultsStore>>>,
     problems: Arc<Mutex<Vec<String>>>,
@@ -285,6 +289,7 @@ impl SequenceSession {
             render_queue: Some(render_queue),
             finished_batches: Some(finished_batches),
             results,
+            queued_generations: Default::default(), // STUDIO: render-queue dedupe
             counters,
             effect_defaults: None,
             problems,
@@ -513,6 +518,7 @@ impl SequenceSession {
         let mut removed_instances = Vec::with_capacity(ids.len());
         for id in ids {
             let Some(entry) = self.effects.remove(id) else { continue };
+            self.queued_generations.remove(id); // STUDIO: render-queue dedupe
             let layer = self.document.layers.effect_layer_map.remove(&entry.node.instance_id);
             removed_instances.push(entry.node.instance_id);
             snapshots.push(EffectSnapshot {
@@ -844,6 +850,11 @@ impl SequenceSession {
                 continue;
             }
             let Some(descriptor) = entry.descriptor else { continue };
+            // STUDIO-BEGIN render-queue-skip: already queued at this generation, its result is on its way
+            if self.queued_generations.insert(entry.id, entry.generation) == Some(entry.generation) {
+                continue;
+            }
+            // STUDIO-END render-queue-skip
             // A paste or an undo can bring back a copy older than the library. The original reads the library as it renders.
             refresh_links(&mut entry.node.params, &libraries);
             tasks.push(RenderTask {
@@ -924,6 +935,14 @@ impl SequenceSession {
             if entry.generation != result.generation {
                 continue;
             }
+            // STUDIO-BEGIN render-result-dedupe: a second result for a generation already applied would duplicate its schedule entries
+            if entry.rendered_generation == result.generation {
+                continue;
+            }
+            if self.queued_generations.get(&result.id) == Some(&result.generation) {
+                self.queued_generations.remove(&result.id);
+            }
+            // STUDIO-END render-result-dedupe
             entry.intents = Some(result.intents);
             entry.rendered_generation = result.generation;
             if entry.descriptor.is_some_and(|descriptor| descriptor.name == "Video") {

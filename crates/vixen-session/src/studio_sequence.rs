@@ -609,6 +609,33 @@ pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<
 mod tests {
     use super::*;
     #[test]
+    fn rapid_agent_edits_schedule_each_effect_once() {
+        let root = std::env::temp_dir().join(format!("studio-rapid-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let group = core.studio_display
+            .execute(&core, "element_template", &json!({"kind":"megatree","name":"Tree","count":4,"pixels":50}), false)
+            .unwrap()["result"]["id"]
+            .clone();
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let id = run("sequence_create", json!({"lengthMs":60000}))["sequenceId"].clone();
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().type_id.to_string();
+        // One effect's entries, measured alone after its render has finished.
+        run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":group,"startMs":0,"durationMs":400}));
+        let one = run("sequence_render", json!({"sequenceId":id}))["scheduleEntries"].as_u64().unwrap();
+        assert!(one > 0);
+        // Back-to-back edits, as an agent sends them, without waiting for renders in between.
+        for i in 1..120u64 {
+            run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":group,"startMs":i*450,"durationMs":400}));
+        }
+        let all = run("sequence_render", json!({"sequenceId":id}));
+        assert_eq!(all["rendered"], 120);
+        assert_eq!(all["scheduleEntries"].as_u64().unwrap(), one * 120, "every effect is scheduled exactly once");
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn shared_length_layers_effects_and_parameter_undo() {
         let root = std::env::temp_dir().join(format!("studio-sequence-{}", Uuid::new_v4()));
         let core = AppCore::open(root.clone(), true).unwrap();

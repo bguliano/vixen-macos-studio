@@ -47,10 +47,6 @@
   "file": "scripts/build_app.sh",
   "hash": "3350ed5c33b09d3b"
  },
- "block:mcp-lock-dependency": {
-  "file": "Cargo.lock",
-  "hash": "92d722e5d7a340d8"
- },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
   "hash": "431691d95a53a991"
@@ -74,6 +70,18 @@
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
+ },
+ "block:render-queue-dedupe": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "4822b4ed097677cc"
+ },
+ "block:render-queue-skip": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "d91dc59444fadbf4"
+ },
+ "block:render-result-dedupe": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "d0ae08074d3c73d9"
  },
  "block:reuse-open-sequence": {
   "file": "crates/vixen-ffi/src/sequence.rs",
@@ -122,14 +130,6 @@
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
- },
- "line:Cargo.lock:9e38d460bcd2c432": {
-  "file": "Cargo.lock",
-  "hash": "9e38d460bcd2c432"
- },
- "line:Cargo.lock:b9eb6b16d05a8117": {
-  "file": "Cargo.lock",
-  "hash": "b9eb6b16d05a8117"
  },
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",
@@ -426,6 +426,14 @@
  "line:crates/vixen-session/src/preview.rs:bc77178e83943822": {
   "file": "crates/vixen-session/src/preview.rs",
   "hash": "bc77178e83943822"
+ },
+ "line:crates/vixen-session/src/sequence.rs:1f3e5d9434a47e78": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "1f3e5d9434a47e78"
+ },
+ "line:crates/vixen-session/src/sequence.rs:278a68c0b8de1c3d": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "278a68c0b8de1c3d"
  },
  "line:crates/vixen-session/src/setup/mod.rs:d93a5857a9a30d37": {
   "file": "crates/vixen-session/src/setup/mod.rs",
