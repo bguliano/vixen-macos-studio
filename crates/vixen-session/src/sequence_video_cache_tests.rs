@@ -9,6 +9,7 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        vixen_video::require_media_tools_for_tests();
         let root = std::env::temp_dir().join(format!("vixen-sequence-video-{}", Uuid::new_v4()));
         let mut core = AppCore::open(root.clone(), true).unwrap();
         core.video_cache = VideoCache::new(root.join("cache"), CacheOptions::default());

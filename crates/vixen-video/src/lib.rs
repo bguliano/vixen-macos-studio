@@ -92,6 +92,16 @@ pub fn video_info_cancelable(path: &Path, cancel: &AtomicBool) -> Option<VideoIn
     info.or_else(|| software::video_info(path, cancel))
 }
 
+/// Tests that decode the sample assets call this first. Without the locally built
+/// FFmpeg, metadata and AVI decoding fail quietly and the Video effect keeps its
+/// defaults, which reads like a regression.
+#[doc(hidden)]
+pub fn require_media_tools_for_tests() {
+    if let Err(error) = vixen_media_tools::Tool::Ffprobe.executable() {
+        panic!("{error}. Build it once with scripts/build_media_tools.sh --fetch (the app build does this too).");
+    }
+}
+
 /// Metadata persisted by Video.GetVideoInformation: coded dimensions (before
 /// display rotation) and container duration at ffmpeg's displayed hundredths.
 /// Rendering continues to use `video_info_cancelable`'s display dimensions.

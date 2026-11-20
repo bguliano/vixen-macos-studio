@@ -286,6 +286,7 @@ mod tests {
 
     #[test]
     fn actual_bundled_software_reads_metadata_rotation_and_avi_frames() {
+        crate::require_media_tools_for_tests();
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/assets");
         let cancel = AtomicBool::new(false);
         let info = video_info(&root.join("colors.avi"), &cancel).unwrap();
