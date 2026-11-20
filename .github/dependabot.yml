@@ -1,11 +1,8 @@
+# Security updates for Rust crates come from Dependabot security updates (enabled in the repo settings), so only
+# security-relevant bumps open PRs. Routine version bumps are reviewed by hand.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-  - package-ecosystem: cargo
-    directory: /
-    schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
