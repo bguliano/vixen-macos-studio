@@ -341,6 +341,7 @@ final class AdminModel {
         // Quitting closes a Settings window that's still open, and its changes save as closing it would.
         await savePendingOptions()
         await StudioDisplayPane.flush?() // STUDIO: the live Display pane publishes and saves its last edit
+        await StudioPreviewsModel.shared.flush() // STUDIO: the Previews pane's last save finishes
         while core.isSaving() {
             logWarn(logger: "VixenApplication.VixenApplication", message: "Waiting for save to finish before closing.")
             try? await Task.sleep(for: .milliseconds(250))
@@ -570,6 +571,12 @@ final class AdminModel {
     /// F26: under the same session as Display Setup, since Cancel can replace the system data under an open sequencer. The session starts at once,
     /// so a Settings window left open stops taking changes, and what it already has saves before the sheet can change anything.
     func showSetupPreviews() {
+        // STUDIO-BEGIN previews-pane: Setup Previews is the show window's Previews section, editing live with Undo
+        if let reveal = StudioPreviewsCore.reveal {
+            reveal()
+            return
+        }
+        // STUDIO-END previews-pane
         app.beginSystemConfigSession()
         Task {
             await savePendingOptions()

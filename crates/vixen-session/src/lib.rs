@@ -97,5 +97,6 @@ pub mod studio_diagnostics; // STUDIO: reusable agent and UI profile diagnostics
 pub mod studio_paths; // STUDIO: protect profile output and backup boundaries
 
 pub mod studio_props; // STUDIO: shared native preview prop commands
+pub mod studio_previews; // STUDIO: the Previews pane's live preview list edits, list and thumbnails
 
 pub mod studio_schema; // STUDIO: validate the shared published command schemas

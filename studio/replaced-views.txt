@@ -5,3 +5,4 @@ app/Sources/VixenAdmin/AdministrationView.swift  ->  app/Sources/VixenAdmin/Stud
 app/Sources/VixenSequencer/ToolbarBand.swift  ->  app/Sources/VixenSequencer/StudioSequencerToolbar.swift
 app/Sources/VixenSequencer/EffectsPanel.swift  ->  app/Sources/VixenSequencer/StudioEffectsLibrary.swift
 app/Sources/VixenSetup/Window/SetupPanels.swift  ->  app/Sources/VixenSetup/Window/StudioSetupPanels.swift (ElementsPanel, ControllersPanel)
+app/Sources/VixenAdmin/SetupPreviewsSheet.swift  ->  app/Sources/VixenAdmin/StudioPreviewsPane.swift

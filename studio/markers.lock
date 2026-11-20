@@ -103,6 +103,22 @@
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "482b121d0c8c7132"
  },
+ "block:preview-design-undo": {
+  "file": "crates/vixen-ffi/src/preview.rs",
+  "hash": "b974c0914c38079a"
+ },
+ "block:preview-frame-rate": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "7a2640b1392b7990"
+ },
+ "block:preview-frame-rate-toggle": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "8080116506eb8b6e"
+ },
+ "block:preview-revision": {
+  "file": "crates/vixen-session/src/setup/commit.rs",
+  "hash": "0674fb21e6ed4a92"
+ },
  "block:preview-switch": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "3783f94619bccede"
@@ -110,6 +126,10 @@
  "block:preview-video-deps": {
   "file": "crates/vixen-session/Cargo.toml",
   "hash": "514fc5083be026c2"
+ },
+ "block:previews-pane": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "f8fa60171898b51c"
  },
  "block:release-names": {
   "file": "scripts/package_release.sh",
@@ -263,6 +283,10 @@
   "file": "app/Package.swift",
   "hash": "d507a04f598d91f8"
  },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:4be54dbaa4dcf5c9": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "4be54dbaa4dcf5c9"
+ },
  "line:app/Sources/VixenAdmin/AdminModel.swift:513060f03030b238": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "513060f03030b238"
@@ -342,6 +366,26 @@
  "line:app/Sources/VixenMarks/MarksTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenPreview/LivePreviewWindow.swift:6f72f0ae0897a032": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "6f72f0ae0897a032"
+ },
+ "line:app/Sources/VixenPreview/LivePreviewWindow.swift:98a073a9490a3b54": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "98a073a9490a3b54"
+ },
+ "line:app/Sources/VixenPreview/LivePreviewWindow.swift:bc2b2960c48b5f53": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "bc2b2960c48b5f53"
+ },
+ "line:app/Sources/VixenPreview/LivePreviewWindow.swift:c8ab12a0b259db47": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "c8ab12a0b259db47"
+ },
+ "line:app/Sources/VixenPreview/LivePreviewWindow.swift:f97c2c5ce47de269": {
+  "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
+  "hash": "f97c2c5ce47de269"
  },
  "line:app/Sources/VixenPreview/PreviewScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenPreview/PreviewScene.swift",
@@ -567,6 +611,10 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "4401e1a2eb529ad6"
  },
+ "line:crates/vixen-ffi/src/lib.rs:640b020f8a51ccab": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "640b020f8a51ccab"
+ },
  "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "d1100fa74313d8ae"
@@ -622,6 +670,10 @@
  "line:crates/vixen-session/src/lib.rs:2cbae59633d3a4b1": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "2cbae59633d3a4b1"
+ },
+ "line:crates/vixen-session/src/lib.rs:3f8cc9b14ed9d558": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "3f8cc9b14ed9d558"
  },
  "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
   "file": "crates/vixen-session/src/lib.rs",

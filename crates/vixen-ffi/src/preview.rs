@@ -1550,9 +1550,13 @@ impl PreviewDesigner {
             let host = self.host.lock();
             (host.session.data().clone(), host.session.location_updates())
         };
-        let mut system = self.core.system.write();
-        design::apply_location_updates(&mut system.tree, &updates);
-        save_preview_data(&mut system, &self.entry, &data);
+        // STUDIO-BEGIN preview-design-undo: the designer's write-back is one step on the show window's shared undo history
+        let changed = vixen_session::studio_previews::design_changes(&self.core.system.read(), &self.entry, &data);
+        self.core.studio_display.record_preview_edit(&self.core, "Edit Preview Layout", changed, |system| {
+            design::apply_location_updates(&mut system.tree, &updates);
+            save_preview_data(system, &self.entry, &data);
+        });
+        // STUDIO-END preview-design-undo
     }
 
     /// File > Save: [`commit`](Self::commit), then both config files. Stays open, with its undo intact.

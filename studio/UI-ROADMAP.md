@@ -77,6 +77,16 @@ command, edits are live with Undo, and each change is verified with harness runs
 1. **Previews section becomes a real pane.** Preview list with live thumbnails, enabled toggle, inline rename,
    duplicate/delete with Undo, and the designer opening in place. The Set Up Previews sheet and its OK/Cancel go away.
    Drop "(OpenGL)" from window titles; hide the FPS readout unless asked.
+   *Done:* the show window's Previews section (`StudioPreviewsPane.swift`, `studio_previews.rs`): a card per preview with
+   a thumbnail of its layout (background and lights, redrawn on every change), an On switch (`DisabledDevices`: an on
+   preview shows whenever Live Output is on), double-click rename, Duplicate, Delete and Add Preview, each one step on
+   the shared undo history (Edit ▸ Undo and the pane's Undo button) and saved at once; they publish without rebuilding
+   the output graph, so they work with Live Output on. Edit Layout opens the designer in its own window, and its
+   write-back is one undo step, "Edit Preview Layout" (opening it in place is #58). System ▸ Setup Previews shows the
+   section; the sheet is gone. Live windows leave "(OpenGL)" out of the title, and the frame rate shows only after
+   Show Frame Rate in the window's menu. MCP `preview_create`, `preview_rename`, `preview_duplicate`, `preview_delete`,
+   `preview_enable`; `preview_list` reports `enabled`. Harness: `scripts/ui/studio-previews.json` with
+   `scripts/check_studio_previews.py`.
 2. **Schedule section becomes a real pane.** Shows and schedules inline, next-run time, enable toggles, live edits with
    Undo. The Scheduler window is retired; copy fixed.
 3. **Controllers section** in the sidebar, with run state, IP, universes and output health, sharing the Phase 1

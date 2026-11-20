@@ -36,6 +36,8 @@ struct StudioDisplaySetupPane: View {
         .background(StudioPaneWindowReader())
         .onAppear {
             live.paneVisible = true
+            // The Previews pane had the window's undo stack; rebuild this pane's steps on the next tick.
+            live.forgetHistory()
             openIfReady()
         }
         .onDisappear {
@@ -153,6 +155,10 @@ final class StudioDisplayLive {
     func reset() {
         notice = nil
         blocked = nil
+    }
+
+    func forgetHistory() {
+        history = ""
     }
 
     /// Every half second while the pane shows.

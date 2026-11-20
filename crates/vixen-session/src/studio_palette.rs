@@ -147,7 +147,7 @@ pub fn reason(e: &Entry, window: &str) -> Option<String> {
         return None;
     }
     let t = e.title();
-    let designer = "Open a preview in the designer first (System ▸ System Configuration ▸ Setup Previews).";
+    let designer = "Open a preview in the designer first (Previews section ▸ Edit Layout…).";
     let text = match (e.top(), t) {
         (_, "Undo") | (_, "Redo") => format!("Nothing to {} yet.", t.to_lowercase()),
         (_, "Cut") | (_, "Copy") | (_, "Delete") => {

@@ -58,6 +58,12 @@ struct StudioShowWindow: View {
             admin.openWindow = openWindow
             StudioDisplayPane.reveal = { choose(.display) }
             StudioDisplayPane.stopLiveOutput = { admin.stopExecution() }
+            StudioPreviewsCore.admin = admin
+            StudioPreviewsCore.reveal = { choose(.previews) }
+            admin.app.previewDesignerDidClose = { id in
+                guard let core = admin.app.core else { return }
+                StudioPreviewsModel.shared.designerClosed(id: id, core: core)
+            }
             // The sidebar's rows aren't reachable by a script's click, so `{ "action": "studioSection", "name": "display" }` picks one.
             if UITestHarness.isActive {
                 UITestHarness.customActions["studioSection"] = { step in
@@ -156,12 +162,7 @@ struct StudioShowWindow: View {
                 )
             }
         case .previews:
-            StudioAreaPane(
-                section: .previews,
-                summary: "On-screen layouts of your display, used to watch sequences without the real lights.",
-                stats: [("Previews", library.overview.map { "\($0.previews)" } ?? "–")],
-                primary: ("Set Up Previews", { admin.showSetupPreviews() })
-            )
+            StudioPreviewsPane(revision: agents.revision)
         case .schedule:
             StudioAreaPane(
                 section: .schedule,
@@ -202,7 +203,7 @@ struct StudioShowWindow: View {
         case .dataProfile:
             DataProfileSheet { saved in admin.profilesEdited(saved: saved) }
         case .setupPreviews:
-            SetupPreviewsSheet()
+            EmptyView() // Never shown: Setup Previews is the Previews section (`StudioPreviewsPane`).
         case .checkForUpdates:
             CheckForUpdatesSheet()
         case .webServer:

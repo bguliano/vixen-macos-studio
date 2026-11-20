@@ -181,7 +181,7 @@ impl Renderer {
     }
 }
 
-fn paint_disc(
+pub(crate) fn paint_disc(
     image: &mut image::RgbaImage,
     width: u32,
     height: u32,

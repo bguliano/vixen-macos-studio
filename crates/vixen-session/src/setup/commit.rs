@@ -34,6 +34,12 @@ impl DisplayHub {
     pub fn revision(&self) -> u64 {
         self.revision.load(Ordering::Relaxed)
     }
+
+    // STUDIO-BEGIN preview-revision: preview-only edits (studio_previews) move the revision without rebuilding the output
+    pub(crate) fn studio_bump(&self) {
+        self.revision.fetch_add(1, Ordering::Relaxed);
+    }
+    // STUDIO-END preview-revision
 }
 
 impl AppCore {

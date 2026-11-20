@@ -1,0 +1,284 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioSection",
+   "name": "previews"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "initial"
+  },
+  {
+   "action": "snapshot",
+   "name": "previews-initial"
+  },
+  {
+   "action": "dump",
+   "name": "previews-initial"
+  },
+  {
+   "action": "click",
+   "label": "Add Preview"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "added"
+  },
+  {
+   "action": "type",
+   "text": "Roof Line"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "renamed"
+  },
+  {
+   "action": "studioPreviewSelect",
+   "name": "Roof Line"
+  },
+  {
+   "action": "click",
+   "label": "Duplicate"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "duplicated"
+  },
+  {
+   "action": "mouse",
+   "x": 1279,
+   "y": 242
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "turned-off"
+  },
+  {
+   "action": "snapshot",
+   "name": "previews-edited"
+  },
+  {
+   "action": "studioPreviewSelect",
+   "name": "Roof Line copy"
+  },
+  {
+   "action": "click",
+   "label": "Delete"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "deleted"
+  },
+  {
+   "action": "menus",
+   "name": "menus-after-delete"
+  },
+  {
+   "action": "studioPreviewMenuUndo"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "undo-delete"
+  },
+  {
+   "action": "click",
+   "label": "Undo"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "undo-turn-off"
+  },
+  {
+   "action": "menus",
+   "name": "menus-after-undo"
+  },
+  {
+   "action": "studioPreviewMenuRedo"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "redo-turn-off"
+  },
+  {
+   "action": "menu",
+   "path": [
+    "System",
+    "System Configuration",
+    "Setup Previews"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioSectionNow",
+   "name": "after-setup-previews"
+  },
+  {
+   "action": "windows",
+   "name": "windows-after-setup-previews"
+  },
+  {
+   "action": "studioPreviewSelect",
+   "name": "Christmas Tree 2022 (OpenGL)"
+  },
+  {
+   "action": "studioPreviewEditLayout"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "windows",
+   "name": "windows-designer"
+  },
+  {
+   "action": "focus",
+   "window": "Preview Configuration"
+  },
+  {
+   "action": "snapshot",
+   "name": "designer"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "designer-closed"
+  },
+  {
+   "action": "click",
+   "label": "Live Output On"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "windows",
+   "name": "windows-output-off"
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "output-off"
+  },
+  {
+   "action": "snapshot",
+   "name": "previews-output-off"
+  },
+  {
+   "action": "click",
+   "label": "Live Output Off"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "windows",
+   "name": "windows-output-on"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "output-on"
+  },
+  {
+   "action": "snapshot",
+   "name": "previews-output-on"
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Tree 2022"
+  },
+  {
+   "action": "dump",
+   "name": "live-window"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

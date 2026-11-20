@@ -18,6 +18,8 @@ pub struct StudioEvent {
 struct Entry {
     label: String,
     system: SystemData,
+    /// Only previews changed (`studio_previews`), so undoing it republishes without rebuilding the output.
+    preview_only: bool,
 }
 #[derive(Default)]
 struct State {
@@ -132,7 +134,7 @@ impl StudioDisplay {
     }
     pub fn history(&self) -> Value {
         let s = self.state.lock();
-        json!({"revision":s.revision,"undo":s.undo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"redo":s.redo.iter().rev().map(|e|&e.label).collect::<Vec<_>>()})
+        json!({"revision":s.revision,"undo":s.undo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"redo":s.redo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"undoPreviewOnly":s.undo.last().is_some_and(|e|e.preview_only),"redoPreviewOnly":s.redo.last().is_some_and(|e|e.preview_only)})
     }
     /// One validated, undoable transaction; no filesystem writes or controller starts.
     /// expected_revision prevents stale inspectors from overwriting newer agent/UI work.
@@ -169,7 +171,12 @@ impl StudioDisplay {
             }
         }
         // apply_display can rebuild a running graph: do not let even an ordinary agent edit send output.
-        if agent && core.playback.hardware_allowed() && core.execution().is_open() {
+        // Preview list edits never touch the graph (studio_previews::publish), so they stay open to agents.
+        if agent
+            && core.playback.hardware_allowed()
+            && core.execution().is_open()
+            && !crate::studio_previews::is_command(command)
+        {
             return Err("Stop live output locally before agent display edits".into());
         }
         if command == "profile_save" {
@@ -209,10 +216,21 @@ impl StudioDisplay {
             return Ok(json!({"saved":true,"revision":actual}));
         }
         let before = core.system.read().clone();
-        let label = format!("{}{}", command, if agent { " (Agent)" } else { "" });
+        let name = if crate::studio_previews::is_command(command) {
+            crate::studio_previews::label(command, args)
+        } else {
+            command
+        };
+        let label = format!("{}{}", name, if agent { " (Agent)" } else { "" });
         let result;
         match command {
             "display_undo" | "display_redo" => {
+                let stack = if command == "display_undo" { &state.undo } else { &state.redo };
+                let preview_only = stack.last().ok_or("Nothing to undo/redo")?.preview_only;
+                // Undoing a display edit rebuilds the graph, which Live Output must not see; a preview step never does.
+                if !preview_only && !agent && self.ui_edit_block(core).is_some() {
+                    return Err(LIVE_OUTPUT_BLOCK.into());
+                }
                 let entry = if command == "display_undo" {
                     state.undo.pop()
                 } else {
@@ -222,14 +240,37 @@ impl StudioDisplay {
                 let inverse = Entry {
                     label: entry.label.clone(),
                     system: before,
+                    preview_only,
                 };
-                core.apply_display(entry.system);
+                if preview_only {
+                    crate::studio_previews::publish(core, entry.system);
+                } else {
+                    core.apply_display(entry.system);
+                }
                 if command == "display_undo" {
                     state.redo.push(inverse)
                 } else {
                     state.undo.push(inverse)
                 }
                 result = json!({"label":entry.label});
+            }
+            _ if crate::studio_previews::is_command(command) => {
+                let mut system = before.clone();
+                let (value, changed) = crate::studio_previews::edit(&mut system, command, args)?;
+                result = value;
+                if !changed {
+                    return Ok(json!({"changed":false,"revision":actual,"result":result}));
+                }
+                crate::studio_previews::publish(core, system);
+                state.undo.push(Entry {
+                    label,
+                    system: before,
+                    preview_only: true,
+                });
+                if state.undo.len() > HISTORY_LIMIT {
+                    state.undo.remove(0);
+                }
+                state.redo.clear();
             }
             _ => {
                 // A failed edit affects only this candidate. GUIDs, not arena row paths, cross this API.
@@ -249,6 +290,7 @@ impl StudioDisplay {
                 state.undo.push(Entry {
                     label,
                     system: before,
+                    preview_only: false,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -257,6 +299,7 @@ impl StudioDisplay {
             }
         }
         if command.starts_with("preview_prop_")
+            || crate::studio_previews::is_command(command)
             || matches!(command, "display_undo" | "display_redo")
         {
             core.mark_preview_changed();
@@ -341,6 +384,7 @@ impl StudioDisplay {
         state.undo.push(Entry {
             label: label.into(),
             system: before,
+            preview_only: false,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -357,6 +401,46 @@ impl StudioDisplay {
             agent: false,
         });
         Ok(json!({"changed":true,"revision":revision,"label":label}))
+    }
+}
+impl StudioDisplay {
+    /// A change made outside the commands that touches only previews, such as the preview designer writing its layout back
+    /// when it closes: one step on the shared history, so Edit ▸ Undo in the show window takes it back. `changed` false applies
+    /// `edit` without a step. The display revision moves, so stale inspectors refresh.
+    pub fn record_preview_edit(&self, core: &AppCore, label: &str, changed: bool, edit: impl FnOnce(&mut SystemData)) {
+        let mut state = self.state.lock();
+        if !changed || self.is_stopped() {
+            edit(&mut core.system.write());
+            return;
+        }
+        let actual = core.display.revision();
+        if state.revision != actual {
+            state.undo.clear();
+            state.redo.clear();
+        }
+        let before = core.system.read().clone();
+        edit(&mut core.system.write());
+        core.display.studio_bump();
+        core.mark_preview_changed();
+        state.undo.push(Entry {
+            label: label.into(),
+            system: before,
+            preview_only: true,
+        });
+        if state.undo.len() > HISTORY_LIMIT {
+            state.undo.remove(0);
+        }
+        state.redo.clear();
+        state.revision = core.display.revision();
+        let revision = state.revision;
+        drop(state);
+        self.publish(StudioEvent {
+            document_id: None,
+            revision,
+            kind: "displayChanged".into(),
+            command: "preview_design".into(),
+            agent: false,
+        });
     }
 }
 fn text<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
@@ -625,6 +709,7 @@ pub fn command_tools() -> Vec<Value> {
     }).collect();
     tools.extend(crate::studio_show::tools());
     tools.extend(crate::studio_props::tools());
+    tools.extend(crate::studio_previews::tools());
     tools
 }
 

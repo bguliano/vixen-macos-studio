@@ -191,6 +191,12 @@ final class LiveStatusBar: NSView {
     private let distance = NSTextField(labelWithString: "Distance 0.0")
     private let fps = NSTextField(labelWithString: "FPS: 0")
     private let camera: Bool
+    // STUDIO-BEGIN preview-frame-rate: the frame rate is a diagnostic, shown only when asked for from the window's menu
+    static let frameRateKey = "studio.preview.showFrameRate"
+    var showsFrameRate = UserDefaults.standard.bool(forKey: LiveStatusBar.frameRateKey) {
+        didSet { fps.isHidden = !showsFrameRate }
+    }
+    // STUDIO-END preview-frame-rate
 
     init(camera: Bool) {
         self.camera = camera
@@ -210,6 +216,7 @@ final class LiveStatusBar: NSView {
             stack.addArrangedSubview(distance)
         }
         stack.addArrangedSubview(fps)
+        fps.isHidden = !showsFrameRate // STUDIO: hidden unless asked for
         stack.translatesAutoresizingMaskIntoConstraints = false
         addSubview(stack)
         NSLayoutConstraint.activate([
@@ -290,7 +297,7 @@ final class LivePreviewController: NSObject, NSWindowDelegate {
         window = LivePreviewNSWindow(contentRect: NSRect(origin: .zero, size: contentSize), styleMask: mask, backing: .buffered, defer: false)
         super.init()
 
-        window.title = preparation.name()
+        window.title = studioPreviewWindowTitle(name: preparation.name()) // STUDIO: no "(OpenGL)" tag in the title
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.contentMinSize = NSSize(width: 100, height: 60)
@@ -461,7 +468,7 @@ final class LivePreviewController: NSObject, NSWindowDelegate {
         guard let live else { return }
         updateFixtureTimer()
         statusBar.show(live.status())
-        let name = live.name()
+        let name = studioPreviewWindowTitle(name: live.name()) // STUDIO: no "(OpenGL)" tag in the title
         if window.title != name {
             window.title = name
         }
@@ -498,6 +505,7 @@ final class LivePreviewController: NSObject, NSWindowDelegate {
             menu.addItem(item)
         }
         toggle("Show Status", "Enable/Disable the preview status bar.", flags.showStatus, #selector(toggleStatus))
+        toggle("Show Frame Rate", "Show how many frames a second the preview draws, in the status bar.", statusBar.showsFrameRate, #selector(toggleFrameRate)) // STUDIO: frame rate on request
         if !isCamera {
             toggle("Show Borders", "Enable/Disable the preview borders.", flags.showBorders, #selector(toggleBorders))
             toggle("Lock Position", "Enable/Disable the window position lock.", flags.lockPosition, #selector(toggleLockPosition))
@@ -529,6 +537,17 @@ final class LivePreviewController: NSObject, NSWindowDelegate {
         live?.setFlags(flags: flags)
         save()
     }
+
+    // STUDIO-BEGIN preview-frame-rate-toggle: one setting for every preview window
+    @objc func toggleFrameRate() {
+        let show = !statusBar.showsFrameRate
+        UserDefaults.standard.set(show, forKey: LiveStatusBar.frameRateKey)
+        for controller in LivePreviewCoordinator.shared?.controllers.values.map({ $0 }) ?? [self] {
+            controller.statusBar.showsFrameRate = show
+        }
+        statusBar.showsFrameRate = show
+    }
+    // STUDIO-END preview-frame-rate-toggle
 
     @objc func toggleStatus() {
         flags.showStatus.toggle()
@@ -678,7 +697,7 @@ final class LivePreviewController: NSObject, NSWindowDelegate {
     // MARK: Closing, F60
 
     private func showCannotClose() {
-        showAlert(title: "Close", text: "The preview can only be closed from the Preview Configuration dialog.")
+        showAlert(title: "Close", text: "To close this preview, turn it off in the Previews section of the show window.") // STUDIO: the Previews pane replaced Setup Previews
     }
 
     private func showAlert(title: String, text: String) {
