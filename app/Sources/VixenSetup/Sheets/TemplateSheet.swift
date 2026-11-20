@@ -10,11 +10,13 @@ struct TemplateSheet: View {
     @State private var draft: SetupTemplateDraft
     @State private var problem: SetupTemplateProblem?
     @State private var finished = false
+    @State private var colorMode: String // STUDIO: the template's Colour choice (StudioTemplateColor)
 
     init(draft: SetupTemplateDraft, rememberOnCancel: ((SetupTemplateDraft) -> Void)? = nil, onFinish: @escaping (SetupTemplateDraft?) -> Void) {
         self.onFinish = onFinish
         self.rememberOnCancel = rememberOnCancel
         _draft = State(initialValue: draft)
+        _colorMode = State(initialValue: StudioTemplateColor.mode(for: draft.kind)) // STUDIO: the template's Colour choice
     }
 
     var body: some View {
@@ -32,16 +34,17 @@ struct TemplateSheet: View {
 
     @ViewBuilder private var content: some View {
         switch draft.kind {
+        // STUDIO-BEGIN template-color-single: Single Item is a form rather than a name prompt, so it can carry the Colour choice
         case .singleItem:
-            TextPromptSheet(title: "Element Name", prompt: "New Element Name?", initial: draft.name, selectAll: true) { response in
-                guard let response else {
-                    onFinish(nil)
-                    return
+            form("Single Item", width: 420) {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
+                    GridRow {
+                        SheetFieldLabel("Element Name:").gridColumnAlignment(.trailing)
+                        SheetTextField("Element Name:", text: $draft.name)
+                    }
                 }
-                // SingleItem.cs: an empty answer is taken as the default name, which is also what the dialog next opens with.
-                draft.name = response.isEmpty ? setupTemplateDraft(kind: .singleItem)?.name ?? response : response
-                onFinish(draft)
             }
+        // STUDIO-END template-color-single
         case .numberedGroup, .arch, .candyCane, .star:
             form("Group Setup", width: 344) { GroupSetupForm(draft: $draft) }
         case .starburst:
@@ -64,6 +67,11 @@ struct TemplateSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title).font(.headline)
             fields()
+            // STUDIO-BEGIN template-color-picker: RGB / RGBW / Single colour, with the channel count it gives
+            if StudioTemplateColor.supports(draft.kind) {
+                StudioTemplateColorPicker(mode: $colorMode)
+            }
+            // STUDIO-END template-color-picker
             SheetButtons(ok: ok, cancel: cancel)
         }
         .padding(16)
@@ -72,6 +80,12 @@ struct TemplateSheet: View {
     }
 
     private func ok() {
+        // STUDIO-BEGIN template-color-ok: remember the Colour choice; Single Item takes an empty name as the default, as its prompt did
+        if draft.kind == .singleItem, draft.name.isEmpty {
+            draft.name = setupTemplateDraft(kind: .singleItem)?.name ?? draft.name
+        }
+        StudioTemplateColor.chosen[draft.kind] = colorMode
+        // STUDIO-END template-color-ok
         if let found = setupTemplateProblem(draft: draft) {
             problem = found
         } else {

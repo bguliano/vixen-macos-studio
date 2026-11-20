@@ -19,8 +19,8 @@
 | effect_catalog | true | List registered effects and JSON parameter schemas. Unsupported native value kinds have a rejecting schema. |
 | diagnostics_report | true | Report patches, controller/universe errors, and missing media/targets/native color corrections for open sequences. |
 | profile_save | false | Save current live display configuration and module data. Explicit confirmation required; retains undo history. |
-| element_template | false | Create a bounded arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows; pixels=pixels per string/columns. |
-| element_color | false | Set RGB or single-color handling on an element/group's leaves. |
+| element_template | false | Create a bounded single item, arch, group, megatree or matrix using native template algorithms; color (rgb, rgbw, single) sets colour handling on the new lights in the same step. |
+| element_color | false | Set colour handling on an element/group's leaves, as the Color Handling helper does (Color property plus Color Breakdown filter): rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1. |
 | element_wire_order | false | Reverse the selected element/group row order using the native setup command. |
 | controller_configure | false | Configure DDP or E1.31 unicast using an IPv4 literal. Does not connect or start output. E1.31 requires firstUniverse; universeSize defaults 510. |
 | element_create | false | Create an element, optionally under a parent UUID. |

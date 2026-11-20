@@ -584,8 +584,8 @@ pub fn command_tools() -> Vec<Value> {
     let boolean = json!({"type":"boolean"});
     let entries=vec![
         ("profile_save","Save current live display configuration and module data. Explicit confirmation required; retains undo history.",json!({"confirm":boolean}),vec!["confirm"],true),
-        ("element_template","Create a bounded arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows; pixels=pixels per string/columns.",json!({"name":string,"kind":{"type":"string","enum":["arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean}),vec!["name","kind","count"],false),
-        ("element_color","Set RGB or single-color handling on an element/group's leaves.",json!({"id":string,"mode":{"type":"string","enum":["rgb","single"]},"color":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["id","mode"],false),
+        ("element_template","Create a bounded single item, arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows (1 for single); pixels=pixels per string/columns. color sets colour handling on every new light in the same step, as the template's Colour picker does: rgb (3 channels per pixel, R G B), rgbw (4, R G B W) or single (1; singleColor, default royal blue). Without color the lights get no colour handling.",json!({"name":string,"kind":{"type":"string","enum":["single","arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean,"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["name","kind","count"],false),
+        ("element_color","Set colour handling on an element/group's leaves, as the Color Handling helper does: the Color property plus a Color Breakdown filter, replacing existing ones. rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1 in color (default royal blue). Patch afterwards; the breakdown's channels are what patching connects.",json!({"id":string,"mode":{"type":"string","enum":["rgb","rgbw","single"]},"color":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["id","mode"],false),
         ("element_wire_order","Reverse the selected element/group row order using the native setup command.",json!({"id":string}),vec!["id"],false),
         ("controller_configure","Set up a DDP or E1.31 controller's network in one step, as the controller inspector does: protocol (changing it replaces the controller, keeping name, outputs and patches, and returns newId), an IPv4 unicast address, output count, and for E1.31 the first universe and channels per universe (510 or 512; or preset wledRgb=510 / wledRgbw=512), with universes generated from the output count. Fields left out keep their current values (new controllers: universe 1, 510 channels). Does not connect or start output. Read back with controller_network.",json!({"id":string,"protocol":{"type":"string","enum":["e131","ddp"]},"address":string,"outputs":{"type":"integer","minimum":1,"maximum":65536},"firstUniverse":{"type":"integer","minimum":1,"maximum":63999},"universeSize":{"type":"integer","minimum":1,"maximum":512},"preset":{"type":"string","enum":["wledRgb","wledRgbw"]}}),vec!["id"],false),
 
@@ -635,7 +635,12 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             if pixels == 0 || pixels * u64::from(count) > 4096 {
                 return Err("Template limit is 4096 leaf elements".into());
             }
+            let color = match a.get("color") {
+                Some(_) => Some(crate::studio_color::parse(a, "color")?),
+                None => None,
+            };
             let params = match text(a, "kind")? {
+                "single" => TemplateParams::Single { name },
                 "arch" | "group" => TemplateParams::Numbered {
                     group: name,
                     prefix: "Pixel".into(),
@@ -661,48 +666,25 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
                     start: StartLocation::BottomLeft,
                     zig_zag: a["zigZag"] == true,
                 },
-                _ => return Err("kind must be arch, group, megatree or matrix".into()),
+                _ => return Err("kind must be single, arch, group, megatree or matrix".into()),
             };
             let result = generate_template(&mut s.tree, &params).map_err(|e| format!("{e:?}"))?;
-            let head = result.head.map(|n| s.tree.node(n).id.to_string());
+            let head_node = result.head;
+            let head = head_node.map(|n| s.tree.node(n).id.to_string());
             let count = result.created.len();
             s.apply_template_result(result);
-            Ok(json!({"id":head,"createdNodes":count}))
+            let color = match (color, head_node) {
+                (Some((mode, single)), Some(node)) => {
+                    Some(crate::studio_color::apply(s, &[node], &mode, single)?)
+                }
+                _ => None,
+            };
+            Ok(json!({"id":head,"createdNodes":count,"color":color}))
         }
         "element_color" => {
-            use vixen_core::element::{property_ids, ElementColorType, PropertyData};
             let node = s.tree.find(&id(a, "id")?).ok_or("Element not found")?;
-            let leaves = s.tree.distinct_leaves([node]);
-            let kind = match text(a, "mode")? {
-                "rgb" => ElementColorType::FullColor,
-                "single" => ElementColorType::SingleColor,
-                _ => return Err("mode must be rgb or single".into()),
-            };
-            let color = if a["mode"] == "single" {
-                match crate::studio_params::decode(
-                    vixen_effects::framework::ParamKind::Color,
-                    &a["color"],
-                )? {
-                    vixen_effects::framework::ParamValue::Color(c) => c,
-                    _ => unreachable!(),
-                }
-            } else {
-                vixen_core::Color::WHITE
-            };
-            for leaf in &leaves {
-                let p = s.row_path_of(*leaf);
-                s.add_property(&[p], property_ids::COLOR);
-                s.set_property_data(
-                    *leaf,
-                    &property_ids::COLOR,
-                    PropertyData::Color {
-                        color_type: kind,
-                        single_color: color,
-                        color_set_name: None,
-                    },
-                );
-            }
-            Ok(json!({"updatedLeaves":leaves.len()}))
+            let (mode, color) = crate::studio_color::parse(a, "mode")?;
+            crate::studio_color::apply(s, &[node], &mode, color)
         }
         "element_wire_order" => {
             let p = path(s, id(a, "id")?)?;

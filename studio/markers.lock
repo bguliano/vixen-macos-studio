@@ -131,6 +131,26 @@
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
   "hash": "034b2e867c197250"
  },
+ "block:template-color-apply": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "22e7fda788bb4119"
+ },
+ "block:template-color-ok": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "e197a2c06036f88e"
+ },
+ "block:template-color-picker": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "26387abc726a83b7"
+ },
+ "block:template-color-single": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "f35e4aef74f867ab"
+ },
+ "block:template-runner-color": {
+  "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",
+  "hash": "18d8b03bfb8413a2"
+ },
  "block:timeline-palette": {
   "file": "app/Sources/VixenTimeline/Painters.swift",
   "hash": "3e0c36890138a3fb"
@@ -239,6 +259,10 @@
   "file": "app/Sources/VixenDialogs/DialogsTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:a3b88274fa0af110": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "a3b88274fa0af110"
+ },
  "line:app/Sources/VixenEffectEditor/EffectEditorPane.swift:036ee544948c9627": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "036ee544948c9627"
@@ -343,6 +367,14 @@
   "file": "app/Sources/VixenSetup/SetupScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:0a35fb9481b7dcc6": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "0a35fb9481b7dcc6"
+ },
+ "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:7c0b925da1b2b494": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "7c0b925da1b2b494"
+ },
  "line:app/Sources/VixenSetup/Window/SetupModel.swift:b70bbb9c17d64e79": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
   "hash": "b70bbb9c17d64e79"
@@ -446,6 +478,10 @@
  "line:crates/vixen-session/src/boot.rs:e0e2fb453a030826": {
   "file": "crates/vixen-session/src/boot.rs",
   "hash": "e0e2fb453a030826"
+ },
+ "line:crates/vixen-session/src/lib.rs:00ac71821b008fa4": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "00ac71821b008fa4"
  },
  "line:crates/vixen-session/src/lib.rs:03fcbfc65a5465c6": {
   "file": "crates/vixen-session/src/lib.rs",

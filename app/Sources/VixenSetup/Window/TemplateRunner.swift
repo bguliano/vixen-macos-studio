@@ -78,11 +78,16 @@ enum TemplateRunner {
                 }
             }
         }
-        if info.runColor {
+        // STUDIO-BEGIN template-runner-color: the template's Colour choice replaces the Color Handling sheet where it's offered
+        if StudioTemplateColor.supports(info.kind) {
+            let mode = StudioTemplateColor.mode(for: info.kind)
+            await offMain { StudioTemplateColor.apply(mode, to: created, in: session) }
+        } else if info.runColor {
             let _: Bool = await sheet(on: window) { finish in
                 DialogEntryPoint(request: .helper(name: "Color Handling", nodes: created, simple: false, startFullColor: true), session: session, onFinish: finish)
             }
         }
+        // STUDIO-END template-runner-color
         let selected = await offMain { session.nodeIdsOf(selection: made.edit.select) }
         return ElementTemplateResult(nodes: selected, selection: selected)
     }

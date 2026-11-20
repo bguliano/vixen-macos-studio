@@ -233,6 +233,7 @@ struct ColorHelperSheet: View {
                     }
                     .labelsHidden()
                     .fixedSize()
+                    Text(studioColorOrderNote(order: colorOrder)).font(.callout).foregroundStyle(.secondary) // STUDIO: channel count per pixel
                 }
                 .disabled(colorType != .fullColor)
             }

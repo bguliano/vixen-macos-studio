@@ -29,7 +29,7 @@ command, edits are live with Undo, and each change is verified with harness runs
   - Swapping a group or reversing one string means doing output arithmetic by hand.
   - A preview has to be built and linked separately from the element it shows.
   - Beat detection was unreachable (fixed in b17c7e2a6).
-  - Agents can't set RGBW colour handling (`element_color` is rgb/single only).
+  - Agents can't set RGBW colour handling (`element_color` is rgb/single only). (Fixed: Phase 1 item 2.)
 
 ## Phase 1: hardware setup without arithmetic (do first; show season is now)
 
@@ -39,7 +39,9 @@ command, edits are live with Undo, and each change is verified with harness runs
    inspector (`StudioControllerInspector.swift`, `studio_controller_network.rs`); MCP `controller_configure` and
    `controller_network`. The universe table and multicast stay under Advanced….
 2. **RGBW colour handling** in the element templates (Colour: RGB / RGBW / Single) and in `element_color`, with a
-   one-line explanation of what each does to the channel count.
+   one-line explanation of what each does to the channel count. *Done:* a Colour picker in the Single Item, Megatree and
+   Pixel Grid sheets (`StudioTemplateColor.swift`, `studio_color.rs`) applied instead of the Color Handling sheet, a
+   channel-count note under Color Handling's Color Order, MCP `element_color` mode `rgbw` and `element_template` `color`.
 3. **Megatree and matrix templates explain themselves.** A live wiring diagram (start corner, zig-zag shown as arrows),
    "Reverse every other string" wording, "hidden pixels per string" (the tucked lights) that builds a separate group.
 4. **Patching by intent, not numbers.** Context-menu actions on a string or group: Reverse, Swap with…, Move to output…,

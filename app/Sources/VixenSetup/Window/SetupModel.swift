@@ -598,9 +598,14 @@ final class SetupModel {
                 _ = await runDialog(.helper(name: "Dimming Curve", nodes: nodes, simple: true, startFullColor: false))
             }
         }
-        if info.runColor {
+        // STUDIO-BEGIN template-color-apply: the template's Colour choice replaces the Color Handling sheet where it's offered
+        if StudioTemplateColor.supports(kind) {
+            let mode = StudioTemplateColor.mode(for: kind)
+            _ = await working { session in StudioTemplateColor.apply(mode, to: nodes, in: session) }
+        } else if info.runColor {
             _ = await runDialog(.helper(name: "Color Handling", nodes: nodes, simple: false, startFullColor: true))
         }
+        // STUDIO-END template-color-apply
         await apply(made.edit)
         elementsChanged(.add)
     }

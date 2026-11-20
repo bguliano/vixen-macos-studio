@@ -201,6 +201,28 @@ impl DisplaySetupSession {
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }
+    /// Colour handling on this working copy: {ids:[UUID], mode:"rgb"|"rgbw"|"single", color?:"#RRGGBB"}, the code the MCP
+    /// `element_color` tool and the template's `color` field run. Returns JSON {mode, updatedLeaves, filters, channelsPerPixel}.
+    pub fn studio_apply_color_handling(&self, arguments_json: String) -> Result<String, FfiError> {
+        let args: serde_json::Value =
+            serde_json::from_str(&arguments_json).map_err(|e| FfiError::new(e.to_string()))?;
+        let mut working = self.inner.write();
+        vixen_session::studio_color::apply_to_ids(&mut working, &args)
+            .map(|v| v.to_string())
+            .map_err(FfiError::new)
+    }
+}
+
+/// The template Colour picker's choices as JSON: [{mode, label, channelsPerPixel, note}].
+#[uniffi::export]
+pub fn studio_color_choices() -> String {
+    vixen_session::studio_color::choices().to_string()
+}
+
+/// The Color Handling helper's one-line note for a colour order such as "RGBW".
+#[uniffi::export]
+pub fn studio_color_order_note(order: String) -> String {
+    vixen_session::studio_color::order_note(&order)
 }
 
 #[uniffi::export]
