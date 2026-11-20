@@ -73,7 +73,7 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 
 - No automatic lyrics transcription/phoneme alignment. Bars assume 4/4. Onset/section candidates are energy heuristics, not semantic song structure.
 - PNG uses real geometry/links/schedule/color conversion but CPU inspection rasterization: no background artwork, fixture beams or GPU antialiasing; max 2048 dimensions.
-- Common primitives/enums/colors/RGB/curves/gradients/nested records supported. Font, gradient-level pairs, raw XML and file-path parameter selectors remain rejected with rejecting schemas. Layer creation currently uses highest-value mixing.
+- Common primitives/enums/colors/RGB/curves/gradients/gradient-level pairs ({gradient, curve} lists, e.g. Alternating, Pinwheel and Dissolve Colors)/nested records supported; effect_catalog and effect_parameters add a `note` where a parameter needs more than its native label (GroupLevel/EnableDepth/DepthOfEffect on Alternating and Dissolve). Font, raw XML and file-path parameter selectors remain rejected with rejecting schemas. Layer creation currently uses highest-value mixing.
 - Controller editing covers IPv4 unicast, not every serial/specialist dialog or manual multicast/universe layout. Real hardware startup/test is deliberately untested.
 - Schedule creation is disabled until local review; no program-launch actions or silent profile switching.
 - Preview edits must not race an old private native-designer working copy. Redesigned UI event/reload integration remains the coordinator's lane.

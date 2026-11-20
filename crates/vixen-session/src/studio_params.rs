@@ -1,6 +1,6 @@
 //! JSON parameter codec using native effect descriptors; unsupported raw XML is never accepted.
 use serde_json::{json, Value};
-use vixen_core::{Color, ColorGradient, Curve, TimeSpan};
+use vixen_core::{Color, ColorGradient, Curve, GradientLevelPair, TimeSpan};
 use vixen_effects::framework::{ParamKind, ParamValue, Params};
 
 pub fn schema(kind: ParamKind) -> Value {
@@ -25,6 +25,9 @@ pub fn schema(kind: ParamKind) -> Value {
         }
         ParamKind::GradientList => {
             json!({"type":"array","items":schema(ParamKind::Gradient),"maxItems":64})
+        }
+        ParamKind::GradientLevels => {
+            json!({"type":"array","items":{"type":"object","properties":{"gradient":schema(ParamKind::Gradient),"curve":schema(ParamKind::Curve)},"required":["gradient"],"additionalProperties":false},"minItems":1,"maxItems":64,"description":"Gradient and brightness curve pairs, used in order (Alternating cycles through them). curve defaults to flat 100%"})
         }
         ParamKind::Curve => {
             json!({"type":"array","items":{"type":"array","items":{"type":"number","minimum":0,"maximum":100},"minItems":2,"maxItems":2},"minItems":2,"maxItems":128,"description":"[x,y] curve control points, both 0..100"})
@@ -119,6 +122,37 @@ pub fn decode(kind: ParamKind, v: &Value) -> Result<ParamValue, String> {
                 })
                 .collect::<Result<Vec<_>, String>>()?,
         ),
+        ParamKind::GradientLevels => {
+            let items = array(v, 64)?;
+            if items.is_empty() {
+                return Err("At least one gradient required".into());
+            }
+            let mut pairs = Vec::new();
+            for item in items {
+                let item = item
+                    .as_object()
+                    .ok_or("Expected {gradient, curve} object")?;
+                if let Some(key) = item.keys().find(|k| *k != "gradient" && *k != "curve") {
+                    return Err(format!("Unknown gradient level field {key}"));
+                }
+                let ParamValue::Gradient(gradient) = decode(
+                    ParamKind::Gradient,
+                    item.get("gradient").ok_or("gradient is required")?,
+                )?
+                else {
+                    unreachable!()
+                };
+                let curve = match item.get("curve") {
+                    Some(c) => match decode(ParamKind::Curve, c)? {
+                        ParamValue::Curve(c) => c,
+                        _ => unreachable!(),
+                    },
+                    None => Curve::flat100(),
+                };
+                pairs.push(GradientLevelPair::new(gradient, curve));
+            }
+            ParamValue::GradientLevels(pairs)
+        }
         ParamKind::Curve => {
             let items = array(v, 128)?;
             if items.len() < 2 {
@@ -194,6 +228,10 @@ pub fn encode(value: &ParamValue) -> Value {
             .iter()
             .map(|g| encode(&ParamValue::Gradient(g.clone())))
             .collect::<Vec<_>>()),
+        ParamValue::GradientLevels(v) => json!(v
+            .iter()
+            .map(|g| json!({"gradient":encode(&ParamValue::Gradient(g.color_gradient.clone())),"curve":g.curve.points}))
+            .collect::<Vec<_>>()),
         ParamValue::Record(v) => json!(v
             .desc
             .iter()
@@ -204,5 +242,88 @@ pub fn encode(value: &ParamValue) -> Value {
             .map(|p| encode(&ParamValue::Record(Box::new(p.clone()))))
             .collect::<Vec<_>>()),
         _ => json!({"supported":false,"note":"Native value requires the native editor"}),
+    }
+}
+
+/// How the grouping parameters pick the nodes an effect works on, which the native labels don't say.
+pub fn note(effect: &str, param: &str) -> Option<&'static str> {
+    let depth_zero = match effect {
+        "Alternating" => "0 = the targets themselves",
+        "Dissolve" => "0 = leaf pixels (same as EnableDepth false)",
+        _ => return None,
+    };
+    Some(match (param, depth_zero) {
+        ("EnableDepth", _) => "false: the effect works on leaf pixels, so GroupLevel counts pixels. true: it works on the nodes DepthOfEffect levels below each target, e.g. a megatree group -> strings -> pixels with DepthOfEffect 1 works on whole strings.",
+        ("DepthOfEffect", "0 = the targets themselves") => "Used only when EnableDepth is true. Levels to descend from each target: 0 = the targets themselves, 1 = their children (a megatree group's strings), 2 = grandchildren. If that level is empty, leaf pixels are used.",
+        ("DepthOfEffect", _) => "Used only when EnableDepth is true. Levels to descend from each target: 0 = leaf pixels (same as EnableDepth false), 1 = their children (a megatree group's strings), 2 = grandchildren. Values deeper than the targets' tree reset to 0. If that level is empty, leaf pixels are used.",
+        ("GroupLevel", _) => "How many consecutive nodes (chosen by EnableDepth/DepthOfEffect) share one state. With EnableDepth false these are pixels: to alternate whole strings, set EnableDepth true, DepthOfEffect 1 and GroupLevel 1.",
+        ("Colors", _) if effect == "Alternating" => "Each group takes the next entry in turn, cycling through the list.",
+        _ => return None,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn effect(name: &str) -> &'static vixen_effects::framework::EffectDescriptor {
+        vixen_effect_registry::all()
+            .iter()
+            .copied()
+            .find(|d| d.name == name)
+            .unwrap()
+    }
+
+    #[test]
+    fn colors_are_writable_on_gradient_level_effects() {
+        for name in ["Alternating", "Pinwheel", "Dissolve"] {
+            let colors = effect(name)
+                .params
+                .iter()
+                .find(|p| p.name == "Colors")
+                .unwrap();
+            assert!(
+                schema(colors.kind).get("not").is_none(),
+                "{name} Colors schema rejects everything"
+            );
+            let value = json!([
+                {"gradient":["#0000ff"]},
+                {"gradient":["#ffff00","#ff8000"],"curve":[[0,0],[100,50]]}
+            ]);
+            let ParamValue::GradientLevels(pairs) = decode(colors.kind, &value).unwrap() else {
+                panic!()
+            };
+            assert_eq!(pairs.len(), 2);
+            assert_eq!(
+                pairs[0].color_gradient,
+                ColorGradient::from_colors(&[Color::from_argb_u32(0xff0000ff)])
+            );
+            assert_eq!(pairs[0].curve, Curve::flat100());
+            assert_eq!(pairs[1].curve.points, vec![(0.0, 0.0), (100.0, 50.0)]);
+            let encoded = encode(&ParamValue::GradientLevels(pairs));
+            assert_eq!(encoded[1]["curve"], json!([[0.0, 0.0], [100.0, 50.0]]));
+            assert_eq!(encoded[0]["gradient"]["colors"][0]["color"], "#0000ff");
+        }
+    }
+
+    #[test]
+    fn gradient_levels_reject_bad_input() {
+        let kind = ParamKind::GradientLevels;
+        assert!(decode(kind, &json!([])).is_err());
+        assert!(decode(kind, &json!(["#ff0000"])).is_err());
+        assert!(decode(kind, &json!([{"curve":[[0,100],[100,100]]}])).is_err());
+        assert!(decode(kind, &json!([{"gradient":["#ff0000"],"extra":1}])).is_err());
+        assert!(decode(kind, &json!([{"gradient":["#ff0000"],"curve":[[0,100]]}])).is_err());
+    }
+
+    #[test]
+    fn grouping_parameters_are_explained() {
+        for name in ["Alternating", "Dissolve"] {
+            for param in ["GroupLevel", "DepthOfEffect", "EnableDepth"] {
+                assert!(effect(name).params.iter().any(|p| p.name == param));
+                assert!(note(name, param).is_some(), "{name}.{param}");
+            }
+        }
+        assert!(note("Chase", "DepthOfEffect").is_none());
     }
 }

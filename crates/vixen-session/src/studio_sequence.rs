@@ -344,7 +344,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             );
             json!({})
         }
-        "effect_parameters"=>{let effect=effect_id(&s,a)?;let entry=s.effect(effect).unwrap();let desc=entry.descriptor.ok_or("Unknown effect type")?;json!({"parameters":desc.params.iter().map(|p|json!({"name":p.name,"value":crate::studio_params::encode(entry.node.params.get(p.name)),"schema":crate::studio_params::schema(p.kind)})).collect::<Vec<_>>()})},
+        "effect_parameters"=>{let effect=effect_id(&s,a)?;let entry=s.effect(effect).unwrap();let desc=entry.descriptor.ok_or("Unknown effect type")?;json!({"parameters":desc.params.iter().map(|p|{let mut o=json!({"name":p.name,"value":crate::studio_params::encode(entry.node.params.get(p.name)),"schema":crate::studio_params::schema(p.kind)});if let Some(n)=crate::studio_params::note(desc.name,p.name){o["note"]=json!(n);}o}).collect::<Vec<_>>()})},
         "effect_set_parameter" => {
             let effect = effect_id(&s, a)?;
             let parameter = string(a, "parameter")?;
