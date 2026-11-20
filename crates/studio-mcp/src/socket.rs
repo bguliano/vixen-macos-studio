@@ -49,9 +49,40 @@ pub struct SocketServer {
     stop: Arc<AtomicBool>,
     path: PathBuf,
     inode: u64,
+    clients: Arc<AtomicUsize>,
+}
+/// The endpoint a stop signal removes (`remove_on_stop_signal`), with its inode.
+static SERVED: std::sync::Mutex<Option<(PathBuf, u64)>> = std::sync::Mutex::new(None);
+fn remove_if_same(path: &Path, inode: u64) {
+    if fs::symlink_metadata(path).is_ok_and(|m| m.ino() == inode) {
+        let _ = fs::remove_file(path);
+    }
+}
+/// Called by the stop-signal thread before the process exits.
+pub(crate) fn remove_served_endpoint() {
+    if let Some((path, inode)) = SERVED.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        remove_if_same(&path, inode);
+    }
 }
 impl SocketServer {
+    /// Serves the running app's core.
     pub fn start(core: &Arc<AppCore>) -> io::Result<Self> {
+        Self::serve(core, true)
+    }
+    /// Serves a headless bridge's own muted core, so later bridges and scripts on the profile attach to its session instead
+    /// of failing on the profile lock it holds.
+    pub fn start_headless(core: &Arc<AppCore>) -> io::Result<Self> {
+        Self::serve(core, false)
+    }
+    /// Connected clients right now.
+    pub fn clients(&self) -> usize {
+        self.clients.load(Ordering::Acquire)
+    }
+    /// A bridge's stop signals exit without running destructors: remove this endpoint then too, with the profile lock.
+    pub fn remove_on_stop_signal(&self) {
+        *SERVED.lock().unwrap_or_else(|e| e.into_inner()) = Some((self.path.clone(), self.inode));
+    }
+    fn serve(core: &Arc<AppCore>, shared: bool) -> io::Result<Self> {
         let path = socket_path(core.paths.root())?;
         let dir = path.parent().unwrap();
         if !dir.exists() {
@@ -74,6 +105,7 @@ impl SocketServer {
         let stopping = stop.clone();
         let weak = Arc::downgrade(core);
         let clients = Arc::new(AtomicUsize::new(0));
+        let counted = clients.clone();
         thread::spawn(move || {
             while !stopping.load(Ordering::Acquire) {
                 match listener.accept() {
@@ -86,7 +118,7 @@ impl SocketServer {
                         clients.fetch_add(1, Ordering::AcqRel);
                         let clients = clients.clone();
                         thread::spawn(move || {
-                            let _ = handle(stream, core);
+                            let _ = handle(stream, core, shared);
                             clients.fetch_sub(1, Ordering::AcqRel);
                         });
                     }
@@ -97,18 +129,20 @@ impl SocketServer {
                 }
             }
         });
-        Ok(Self { stop, path, inode })
+        Ok(Self { stop, path, inode, clients: counted })
     }
 }
 impl Drop for SocketServer {
     fn drop(&mut self) {
         self.stop.store(true, Ordering::Release);
-        if fs::symlink_metadata(&self.path).is_ok_and(|m| m.ino() == self.inode) {
-            let _ = fs::remove_file(&self.path);
+        let mut served = SERVED.lock().unwrap_or_else(|e| e.into_inner());
+        if served.as_ref().is_some_and(|(_, inode)| *inode == self.inode) {
+            *served = None;
         }
+        remove_if_same(&self.path, self.inode);
     }
 }
-fn handle(mut stream: UnixStream, core: Arc<AppCore>) -> io::Result<()> {
+fn handle(mut stream: UnixStream, core: Arc<AppCore>, shared: bool) -> io::Result<()> {
     // Darwin may inherit the listener nonblocking flag on accepted sockets.
     stream.set_nonblocking(false)?;
     stream.set_read_timeout(Some(Duration::from_secs(120)))?;
@@ -130,7 +164,7 @@ fn handle(mut stream: UnixStream, core: Arc<AppCore>) -> io::Result<()> {
         return Err(io::Error::other("Wrong profile"));
     }
     writeln!(stream, "{{\"ready\":true}}")?;
-    crate::serve(&mut Server::from_core(core), input, stream)
+    crate::serve(&mut Server::attach(core, shared), input, stream)
 }
 /// None only when no endpoint exists. Any existing-but-broken endpoint fails closed.
 /// Whether this process holds the profile's exclusive Vixen lock: the lock file is a regular file naming this pid on this machine.

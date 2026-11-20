@@ -144,7 +144,7 @@ fn app_recognizes_running_bridge_lock() {
         "app must not mistake the active lowercase helper for a stale owner"
     );
     assert!(!root.join(".lock").exists());
-    std::fs::remove_dir(root).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 /// Starts the bridge on `root`, answers one `initialize`, and returns it still running with its stdin open.
@@ -180,7 +180,8 @@ fn a_stop_signal_removes_the_lock() {
         drop(stdin);
         assert_eq!((status.code(), status.signal()), (Some(128 + signal), None), "{tag}");
         assert!(!root.join(".lock").exists(), "{tag}: lock left behind");
-        std::fs::remove_dir(root).unwrap();
+        assert!(!studio_mcp::socket::socket_path(&root).unwrap().exists(), "{tag}: endpoint left behind");
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
 
@@ -196,18 +197,29 @@ fn a_killed_bridges_lock_is_taken_over_and_a_live_ones_names_its_owner() {
     drop(stdin);
     assert_eq!(std::fs::read_to_string(root.join(".lock")).unwrap().split('@').next(), Some(dead.to_string().as_str()));
     let (mut next, stdin) = running_bridge(&root);
-    let live = next.id();
+    // A live bridge serves its session, so a second one attaches to it (issue #14) instead of being refused.
+    let attached = Command::new(env!("CARGO_BIN_EXE_vixen-studio-mcp"))
+        .args(["--profile", root.to_str().unwrap()])
+        .env("VIXEN_MUTE", "1")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    assert!(attached.status.success(), "{}", String::from_utf8_lossy(&attached.stderr));
+    drop(stdin);
+    assert!(next.wait().unwrap().success());
+    assert!(!root.join(".lock").exists());
+    // A live process that serves nothing (here this test itself) still keeps the profile, and the refusal names it.
+    let live = std::process::id();
+    std::fs::write(root.join(".lock"), format!("{live}@{}", vixen_io::lock::machine_name())).unwrap();
     let refused = Command::new(env!("CARGO_BIN_EXE_vixen-studio-mcp"))
         .args(["--profile", root.to_str().unwrap()])
         .env("VIXEN_MUTE", "1")
         .stdin(Stdio::null())
         .output()
         .unwrap();
-    drop(stdin);
-    assert!(next.wait().unwrap().success());
     assert!(!refused.status.success());
     let stderr = String::from_utf8_lossy(&refused.stderr);
     assert!(stderr.contains(&format!("locked by pid {live} (running)")), "{stderr}");
-    assert!(!root.join(".lock").exists());
-    std::fs::remove_dir(root).unwrap();
+    std::fs::remove_file(root.join(".lock")).unwrap();
+    std::fs::remove_dir_all(root).unwrap();
 }

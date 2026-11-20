@@ -163,6 +163,8 @@ pub fn handle_stop_signals() -> io::Result<()> {
         }
         let mut held = HELD.lock().unwrap_or_else(|e| e.into_inner());
         let had_lock = held.is_some();
+        // The endpoint goes first, so no client attaches to a session whose lock is already gone.
+        crate::socket::remove_served_endpoint();
         release_held(&mut held);
         let name = match signal {
             libc::SIGTERM => "SIGTERM",

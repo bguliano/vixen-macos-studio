@@ -59,6 +59,11 @@ impl Server {
         })
     }
     pub fn from_core(core: Arc<AppCore>) -> Self {
+        Self::attach(core, true)
+    }
+    /// A client of `core`: the running app's (`shared`), or a headless bridge's own muted core, whose documents, sequence IDs
+    /// and undo every bridge and script on the profile shares while the app never sees them.
+    pub fn attach(core: Arc<AppCore>, shared: bool) -> Self {
         let setup =
             SetupSession::from_system(core.system.read().clone(), &Default::default(), false);
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -73,7 +78,7 @@ impl Server {
             initialized: false,
             client_id: Some(client),
             core: Some(core),
-            shared: true,
+            shared,
         }
     }
     pub fn dispatch(&mut self, request: Value) -> Option<Value> {
