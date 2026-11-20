@@ -1496,9 +1496,9 @@ dependencies = [
 
 [[package]]
 name = "pollster"
-version = "0.4.0"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+checksum = "3c2c80c4e3afbec8224b9d3e641fbf3a5690cc7595b887b0a27a926bb357ed5c"
 
 [[package]]
 name = "portable-atomic"
@@ -1912,7 +1912,6 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
-# STUDIO-BEGIN mcp-lock-dependency: generated local MCP crate dependency entry
 [[package]]
 name = "studio-mcp"
 version = "3.13.4"
@@ -1923,7 +1922,6 @@ dependencies = [
  "vixen-io",
  "vixen-session",
 ]
-# STUDIO-END mcp-lock-dependency
 
 [[package]]
 name = "svgtypes"
@@ -2539,8 +2537,8 @@ name = "vixen-ffi"
 version = "3.13.4"
 dependencies = [
  "parking_lot",
- "serde_json", # STUDIO: Studio command JSON boundary
- "studio-mcp", # STUDIO: in-app local MCP transport
+ "serde_json",
+ "studio-mcp",
  "thiserror 2.0.21",
  "uniffi",
  "uuid",

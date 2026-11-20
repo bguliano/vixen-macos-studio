@@ -7,6 +7,6 @@ edition.workspace = true
 # Metal only, to keep the build small. `std` adds no backend: it is what makes `util::StagingBelt` available.
 wgpu = { version = "30", default-features = false, features = ["std", "metal", "wgsl"] }
 bytemuck = { version = "1", features = ["derive"] }
-pollster = "0.4"
+pollster = "1.0"
 parking_lot.workspace = true
 libc = "0.2"
