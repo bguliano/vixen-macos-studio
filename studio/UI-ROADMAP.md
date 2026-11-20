@@ -15,6 +15,7 @@ command, edits are live with Undo, and each change is verified with harness runs
   Schedule shows one "Open Scheduler" button that opens a separate vanilla window (typos in its copy, truncated show
   names, Close/Help footer).
 - **Controllers have no home.** The guide promises a Controllers section; today they are the right column of Display.
+  (Fixed: Phase 2 item 3.)
 - **71 OK/Cancel-style buttons remain** outside the redesigned areas: Marks 23, Scheduler 14, Tools 9, Admin 7,
   Dialogs 7, Preview 6, Setup 5. Each is a modal edit the guide says should be live with Undo.
 - **About 200 fixed `.frame(width:)` sizes** in redesigned and vanilla views; windows don't adapt well.
@@ -104,6 +105,16 @@ command, edits are live with Undo, and each change is verified with harness runs
    `scripts/check_studio_schedule.py`.
 3. **Controllers section** in the sidebar, with run state, IP, universes and output health, sharing the Phase 1
    inspector.
+   *Done:* the show window's Controllers section (`StudioControllersSection.swift`, `studio_controller_network.rs`
+   `overview`): a list of every controller with its run state, address, universes, patched outputs and output health
+   (the reason in words: no address, nothing patched, universe table errors, send errors, stalled packets), refreshed
+   every second, beside the controller inspector and Display's controller actions (Start, Stop, Advanced…/Configure…,
+   Outputs…, Rename…, Find Elements, Order, Delete, Add). A context menu offers the same plus Test and Unpatch; double-
+   click opens the settings and Delete deletes. It is the Display pane's live working copy shown another way: its
+   selection is Display's controller tree selection, every edit is one step on the shared undo history, and moving
+   between Display and Controllers keeps the working copy open. Find Elements moves to Display, where the elements
+   are selected. MCP `controller_overview`. Harness: `scripts/ui/studio-controllers.json` with
+   `scripts/check_studio_controllers.py`.
 4. **Sequences library**: real modified times, rendered/unsaved/missing-audio badges, "New Sequence from Audio…" by
    dropping an MP3, a context menu (Reveal, Duplicate, Export FSEQ).
 

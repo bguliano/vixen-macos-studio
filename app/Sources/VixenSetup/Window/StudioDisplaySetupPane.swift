@@ -10,6 +10,9 @@ import VixenKit
 /// While Live Output is on, editing pauses: publishing rebuilds the running graph, which can restart controllers mid-show.
 struct StudioDisplaySetupPane: View {
     let model: SetupModel
+    /// The Controllers section: the same live working copy, showing only the controllers. Switching between the two
+    /// sections keeps this view, so nothing is published, closed or reopened on the way.
+    var controllers = false
     @Environment(AppModel.self) private var app
     private var live: StudioDisplayLive { .shared }
 
@@ -28,7 +31,7 @@ struct StudioDisplaySetupPane: View {
                     Divider()
                 }
                 // The trees stay browsable while editing is paused, for selecting and the Test menu; each panel disables its editing controls.
-                SetupRootView(model: model, inline: true)
+                SetupRootView(model: model, inline: true, studioControllers: controllers)
                 Divider()
                 statusBar
             }
@@ -491,7 +494,7 @@ extension SetupModel {
     static func registerStudioPane(model: SetupModel, app: AppModel) {
         StudioDisplayLive.model = model
         StudioDisplayLive.app = app
-        StudioDisplayPane.make = { AnyView(StudioDisplaySetupPane(model: model).environment(app)) }
+        StudioDisplayPane.make = { controllers in AnyView(StudioDisplaySetupPane(model: model, controllers: controllers).environment(app)) }
         StudioDisplayPane.confirmLeave = { [weak model] in
             guard let model else { return true }
             await StudioDisplayLive.shared.flush(model: model, app: app)

@@ -374,6 +374,101 @@ pub fn probe(address: &str) -> Value {
     }
 }
 
+/// The Controllers section's list (`controller_overview`): every controller in pane order with its run state, address,
+/// universes, patched outputs and output health. `status` is the engine's status for a published controller, or `None`
+/// headless or for one added since the last publish.
+pub fn overview(s: &SetupSession, core: Option<&AppCore>) -> Value {
+    let rows: Vec<Value> = s
+        .controller_order
+        .iter()
+        .filter_map(|slot| s.controllers.get(*slot as usize).map(|c| (*slot, c)))
+        .filter(|(_, c)| c.alive)
+        .map(|(slot, c)| {
+            let info = info(c);
+            let status = core.filter(|_| !c.is_new).map(|core| status(core, c.id));
+            overview_row(s, slot, c, &info, status.as_ref())
+        })
+        .collect();
+    let running = rows.iter().filter(|r| r["running"] == true).count();
+    let attention = rows.iter().filter(|r| matches!(r["health"]["level"].as_str(), Some("warning" | "error"))).count();
+    json!({"controllers":rows,"running":running,"needAttention":attention})
+}
+
+fn overview_row(s: &SetupSession, slot: u32, c: &ControllerEntry, info: &Value, status: Option<&Value>) -> Value {
+    let outputs = c.outputs.len();
+    let patched = c.outputs.iter().filter(|o| s.flow.source(o.cid).is_some()).count();
+    let universes = match (info["protocol"].as_str(), info["universeCount"].as_u64().unwrap_or(0)) {
+        (Some("e131"), 0) => "None".to_string(),
+        (Some("e131"), count) => match (info["generated"].as_bool(), info["firstUniverse"].as_u64(), info["universeSize"].as_u64()) {
+            (Some(true), Some(first), Some(size)) if count == 1 => format!("{first} ({size} ch)"),
+            (Some(true), Some(first), Some(size)) => format!("{first}–{} ({size} ch)", first + count - 1),
+            _ => plural(count as usize, "universe", "universes"),
+        },
+        (Some("ddp"), _) => "One DDP stream".to_string(),
+        _ => String::new(),
+    };
+    let problems: Vec<String> = match &c.config {
+        Some(ControllerConfig::E131(config)) => config.validate(outputs).into_iter().map(|p| p.lines().next().unwrap_or_default().to_string()).collect(),
+        _ => Vec::new(),
+    };
+    let (level, text) = health(c, info, status, &problems, patched);
+    json!({
+        "id":c.id.to_string(),"slot":slot,"name":c.name,"typeName":c.type_name(),"protocol":info["protocol"],
+        "address":info["address"],"destination":info["destination"],"universes":universes,"outputs":outputs,
+        "patchedOutputs":patched,"running":c.running,"health":{"level":level,"text":text},"problems":problems,
+        "status":status.cloned().unwrap_or(Value::Null),
+    })
+}
+
+/// One word for the list's health column and the sentence behind it. Levels: `error` (it can't send as set up or the
+/// engine reports errors), `warning` (no address, nothing patched, or packets stalled), `ok` (sending), `stopped`, `off`
+/// (Live Output off or muted) and `pending` (added since the last publish).
+fn health(c: &ControllerEntry, info: &Value, status: Option<&Value>, problems: &[String], patched: usize) -> (&'static str, String) {
+    // Universes are generated once there's an address, so a missing one comes before the table's problems.
+    if info["protocol"].is_string() && info["destination"] == "none" {
+        return ("warning", "No address: enter the controller's IP address".into());
+    }
+    // A new DDP controller starts at the loopback address.
+    if info["address"].as_str().and_then(|a| a.parse::<std::net::Ipv4Addr>().ok()).is_some_and(|ip| ip.is_loopback()) {
+        return ("warning", "Address is this Mac: enter the controller's IP address".into());
+    }
+    if let Some(first) = problems.first() {
+        return ("error", first.clone());
+    }
+    if patched == 0 && !c.outputs.is_empty() {
+        return ("warning", "Nothing patched: no element sends to these outputs".into());
+    }
+    let Some(status) = status else {
+        return ("pending", if c.running { "Starts with Live Output".into() } else { "Stopped".into() });
+    };
+    if status["muted"] == true || status["liveOutput"] != true {
+        let text = status["text"].as_str().unwrap_or_default();
+        return ("off", if c.running { text.to_string() } else { "Stopped".into() });
+    }
+    if !c.running || status["running"] != true {
+        return ("stopped", "Stopped: not sending".into());
+    }
+    if let Some(error) = status["lastError"].as_str().filter(|_| status["errors"].as_u64().unwrap_or(0) > 0) {
+        return ("error", format!("Send errors ({}): {error}", status["errors"]));
+    }
+    if status["lastPacketMsAgo"].as_u64().is_some_and(|ms| ms >= 2000) {
+        return ("warning", status["text"].as_str().unwrap_or_default().to_string());
+    }
+    ("ok", status["text"].as_str().unwrap_or_default().to_string())
+}
+
+/// The MCP `controller_overview` tool: the Controllers section's list.
+pub fn overview_tool() -> Value {
+    json!({"name":"controller_overview","description":"Every controller as the show window's Controllers section lists it, in pane order: name, type, protocol, address, universes, outputs and how many are patched, run state (running = set to send while Live Output is on), live status (packets sent, last packet, send errors) and health {level: ok|stopped|off|pending|warning|error, text}, with problems (universe table errors). needAttention counts warning and error rows. Read-only; change settings with controller_configure, run state with output_start/output_stop.","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+}
+
+pub fn overview_execute(s: &SetupSession, core: Option<&AppCore>, a: &Value) -> Result<Value, String> {
+    if let Some(extra) = a.as_object().ok_or("arguments must be an object")?.keys().next() {
+        return Err(format!("Unknown argument {extra}"));
+    }
+    Ok(overview(s, core))
+}
+
 /// The MCP `controller_network` tool: settings, presets and status for one controller; `check:true` adds a
 /// reachability check, refused while muted (headless sessions always are).
 pub fn tool() -> Value {
@@ -519,6 +614,63 @@ mod tests {
         let v = read(&core);
         assert_eq!(v["outputs"], 1);
         assert_eq!(v["destination"], "none");
+        drop(core);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn overview_lists_controllers_in_order_with_universes_patching_and_health() {
+        let mut s = crate::setup::test_support::session(&["Tree"], 0);
+        let tree = s.add_controller(ids::E131, "Tree", 10).unwrap();
+        let roof = s.add_controller(ids::DDP, "Roof", 6).unwrap();
+        let tree_id = s.controllers[tree as usize].id.to_string();
+        configure(&mut s, &json!({"id":tree_id,"address":"192.168.1.60","outputs":3584,"preset":"wledRgbw"})).unwrap();
+        // One of the tree's outputs is patched to the element.
+        let element = s.flow.components().find(|(_, c)| matches!(c.kind, crate::setup::flow::CompKind::Element)).map(|(cid, _)| cid).unwrap();
+        let output = s.controllers[tree as usize].outputs[0].cid;
+        assert!(s.flow.set_source(output, crate::setup::flow::SourceRef { component: element, output: 0 }));
+        s.controller_order = vec![roof, tree];
+
+        let v = overview(&s, None);
+        let rows = v["controllers"].as_array().unwrap();
+        assert_eq!(rows.iter().map(|r| r["name"].as_str().unwrap()).collect::<Vec<_>>(), ["Roof", "Tree"]);
+        let (roof_row, tree_row) = (&rows[0], &rows[1]);
+        assert_eq!(tree_row["universes"], "1–7 (512 ch)");
+        assert_eq!((tree_row["outputs"].as_u64(), tree_row["patchedOutputs"].as_u64()), (Some(3584), Some(1)));
+        assert_eq!(tree_row["address"], "192.168.1.60");
+        assert_eq!(tree_row["running"], true);
+        // Added since the last publish, so the engine has no status for it yet.
+        assert_eq!(tree_row["health"]["level"], "pending");
+        assert_eq!(roof_row["universes"], "One DDP stream");
+        assert_eq!(roof_row["health"]["level"], "warning");
+        assert!(roof_row["health"]["text"].as_str().unwrap().starts_with("Address is this Mac"));
+        assert_eq!((v["running"].as_u64(), v["needAttention"].as_u64()), (Some(2), Some(1)));
+
+        // With an address but nothing patched it's still a warning, and a universe table that doesn't add up is an error.
+        let roof_id = s.controllers[roof as usize].id.to_string();
+        configure(&mut s, &json!({"id":roof_id,"address":"10.0.0.9"})).unwrap();
+        assert!(overview(&s, None)["controllers"][0]["health"]["text"].as_str().unwrap().starts_with("Nothing patched"));
+        let Some(ControllerConfig::E131(config)) = s.controllers[tree as usize].config.as_mut() else { panic!() };
+        config.universes.as_mut().unwrap().pop();
+        let row = &overview(&s, None)["controllers"][1];
+        assert_eq!(row["health"]["level"], "error");
+        assert_eq!(row["universes"], "6 universes");
+        assert!(row["problems"][0].as_str().unwrap().contains("does not match"));
+        assert!(overview_execute(&s, None, &json!({"x":1})).is_err());
+    }
+
+    #[test]
+    fn overview_reports_live_status_for_published_controllers() {
+        let root = std::env::temp_dir().join(format!("studio-overview-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, true);
+        run("controller_create", json!({"name":"Tree","typeId":ids::E131.to_string(),"outputs":3})).unwrap();
+        let s = SetupSession::open(&core);
+        let row = &overview(&s, Some(&core))["controllers"][0];
+        assert_eq!(row["name"], "Tree");
+        assert_eq!(row["status"]["muted"], true);
+        // No address comes before what the engine is doing.
+        assert_eq!(row["health"]["level"], "warning");
         drop(core);
         std::fs::remove_dir_all(root).unwrap();
     }

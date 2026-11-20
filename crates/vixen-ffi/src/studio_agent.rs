@@ -380,6 +380,12 @@ impl VixenCore {
             Err(_) => serde_json::json!({"text":""}).to_string(),
         }
     }
+    /// The Controllers section's list for the live pane's working copy, as JSON (`studio_controller_network::overview`),
+    /// the code the MCP `controller_overview` tool runs: run state, address, universes, patching and output health.
+    pub fn studio_controller_overview(&self, session: Arc<crate::setup::DisplaySetupSession>) -> String {
+        let working = session.inner.read();
+        vixen_session::studio_controller_network::overview(&working, Some(&self.inner)).to_string()
+    }
     /// Whether anything answers at an IPv4 address (TCP port 80; no lighting data). Refused while muted. Blocks up to 0.8 s.
     pub fn studio_probe_controller(&self, address: String) -> String {
         if !self.inner.playback.hardware_allowed() {

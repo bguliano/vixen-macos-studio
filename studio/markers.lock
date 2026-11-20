@@ -179,6 +179,10 @@
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "d91fb2dae5170b85"
  },
+ "block:setup-controllers-section": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "8c04a11ca1bba9d8"
+ },
  "block:setup-inline": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "5381a57920b53aae"
@@ -598,6 +602,10 @@
  "line:app/Sources/VixenSetup/Window/SetupRootView.swift:9736590aa2292657": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "9736590aa2292657"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupRootView.swift:bd015feba377ad93": {
+  "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
+  "hash": "bd015feba377ad93"
  },
  "line:app/Sources/VixenSetup/Window/TemplateRunner.swift:3ce02992dee4194a": {
   "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",

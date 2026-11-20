@@ -57,6 +57,7 @@ struct StudioControllerNetworkInspector: View {
                         TextField("192.168.1.50", text: $address)
                             .textFieldStyle(.roundedBorder)
                             .focused($focus, equals: .address)
+                            .accessibilityLabel("Controller address")
                             .onSubmit { commit(.address) }
                             .help("The controller's IP address. Data is sent straight to it (unicast).")
                         Button(checking ? "Checking…" : "Check") { runCheck() }
@@ -80,6 +81,7 @@ struct StudioControllerNetworkInspector: View {
                         .monospacedDigit()
                         .frame(maxWidth: 90)
                         .focused($focus, equals: .outputs)
+                        .accessibilityLabel("Controller outputs")
                         .onSubmit { commit(.outputs) }
                         .help("Channels on this controller: 3 per RGB pixel, 4 per RGBW pixel")
                 }
@@ -95,6 +97,7 @@ struct StudioControllerNetworkInspector: View {
                             .monospacedDigit()
                             .frame(maxWidth: 90)
                             .focused($focus, equals: .firstUniverse)
+                            .accessibilityLabel("First universe")
                             .onSubmit { commit(.firstUniverse) }
                             .help("The first universe number; the rest follow on, one per 510 or 512 channels")
                     }

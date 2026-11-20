@@ -1,0 +1,259 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "studioControllersState",
+   "name": "initial"
+  },
+  {
+   "action": "snapshot",
+   "name": "controllers-initial"
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Light Strip Controller"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "selected"
+  },
+  {
+   "action": "snapshot",
+   "name": "controllers-selected"
+  },
+  {
+   "action": "click",
+   "label": "Start"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "started"
+  },
+  {
+   "action": "studioSection",
+   "name": "display"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "studioSectionNow"
+  },
+  {
+   "action": "snapshot",
+   "name": "display-synced"
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "studioControllersState",
+   "name": "back"
+  },
+  {
+   "action": "popup",
+   "name": "Add",
+   "label": "Streaming ACN (E1.31)"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "type",
+   "text": "Tree"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "added"
+  },
+  {
+   "action": "mouse",
+   "x": 1144,
+   "y": 115
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "mouse",
+   "x": 1144,
+   "y": 115
+  },
+  {
+   "action": "wait",
+   "seconds": 0.2
+  },
+  {
+   "action": "type",
+   "text": "10.0.0.60"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "addressed"
+  },
+  {
+   "action": "mouse",
+   "x": 1094,
+   "y": 146
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "mouse",
+   "x": 1094,
+   "y": 146
+  },
+  {
+   "action": "key",
+   "key": "delete"
+  },
+  {
+   "action": "type",
+   "text": "1536"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "outputs"
+  },
+  {
+   "action": "popup",
+   "name": "WLED…",
+   "label": "Multiple RGBW (512 per universe)"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioControllersState",
+   "name": "preset"
+  },
+  {
+   "action": "snapshot",
+   "name": "controllers-configured"
+  },
+  {
+   "action": "click",
+   "label": "Undo"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioControllersState",
+   "name": "undone"
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Arduino"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersMenu",
+   "name": "Move Down"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioControllersState",
+   "name": "moved"
+  },
+  {
+   "action": "studioControllersMenu",
+   "name": "Find Elements"
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "studioSectionNow"
+  },
+  {
+   "action": "snapshot",
+   "name": "found-elements"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

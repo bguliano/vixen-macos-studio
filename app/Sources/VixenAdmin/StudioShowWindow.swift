@@ -6,13 +6,17 @@ import VixenKit
 /// Studio's main window: the show at a glance. A sidebar lists the show's areas; Sequences is a searchable library of
 /// every sequence in the profile. Replaces the Windows-style administration window (`AdministrationView`).
 enum StudioSection: String, Hashable, CaseIterable, Identifiable {
-    case sequences, display, previews, schedule
+    case sequences, display, controllers, previews, schedule
     var id: Self { self }
+
+    /// Display and Controllers edit one live working copy (Display Setup's), so moving between them keeps it open.
+    var editsDisplay: Bool { self == .display || self == .controllers }
 
     var title: String {
         switch self {
         case .sequences: "Sequences"
         case .display: "Display"
+        case .controllers: "Controllers"
         case .previews: "Previews"
         case .schedule: "Schedule"
         }
@@ -22,6 +26,7 @@ enum StudioSection: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .sequences: "music.note.list"
         case .display: "lightbulb.2"
+        case .controllers: "cable.connector"
         case .previews: "eye"
         case .schedule: "calendar"
         }
@@ -44,7 +49,7 @@ struct StudioShowWindow: View {
         .navigationTitle(admin.profileName ?? "Vixen Studio")
         .navigationSubtitle(admin.version.versionName)
         .toolbar { toolbar }
-        .frame(minWidth: selection == .display && StudioDisplayPane.make != nil ? 1060 : 860, minHeight: 520)
+        .frame(minWidth: selection.editsDisplay && StudioDisplayPane.make != nil ? 1060 : 860, minHeight: 520)
         .background(WindowReader { admin.attach(window: $0) })
         .background(StudioWindowOpenerRegistration())
         .alerts(from: admin.alerts)
@@ -56,8 +61,9 @@ struct StudioShowWindow: View {
         .environment(library)
         .onAppear {
             admin.openWindow = openWindow
-            StudioDisplayPane.reveal = { choose(.display) }
+            StudioDisplayPane.reveal = { if !selection.editsDisplay { choose(.display) } }
             StudioDisplayPane.stopLiveOutput = { admin.stopExecution() }
+            StudioDisplayPane.showDisplay = { choose(.display) }
             StudioPreviewsCore.admin = admin
             StudioPreviewsCore.reveal = { choose(.previews) }
             StudioScheduleCore.reveal = { choose(.schedule) }
@@ -103,10 +109,11 @@ struct StudioShowWindow: View {
         .safeAreaInset(edge: .bottom) { sidebarFooter }
     }
 
-    /// Display Setup gets a say before the window leaves it, since its edits wait for Apply Changes.
+    /// Display Setup gets a say before the window leaves it, since its edits wait for Apply Changes. Display and Controllers
+    /// share its working copy, so moving between those two doesn't ask.
     private func choose(_ new: StudioSection) {
         guard new != selection else { return }
-        guard selection == .display, let confirmLeave = StudioDisplayPane.confirmLeave else {
+        guard selection.editsDisplay, !new.editsDisplay, let confirmLeave = StudioDisplayPane.confirmLeave else {
             selection = new
             return
         }
@@ -119,6 +126,7 @@ struct StudioShowWindow: View {
         switch section {
         case .sequences: library.sequences.count
         case .display: Int(library.overview?.elements ?? 0)
+        case .controllers: Int(library.overview?.controllers ?? 0)
         case .previews: Int(library.overview?.previews ?? 0)
         case .schedule: 0
         }
@@ -151,13 +159,16 @@ struct StudioShowWindow: View {
         switch selection {
         case .sequences:
             StudioSequencesPane()
-        case .display:
+        // One case, so the pane stays the same view while moving between Display and Controllers.
+        case .display, .controllers:
             if let pane = StudioDisplayPane.make {
-                pane()
+                pane(selection == .controllers)
             } else {
                 StudioAreaPane(
-                    section: .display,
-                    summary: "Your props, groups and elements, the controllers that drive them, and the patching between them.",
+                    section: selection,
+                    summary: selection == .controllers
+                        ? "The controllers that drive your lights: their addresses, universes and whether they're sending."
+                        : "Your props, groups and elements, the controllers that drive them, and the patching between them.",
                     stats: displayStats,
                     primary: ("Open Display Setup", { admin.showDisplaySetup() })
                 )

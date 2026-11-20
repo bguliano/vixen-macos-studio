@@ -32,6 +32,7 @@ fn real_show_stdio_round_trip_and_safety() {
         json!({"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"media_list"}}),
         json!({"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"start_output","arguments":{"confirm":true}}}),
         json!({"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"display_elements","arguments":{"limit":501}}}),
+        json!({"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"controller_overview"}}),
     ];
     let mut stdin = child.stdin.take().unwrap();
     for r in requests {
@@ -49,7 +50,7 @@ fn real_show_stdio_round_trip_and_safety() {
         .lines()
         .map(|s| serde_json::from_str(s).unwrap())
         .collect();
-    assert_eq!(replies.len(), 11);
+    assert_eq!(replies.len(), 12);
     assert!(replies[1]["result"]["tools"].as_array().unwrap().len() >= 46);
     for reply in &replies[2..9] {
         assert_eq!(reply["result"]["isError"], false, "{reply}");
@@ -60,6 +61,13 @@ fn real_show_stdio_round_trip_and_safety() {
     assert!(data["total"].as_u64().unwrap() > 2);
     assert_eq!(replies[9]["error"]["code"], -32602);
     assert_eq!(replies[10]["result"]["isError"], true);
+    // The Controllers section's list: every controller with a health level, nothing started.
+    assert_eq!(replies[11]["result"]["isError"], false, "{}", replies[11]);
+    let overview: Value =
+        serde_json::from_str(replies[11]["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let rows = overview["controllers"].as_array().unwrap();
+    assert!(!rows.is_empty());
+    assert!(rows.iter().all(|r| r["health"]["level"].is_string() && r["universes"].is_string()), "{overview}");
     assert!(!root.join(".lock").exists());
 }
 #[test]

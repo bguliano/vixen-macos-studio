@@ -7,6 +7,7 @@ import VixenKit
 struct SetupRootView: View {
     @Bindable var model: SetupModel
     var inline = false // STUDIO: true inside the show window's Display section, which owns opening and closing
+    var studioControllers = false // STUDIO: the show window's Controllers section: the controllers alone, with the same prompts
 
     var body: some View {
         Group {
@@ -14,7 +15,17 @@ struct SetupRootView: View {
                 ProgressView("Display Setup")
                     .frame(minWidth: inline ? 820 : 1100, minHeight: inline ? 480 : 640) // STUDIO: fits the show window
             } else {
-                content
+                // STUDIO-BEGIN setup-controllers-section: the Controllers section covers the columns, which stay alive for the controller tree's selection
+                ZStack {
+                    content
+                        .opacity(studioControllers ? 0 : 1)
+                        .allowsHitTesting(!studioControllers)
+                        .accessibilityHidden(studioControllers)
+                    if studioControllers {
+                        StudioControllersSection(model: model)
+                    }
+                }
+                // STUDIO-END setup-controllers-section
                     .id(model.openCount)
             }
         }

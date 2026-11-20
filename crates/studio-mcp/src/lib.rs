@@ -130,6 +130,7 @@ impl Server {
                 tools.extend(vixen_session::studio_live::tools());
                 tools.push(geometry::tool());
                 tools.push(vixen_session::studio_controller_network::tool());
+                tools.push(vixen_session::studio_controller_network::overview_tool());
                 tools.push(vixen_session::studio_patch::ranges_tool());
                 tools.push(vixen_session::studio_palette::tool());
                 json!({"tools":tools})
@@ -145,6 +146,7 @@ impl Server {
                     && !TOOLS.iter().any(|(n, _)| *n == name)
                     && name != "display_geometry"
                     && name != "controller_network"
+                    && name != "controller_overview"
                     && name != "patch_ranges"
                     && name != "command_palette"
                     && !vixen_session::studio_display::command_tools()
@@ -257,6 +259,13 @@ impl Server {
         }
         if name == "controller_network" {
             return vixen_session::studio_controller_network::execute(&self.setup, self.core.as_deref(), args);
+        }
+        if name == "controller_overview" {
+            // The working copy above doesn't know which controllers run; one opened from the core does.
+            return match self.core.as_deref() {
+                Some(core) => vixen_session::studio_controller_network::overview_execute(&SetupSession::open(core), Some(core), args),
+                None => vixen_session::studio_controller_network::overview_execute(&self.setup, None, args),
+            };
         }
         if name == "patch_ranges" {
             return vixen_session::studio_patch::ranges_of(&self.setup, args);

@@ -178,38 +178,42 @@ struct StudioElementsPanel: View {
 struct StudioControllersPanel: View {
     @Bindable var model: SetupModel
     var inline = false
+    /// In the Controllers section, which lists the controllers itself: only the selected controller's inspector and actions.
+    var section = false
     /// The single selected controller is E1.31 or DDP, so the network inspector edits it.
     @State private var networkController = false
 
     var body: some View {
         let panel = model.controllerPanel
         VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
-            StudioColumnHeader(title: "Controllers") {
-                Menu {
-                    ForEach(model.controllerTypes, id: \.id) { type in
-                        Button(type.name) {
-                            model.controllerTypeID = type.id
-                            Task { await model.addController() }
+            if !section {
+                StudioColumnHeader(title: "Controllers") {
+                    Menu {
+                        ForEach(model.controllerTypes, id: \.id) { type in
+                            Button(type.name) {
+                                model.controllerTypeID = type.id
+                                Task { await model.addController() }
+                            }
                         }
+                    } label: {
+                        Label("Add", systemImage: "plus")
+                            .labelStyle(.titleAndIcon)
                     }
-                } label: {
-                    Label("Add", systemImage: "plus")
-                        .labelStyle(.titleAndIcon)
+                    .fixedSize()
+                    .help("Add a controller such as E1.31 (sACN), DDP or a serial device")
+                    .disabled(model.studioEditingPaused)
                 }
-                .fixedSize()
-                .help("Add a controller such as E1.31 (sACN), DDP or a serial device")
-                .disabled(model.studioEditingPaused)
+                ControllerOutline(model: model)
+                    .frame(minHeight: 160)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
+                    .clipShape(RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
+                HStack(spacing: StudioMetrics.spacingM) {
+                    legend(.green, "Running")
+                    legend(.red, "Stopped")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
-            ControllerOutline(model: model)
-                .frame(minHeight: 160)
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
-                .clipShape(RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
-            HStack(spacing: StudioMetrics.spacingM) {
-                legend(.green, "Running")
-                legend(.red, "Stopped")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
             if panel.anyController {
                 VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
                     if panel.oneController && networkController {
@@ -248,7 +252,13 @@ struct StudioControllersPanel: View {
                         }
                         StudioActionButton(title: "Rename…", symbol: "pencil", enabled: panel.oneController) { Task { await model.renameController() } }
                         StudioActionButton(title: "Find Elements", symbol: "text.magnifyingglass", enabled: panel.canFindElements,
-                                           help: "Select the elements patched to the selected outputs") { Task { await model.findElements() } }
+                                           help: "Select the elements patched to the selected outputs") {
+                            Task {
+                                await model.findElements()
+                                // The elements are in Display.
+                                if section { StudioDisplayPane.showDisplay?() }
+                            }
+                        }
                         Menu {
                             Button("Move Up") { Task { await model.moveControllers(up: true) } }
                             Button("Move Down") { Task { await model.moveControllers(up: false) } }
@@ -267,7 +277,9 @@ struct StudioControllersPanel: View {
                 .studioCard(padding: StudioMetrics.spacingS)
                 .disabled(model.studioEditingPaused)
             } else {
-                Text("Select a controller to start, stop or configure it. Double-click to open its settings.")
+                Text(section
+                    ? "Select a controller to see its settings and start, stop, test or configure it."
+                    : "Select a controller to start, stop or configure it. Double-click to open its settings.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
