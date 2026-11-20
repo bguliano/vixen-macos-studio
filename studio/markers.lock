@@ -25,7 +25,7 @@
  },
  "block:harness-exit-cleanup": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
-  "hash": "a1c56cede6ddf219"
+  "hash": "0da66049a790bea6"
  },
  "block:inspector-header": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
@@ -159,10 +159,6 @@
   "file": "app/Package.swift",
   "hash": "d507a04f598d91f8"
  },
- "line:app/Sources/VixenAdmin/AdminModel.swift:1ab8146cee0f3b02": {
-  "file": "app/Sources/VixenAdmin/AdminModel.swift",
-  "hash": "1ab8146cee0f3b02"
- },
  "line:app/Sources/VixenAdmin/AdminModel.swift:513060f03030b238": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "513060f03030b238"
@@ -178,6 +174,10 @@
  "line:app/Sources/VixenAdmin/AdminModel.swift:9c965e5f2bffb967": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "9c965e5f2bffb967"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:a9cd1a69b4407d12": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "a9cd1a69b4407d12"
  },
  "line:app/Sources/VixenAdmin/AdministrationCommands.swift:14a0a69bfbff0862": {
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
@@ -223,9 +223,9 @@
   "file": "app/Sources/VixenKit/MetalLayerView.swift",
   "hash": "75e1aaef1d213b7c"
  },
- "line:app/Sources/VixenKit/UITestHarness.swift:6ddc4b081b1dc69a": {
+ "line:app/Sources/VixenKit/UITestHarness.swift:a645eda2b82a40e5": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
-  "hash": "6ddc4b081b1dc69a"
+  "hash": "a645eda2b82a40e5"
  },
  "line:app/Sources/VixenKit/UITestHarness.swift:e0b2a61395d4fade": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
@@ -379,6 +379,10 @@
   "file": "crates/vixen-ffi/Cargo.toml",
   "hash": "aad71a28b7bfa14e"
  },
+ "line:crates/vixen-ffi/src/admin.rs:e6687d4596f82cd6": {
+  "file": "crates/vixen-ffi/src/admin.rs",
+  "hash": "e6687d4596f82cd6"
+ },
  "line:crates/vixen-ffi/src/lib.rs:4401e1a2eb529ad6": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "4401e1a2eb529ad6"
@@ -402,6 +406,10 @@
  "line:crates/vixen-session/src/app.rs:c0d73ad0965256b5": {
   "file": "crates/vixen-session/src/app.rs",
   "hash": "c0d73ad0965256b5"
+ },
+ "line:crates/vixen-session/src/boot.rs:71502977b0e1270c": {
+  "file": "crates/vixen-session/src/boot.rs",
+  "hash": "71502977b0e1270c"
  },
  "line:crates/vixen-session/src/boot.rs:e0e2fb453a030826": {
   "file": "crates/vixen-session/src/boot.rs",
@@ -430,6 +438,10 @@
  "line:crates/vixen-session/src/lib.rs:968e890add5b20b4": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "968e890add5b20b4"
+ },
+ "line:crates/vixen-session/src/lib.rs:d3d3b6fe675b0574": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "d3d3b6fe675b0574"
  },
  "line:crates/vixen-session/src/lib.rs:ee1d8a6cdc0b17c0": {
   "file": "crates/vixen-session/src/lib.rs",

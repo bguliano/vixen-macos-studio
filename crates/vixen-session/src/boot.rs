@@ -319,6 +319,7 @@ impl AppCore {
             logging::error(APP_DATA_LOGGER, "VixenApplication: error saving application data", Some(&error.to_string()));
         }
         self.release_lock();
+        crate::studio_heartbeat::stop(); // STUDIO: a clean shutdown leaves no heartbeat for the next launch to report
         crate::marks::lyric_converter::release_dictionary(&self.paths.root().join("user_dictionary"));
         logging::flush();
     }

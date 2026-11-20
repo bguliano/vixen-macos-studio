@@ -146,6 +146,14 @@ impl VixenCore {
     pub fn studio_stop_mcp(&self) {
         self.inner.studio_display.runtime.lock().take();
     }
+    /// Logs why the app is exiting without shutting down, and waits for the line to reach the disk: `exit` follows at once.
+    pub fn studio_log_exit(&self, status: i32, reason: String) {
+        vixen_session::logging::info(
+            "VixenApplication.Program",
+            &format!("{reason}; exiting with status {status} without shutting down."),
+        );
+        vixen_session::logging::flush();
+    }
 }
 
 #[uniffi::export]

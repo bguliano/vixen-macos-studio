@@ -465,6 +465,7 @@ impl VixenCore {
             logging::error("Vixen.Studio.MCP", "Could not start MCP server", Some(&error.to_string()));
         }
         // STUDIO-END mcp-app-start
+        vixen_session::studio_heartbeat::start(); // STUDIO: log memory, and report a previous session that died silently
         Ok(Arc::new(VixenCore { inner: core }))
     }
 

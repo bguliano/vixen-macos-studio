@@ -22,8 +22,9 @@ public enum UITestHarness {
     /// draws nothing while its window is hidden.
     public static var staysOnScreen: ((NSWindow) -> Bool)?
     // STUDIO-BEGIN harness-exit-cleanup: `quit` exits at once, so whatever must not outlive the run (the MCP socket) stops here first
-    /// Runs just before a script's `quit` exits. Keep it quick and silent: no saves, no controller stops.
-    public static var beforeExit: (() -> Void)?
+    /// Runs just before a script's `quit` exits, with the exit status (1 when a step failed). Keep it quick: no saves, no controller
+    /// stops. It also logs the status, so a failed run's exit is never silent.
+    public static var beforeExit: ((Int32) -> Void)?
     // STUDIO-END harness-exit-cleanup
 
     /// Writes a line to `notes.txt` in the output folder, for what a test shouldn't really do, like opening a browser.
@@ -250,8 +251,9 @@ private final class Runner {
         }
         let failed = results.filter { !$0.ok }.count
         print("UI test finished: \(results.count) steps, \(failed) failed")
-        UITestHarness.beforeExit?() // STUDIO: release the MCP socket before exiting
-        exit(failed == 0 ? 0 : 1)
+        let status: Int32 = failed == 0 ? 0 : 1
+        UITestHarness.beforeExit?(status) // STUDIO: release the MCP socket and log the exit status before exiting
+        exit(status)
     }
 
     func hideWindows() {

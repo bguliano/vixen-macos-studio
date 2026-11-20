@@ -84,6 +84,8 @@ pub mod studio_live; // STUDIO: explicit locally gated agent hardware operations
 
 pub mod studio_show; // STUDIO: shared show and disabled schedule authoring
 
+pub mod studio_heartbeat; // STUDIO: memory heartbeat and unclean-exit report in the logs
+
 pub mod studio_diagnostics; // STUDIO: reusable agent and UI profile diagnostics
 
 pub mod studio_paths; // STUDIO: protect profile output and backup boundaries

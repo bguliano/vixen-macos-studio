@@ -167,7 +167,7 @@ final class AdminModel {
 
     private func finishStartup(core: VixenCore) async {
         app.adopt(core: core)
-        if UITestHarness.isActive { UITestHarness.beforeExit = { core.studioStopMcp() } } // STUDIO: a script's quit leaves no MCP socket behind
+        if UITestHarness.isActive { UITestHarness.beforeExit = { status in core.studioStopMcp(); core.studioLogExit(status: status, reason: "UI test script quit") } } // STUDIO: a script's quit leaves no MCP socket behind and says why it exits
         let wwwroot = Bundle.main.resourceURL!.appendingPathComponent("wwwroot").path
         webServer = await Task.detached { core.webServer(wwwroot: wwwroot) }.value
         core.subscribeExecution(listener: ExecutionForwarder(model: self))

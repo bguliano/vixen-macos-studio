@@ -1,11 +1,15 @@
 use std::path::PathBuf;
+use studio_mcp::lock::{self, Note};
 fn main() {
     if let Err(error) = run() {
-        eprintln!("Vixen Studio MCP: {error}");
+        // Every failing exit says why, on stderr and in the Vixen logs.
+        lock::note(Note::Error, &error.to_string());
         std::process::exit(1);
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
+    // First, before any thread starts: a stop signal removes a held lock instead of leaving it behind.
+    lock::handle_stop_signals()?;
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     if args.len() != 2 || args[0] != "--profile" {
         return Err("usage: vixen-studio-mcp --profile PATH".into());
@@ -17,15 +21,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     {
         return Err("Use a show copy, not the original archive".into());
     }
-    // A refused endpoint is a dead app's leftover only if nothing holds the profile: take the lock first (it fails if any lock,
-    // stale or not, is there), then remove the endpoint and serve headless. A live app keeps its lock, so it is never touched.
+    // A refused endpoint is a dead app's leftover only if nothing holds the profile: take the lock first (it fails if a live
+    // process holds it; a dead process's lock is cleared by lock::take), then remove the endpoint and serve headless.
     let connected = match studio_mcp::socket::connect(&root) {
         Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
-            let lock = vixen_io::lock::create_lock_file(&root)
-                .map_err(|_| "MCP endpoint is refusing connections and the profile is locked; open the app, or remove the stale socket")?;
+            let held = lock::hold(lock::take(&root)
+                .map_err(|_| "MCP endpoint is refusing connections and the profile is locked by a running process; open the app, or remove the stale socket")?);
             let path = studio_mcp::socket::socket_path(&root)?;
             let recovered = studio_mcp::socket::recover_stale(&path, studio_mcp::socket::lock_held_here(&root));
-            let _ = vixen_io::lock::try_remove_lock_file(&lock);
+            drop(held);
             if !recovered? {
                 return Err("MCP endpoint is refusing connections; it was not removed".into());
             }
@@ -42,15 +46,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         inbound.join().map_err(|_| "socket reader failed")??;
         return Ok(());
     }
-    // Fail closed even for stale locks; never steal a running app's profile.
-    let lock = vixen_io::lock::create_lock_file(&root)?;
-    struct Guard(PathBuf);
-    impl Drop for Guard {
-        fn drop(&mut self) {
-            let _ = vixen_io::lock::try_remove_lock_file(&self.0);
-        }
-    }
-    let _guard = Guard(lock);
+    // Never steal a running process's profile; only a provably dead owner's lock is cleared. The guard removes the lock on return,
+    // including stdin EOF, and the signal thread removes it on SIGTERM, SIGINT or SIGHUP.
+    let _held = lock::hold(lock::take(&root)?);
     let mut server = studio_mcp::Server::open(&root)?;
     studio_mcp::serve(
         &mut server,

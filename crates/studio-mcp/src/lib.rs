@@ -1,4 +1,5 @@
 //! Studio local MCP adapter. Mutations dispatch through shared vixen-session commands.
+pub mod lock;
 pub mod socket;
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
