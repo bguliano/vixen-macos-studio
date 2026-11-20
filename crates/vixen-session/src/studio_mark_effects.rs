@@ -116,7 +116,7 @@ fn cycle_schema() -> Value {
 }
 
 /// A mark collection by id or exact name; an ambiguous or unknown name lists what there is.
-fn collection<'a>(s: &'a SequenceSession, wanted: &str, what: &str) -> Result<&'a MarkCollection, String> {
+pub(super) fn collection<'a>(s: &'a SequenceSession, wanted: &str, what: &str) -> Result<&'a MarkCollection, String> {
     let marks = s.marks();
     if let Some(c) = marks.iter().find(|c| c.id.to_string() == wanted) {
         return Ok(c);
@@ -133,7 +133,7 @@ fn collection<'a>(s: &'a SequenceSession, wanted: &str, what: &str) -> Result<&'
 }
 
 /// A mark's strength: its text as a number, clamped to 0..1, or 1 when the text is not a number.
-fn strength(mark: &Mark) -> f64 {
+pub(super) fn strength(mark: &Mark) -> f64 {
     mark.text.trim().parse::<f64>().ok().filter(|n| n.is_finite()).map_or(1.0, |n| n.clamp(0.0, 1.0))
 }
 

@@ -18,6 +18,8 @@ use vixen_effects::framework::{EffectDescriptor, ParamDesc, ParamValue};
 mod onsets;
 #[path = "studio_mark_effects.rs"]
 mod mark_effects;
+#[path = "studio_step_effects.rs"]
+mod step_effects;
 
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
@@ -378,6 +380,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         }
         "effects_batch" => return effects_batch(core, &mut s, a, agent),
         "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
+        "effect_step" => return step_effects::effect_step(core, &mut s, a, agent),
         "sequence_clear" => {
             confirm(a)?;
             let ids: Vec<EffectId> = s.effects().map(|e| e.id).collect();
@@ -1094,6 +1097,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_music_marks","Analyze profile media and append beat/bar collections to the sequence in one undo step.",json!({"sequenceId":string,"media":string}),vec!["sequenceId","media"],false),
         ("sequence_onset_marks","Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named \"<prefix> - low\", \"- mid\" and \"- high\" (prefix default \"Onsets\"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count.",json!({"sequenceId":string,"media":string,"bands":{"type":"array","items":{"type":"string","enum":["low","mid","high"]},"minItems":1,"maxItems":3},"minStrength":{"type":"number","minimum":0,"maximum":1},"prefix":string}),vec!["sequenceId"],false),
         ("effects_on_marks",mark_effects::DESCRIPTION,mark_effects::schema(),vec!["sequenceId","markCollection","template"],false),
+        ("effect_step",step_effects::DESCRIPTION,step_effects::schema(),vec!["sequenceId","mode","segments"],false),
         ("sequence_undo","Undo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_redo","Redo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_render","Render dirty effects and wait for the real sequence schedule; no playback/output.",json!({"sequenceId":string}),vec!["sequenceId"],false),
@@ -1611,6 +1615,112 @@ mod tests {
         assert_ne!(color(&list[0]), color(&list[1]));
         assert_eq!(color(&list[0]), color(&list[2]));
         assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":template,"cycle":{"param":"Nope","values":[1]}})).starts_with("cycle[0]"));
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn effect_step_walks_alternates_stacks_and_jumps_in_one_undo_step() {
+        let root = std::env::temp_dir().join(format!("studio-step-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let tree = core.studio_display
+            .execute(&core, "element_template", &json!({"kind":"megatree","name":"Tree","count":8,"pixels":10}), false)
+            .unwrap()["result"]["id"]
+            .clone();
+        let strings: Vec<String> = {
+            let system = core.system.read();
+            let node = system.tree.find(&Uuid::parse_str(tree.as_str().unwrap()).unwrap()).unwrap();
+            system.tree.node(node).children.iter().map(|c| system.tree.node(*c).id.to_string()).collect()
+        };
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let id = run("sequence_create", json!({"lengthMs":10_000}))["sequenceId"].clone();
+        let effects = || run("sequence_effects", json!({"sequenceId":id}))["effects"].as_array().unwrap().clone();
+        let summary = || -> Vec<(f64, f64, String)> {
+            effects().iter().map(|e| (e["startMs"].as_f64().unwrap(), e["durationMs"].as_f64().unwrap(), e["targets"][0].as_str().unwrap().to_string())).collect()
+        };
+        let param = |effect: &Value, name: &str| run("effect_parameters", json!({"sequenceId":id,"effectId":effect["id"]}))["parameters"].as_array().unwrap().iter().find(|p| p["name"] == name).unwrap()["value"].clone();
+
+        // walk: one string per hit around the tree, 80% of each gap lit, colours cycling, Set Level effects.
+        let around = json!({"axis":"around","groupId":tree});
+        let walk = run("effect_step", json!({"sequenceId":id,"mode":"walk","segments":around,"stepsMs":[1000,1500,2000,2500],"colors":["#ff0000","#00ff00"]}));
+        assert_eq!(walk["steps"], 4, "{walk}");
+        assert_eq!(walk["endMs"], 3000.0, "without cutAtMs the last hit lasts the median gap");
+        assert_eq!(summary(), vec![(1000.0, 400.0, strings[0].clone()), (1500.0, 400.0, strings[1].clone()), (2000.0, 400.0, strings[2].clone()), (2500.0, 400.0, strings[3].clone())]);
+        let list = effects();
+        let set_level = vixen_effect_registry::all().iter().find(|d| d.name == "Set Level").unwrap().type_id.to_string();
+        assert!(list.iter().all(|e| e["typeId"] == set_level));
+        assert_eq!(param(&list[0], "Color"), "#ff0000");
+        assert_eq!(param(&list[1], "Color"), "#00ff00");
+        assert_eq!(param(&list[2], "Color"), "#ff0000");
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["undo"][0], "Step effect (Agent)");
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert!(effects().is_empty(), "one undo removes the whole figure");
+
+        // walk reversed, two of four segments (two strings each), cut short.
+        run("effect_step", json!({"sequenceId":id,"mode":"walk","segments":{"axis":"around","groupId":tree,"count":4,"width":2},"reverse":true,"stepsMs":[0,1000,2000],"cutAtMs":2500,"holdFraction":1}));
+        let lit: Vec<(f64, Vec<String>)> = [0.0, 1000.0, 2000.0].iter().map(|t| (*t, summary().into_iter().filter(|e| e.0 == *t).map(|e| e.2).collect())).collect();
+        let s = |i: usize| strings[i].clone();
+        assert_eq!(lit[0].1, vec![s(0), s(1), s(2), s(3)], "segments 0-1 = strings 1-4");
+        assert_eq!(lit[1].1, vec![s(0), s(1), s(6), s(7)], "reverse steps to segment 3, wrapping to 0");
+        assert_eq!(lit[2].1, vec![s(4), s(5), s(6), s(7)]);
+        assert!(summary().iter().filter(|e| e.0 == 2000.0).all(|e| e.1 == 500.0), "the last hit ends at cutAtMs");
+        run("sequence_undo", json!({"sequenceId":id}));
+
+        // alternate halves on marks; minStrength skips a weak mark.
+        run("marks_create", json!({"sequenceId":id,"name":"Stabs","timesMs":[1000,1250,1500,1750],"texts":["1","0.1","1","1"]}));
+        let alt = run("effect_step", json!({"sequenceId":id,"mode":"alternate","segments":{"axis":"around","groupId":tree,"count":2},"markCollection":"Stabs","minStrength":0.5,"cutAtMs":2000}));
+        assert_eq!(alt["skipped"]["belowMinStrength"], 1, "{alt}");
+        let front: Vec<String> = strings[..4].to_vec();
+        let at = |t: f64| -> Vec<String> { summary().into_iter().filter(|e| e.0 == t).map(|e| e.2).collect() };
+        assert_eq!(at(1000.0), front);
+        assert_eq!(at(1500.0), strings[4..].to_vec());
+        assert_eq!(at(1750.0), front);
+        run("sequence_undo", json!({"sequenceId":id}));
+
+        // stack: vertical bands accumulate bottom to top and all cut together, then start again.
+        let stack = run("effect_step", json!({"sequenceId":id,"mode":"stack","segments":{"axis":"vertical","targetId":tree,"count":4},"stepsMs":[0,500,1000,1500,2000],"cutAtMs":2500,"holdFraction":1,"colors":["#ffffff","#0000ff"]}));
+        assert_eq!(stack["effectIds"].as_array().unwrap().len(), 5, "{stack}");
+        let list = effects();
+        let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").unwrap().type_id.to_string();
+        assert!(list.iter().all(|e| e["typeId"] == wipe && e["targets"][0] == tree));
+        let spans: Vec<(f64, f64)> = list.iter().map(|e| (e["startMs"].as_f64().unwrap(), e["startMs"].as_f64().unwrap() + e["durationMs"].as_f64().unwrap())).collect();
+        assert_eq!(spans, vec![(0.0, 2000.0), (500.0, 2000.0), (1000.0, 2000.0), (1500.0, 2000.0), (2000.0, 2500.0)]);
+        let pulse_width: Vec<f64> = list.iter().map(|e| param(e, "PulsePercent").as_f64().unwrap()).collect();
+        assert_eq!(pulse_width, vec![25.0; 5]);
+        let positions: Vec<f64> = list.iter().map(|e| param(e, "MovementCurve")[0][1].as_f64().unwrap()).collect();
+        let expected: Vec<f64> = [25.0, 50.0, 75.0, 100.0, 25.0].iter().map(|to| 100.0 * to / (100.0 + 25.0)).collect();
+        assert!(positions.iter().zip(&expected).all(|(p, e)| (p - e).abs() < 0.01), "{positions:?}");
+        assert_eq!(param(&list[1], "ColorGradient"), param(&list[3], "ColorGradient"));
+        assert_ne!(param(&list[0], "ColorGradient"), param(&list[1], "ColorGradient"));
+        run("sequence_render", json!({"sequenceId":id}));
+        run("sequence_undo", json!({"sequenceId":id}));
+
+        // jump: seeded, two strings per hit, never the previous hit's strings.
+        let args = json!({"sequenceId":id,"mode":"jump","segments":{"axis":"around","groupId":tree,"width":2},"stepsMs":[0,200,400,600,800,1000],"seed":3});
+        run("effect_step", args.clone());
+        let first = summary();
+        run("sequence_undo", json!({"sequenceId":id}));
+        run("effect_step", args);
+        assert_eq!(summary(), first, "the same seed gives the same figure");
+        for t in [200.0, 400.0, 600.0, 800.0, 1000.0] {
+            let now = at(t);
+            assert_eq!(now.len(), 2);
+            assert!(now.iter().all(|s| !at(t - 200.0).contains(s)), "{t}: {now:?}");
+        }
+        run("sequence_undo", json!({"sequenceId":id}));
+
+        // Bad arguments add nothing.
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":around})).contains("exactly one of markCollection or stepsMs"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":around,"stepsMs":[100]})).contains("cutAtMs"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"jump","segments":{"axis":"around","groupId":tree,"width":5},"stepsMs":[0,100]})).contains("1..4"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"alternate","segments":{"axis":"around","groupId":tree,"width":2},"stepsMs":[0,100]})).contains("width does not apply"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"stack","segments":{"axis":"vertical","targetId":tree},"stepsMs":[0,100]})).contains("count is required"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":{"axis":"vertical","groupId":tree,"count":4},"stepsMs":[0,100]})).contains("groupId does not apply"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":{"axis":"around","groupId":tree,"count":9},"stepsMs":[0,100]})).contains("2..8"));
+        assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":around,"stepsMs":[0,100],"colors":["red"]})).contains("#RRGGBB"));
+        assert!(effects().is_empty());
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_dir_all(root);
