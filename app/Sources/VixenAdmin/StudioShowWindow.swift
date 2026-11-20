@@ -1,5 +1,6 @@
 import StudioAgent
 import SwiftUI
+import UniformTypeIdentifiers
 import VixenBridge
 import VixenKit
 
@@ -88,6 +89,7 @@ struct StudioShowWindow: View {
         }
         .onChange(of: agents.revision) { Task { await library.reload(admin: admin) } }
         .onChange(of: admin.recent.map(\.path)) { Task { await library.reload(admin: admin) } }
+        .onChange(of: admin.app.openEditors.count) { Task { await library.reload(admin: admin) } }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
             Task { await library.reload(admin: admin) }
         }
@@ -225,12 +227,17 @@ final class StudioLibrary {
     private(set) var sequences: [StudioSequenceSummary] = []
     private(set) var overview: StudioShowOverview?
     private(set) var loaded = false
+    /// The Sequences section's file commands. Kept with the window, not the pane, so their Undo outlives a section change.
+    let actions = StudioLibraryActions()
+
+    /// Some sequence is open in a window or by an agent, so its badges (unsaved, rendering) can change without the
+    /// files changing.
+    var hasOpenSequences: Bool { sequences.contains { $0.open } }
 
     func reload(admin: AdminModel) async {
         guard admin.startupFinished, let core = admin.app.core else { return }
-        let root = core.dataRoot()
         let (rows, overview) = await Task.detached {
-            (studioSequenceLibrary(dataRoot: root), core.studioShowOverview())
+            (core.studioSequenceLibrary(), core.studioShowOverview())
         }.value
         if rows != sequences { sequences = rows }
         if overview != self.overview { self.overview = overview }
@@ -292,6 +299,13 @@ nonisolated private struct SequenceRow: Identifiable, Hashable, Sendable {
     let audio: String
     let hasAudio: Bool
     let lengthMs: Double?
+    let audioName: String?
+    let audioMissing: Bool
+    let open: Bool
+    let unsaved: Bool
+    let effects: UInt32?
+    let rendered: UInt32?
+    let fseqCurrent: Bool
 
     init(_ summary: StudioSequenceSummary) {
         id = summary.path
@@ -301,12 +315,22 @@ nonisolated private struct SequenceRow: Identifiable, Hashable, Sendable {
         length = summary.lengthMs ?? -1
         hasAudio = summary.audioName != nil
         audio = summary.audioName.map { ($0 as NSString).deletingPathExtension } ?? ""
+        audioName = summary.audioName
+        audioMissing = summary.audioMissing
+        open = summary.open
+        unsaved = summary.unsaved
+        effects = summary.effects
+        rendered = summary.rendered
+        fseqCurrent = summary.fseqCurrent
     }
 }
 
 struct StudioSequencesPane: View {
+    private var actions: StudioLibraryActions { library.actions }
     @Environment(AdminModel.self) private var admin
     @Environment(StudioLibrary.self) private var library
+    @Environment(\.undoManager) private var undoManager
+    @State private var choosingAudio = false
     @State private var search = ""
     @State private var selection = Set<String>()
     @State private var sortOrder: [KeyPathComparator<SequenceRow>] = [KeyPathComparator(\.modified, order: .reverse)]
@@ -321,18 +345,117 @@ struct StudioSequencesPane: View {
                     }
                     .help("Open a sequence file from anywhere")
                     .disabled(admin.isBusy)
-                    Button { admin.newSequence() } label: {
+                    Menu {
+                        Button("New Sequence") { admin.newSequence() }
+                        Button("New Sequence from Audio…") { choosingAudio = true }
+                    } label: {
                         Label("New Sequence", systemImage: "plus")
+                    } primaryAction: {
+                        admin.newSequence()
                     }
-                    .help("Create a sequence")
-                    .disabled(admin.isBusy)
+                    .help("Create a sequence. Hold for New Sequence from Audio…, or drop a song on the list.")
+                    .disabled(admin.isBusy || actions.isBusy)
                 }
             }
             .dropDestination(for: URL.self) { urls, _ in
-                let files = urls.filter { ["tim", "vix"].contains($0.pathExtension.lowercased()) }
-                admin.openFiles(files)
-                return !files.isEmpty
+                actions.dropped(urls, admin: admin, undo: undoManager)
             }
+            .fileImporter(isPresented: $choosingAudio, allowedContentTypes: [.audio, .movie], allowsMultipleSelection: true) { result in
+                guard case .success(let urls) = result, !urls.isEmpty else { return }
+                Task { await actions.newSequences(fromAudio: urls.map(\.path), admin: admin, undo: undoManager) }
+            }
+            .safeAreaInset(edge: .bottom) { statusBar }
+            .task(id: library.hasOpenSequences || !admin.app.openEditors.isEmpty) {
+                // An open sequence's unsaved and rendering badges change without its file changing.
+                while library.hasOpenSequences || !admin.app.openEditors.isEmpty, !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(2))
+                    await library.reload(admin: admin)
+                }
+            }
+            .onAppear(perform: registerHarnessActions)
+            .onChange(of: library.sequences.map(\.path)) {
+                let made = Set(actions.created).intersection(library.sequences.map(\.path))
+                if !made.isEmpty {
+                    selection = made
+                    actions.clearCreated()
+                }
+            }
+    }
+
+    /// The running command, or the last outcome, under the list.
+    @ViewBuilder
+    private var statusBar: some View {
+        if let text = actions.activity ?? actions.notice {
+            HStack(spacing: StudioMetrics.spacingS) {
+                if actions.isBusy {
+                    ProgressView().controlSize(.small)
+                }
+                Text(text)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer()
+                if !actions.isBusy, let file = actions.noticeFile {
+                    Button("Show in Finder") { actions.reveal([file]) }
+                        .controlSize(.small)
+                }
+                if !actions.isBusy {
+                    Button { actions.clearNotice() } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tertiary)
+                        .help("Dismiss")
+                }
+            }
+            .padding(.horizontal, StudioMetrics.spacingL)
+            .padding(.vertical, StudioMetrics.spacingS)
+            .background(.bar)
+        }
+    }
+
+    /// Drops can't be scripted, so `{ "action": "studioDropFiles", "text": "../a.mp3|Sequence/b.tim" }` drops files on
+    /// the list, `studioLibraryCommand` with `name` duplicate or exportFseq and `text` paths runs a context menu item, and
+    /// `studioLibraryState` reports the rows' badges and the status line.
+    private func registerHarnessActions() {
+        guard UITestHarness.isActive else { return }
+        // Relative paths are the profile's: "Sequence/Song.tim", "../Song.mp3".
+        let paths = { (step: UITestStep) in
+            let root = URL(fileURLWithPath: admin.app.core?.dataRoot() ?? "/", isDirectory: true)
+            return (step.text ?? "").split(separator: "|").map { URL(fileURLWithPath: String($0), relativeTo: root).standardizedFileURL.path }
+        }
+        UITestHarness.customActions["studioDropFiles"] = { step in
+            let urls = paths(step).map { URL(fileURLWithPath: $0) }
+            return (actions.dropped(urls, admin: admin, undo: undoManager), nil)
+        }
+        UITestHarness.customActions["studioLibraryCommand"] = { step in
+            switch step.name {
+            case "duplicate": Task { await actions.duplicate(paths(step), admin: admin, undo: undoManager) }
+            case "exportFseq": Task { await actions.exportFseq(paths(step), admin: admin) }
+            default: return (false, "no library command \(step.name ?? "")")
+            }
+            return (true, nil)
+        }
+        // A test window is never key, so Edit ▸ Undo doesn't reach it; these send the window's undo manager what the menu would.
+        UITestHarness.customActions["studioLibraryUndo"] = { _ in
+            guard let manager = undoManager, manager.canUndo else { return (false, "Edit ▸ Undo is off") }
+            let title = manager.undoMenuItemTitle
+            manager.undo()
+            return (true, title)
+        }
+        UITestHarness.customActions["studioLibraryRedo"] = { _ in
+            guard let manager = undoManager, manager.canRedo else { return (false, "Edit ▸ Redo is off") }
+            let title = manager.redoMenuItemTitle
+            manager.redo()
+            return (true, title)
+        }
+        UITestHarness.customActions["studioLibraryState"] = { _ in
+            let rows = library.sequences.map { row in
+                let state = [row.open ? "open" : nil, row.unsaved ? "unsaved" : nil,
+                             row.rendered.map { "rendered \($0)/\(row.effects ?? 0)" },
+                             row.audioMissing ? "audioMissing" : nil, row.fseqCurrent ? "fseq" : nil].compactMap { $0 }
+                return "\(row.name): \(state.joined(separator: ","))"
+            }
+            return (true, (rows + ["status: \(actions.activity ?? actions.notice ?? "-")", "undo: \(undoManager?.undoMenuItemTitle ?? "-")"]).joined(separator: " | "))
+        }
     }
 
     @ViewBuilder
@@ -344,7 +467,7 @@ struct StudioSequencesPane: View {
             ContentUnavailableView {
                 Label("No Sequences Yet", systemImage: "music.note")
             } description: {
-                Text("A sequence choreographs your lights, usually to a song. Create one to get started, or drop a .tim file here.")
+                Text("A sequence choreographs your lights, usually to a song. Create one to get started, or drop a song or a .tim file here.")
             } actions: {
                 Button("New Sequence") { admin.newSequence() }
                     .buttonStyle(.borderedProminent)
@@ -400,10 +523,14 @@ struct StudioSequencesPane: View {
     private var table: some View {
         Table(rows, selection: $selection, sortOrder: $sortOrder) {
             TableColumn("Name", value: \.name) { row in
-                Label(row.name, systemImage: row.hasAudio ? "music.note" : "sparkles")
-                    .lineLimit(1)
+                HStack(spacing: StudioMetrics.spacingS) {
+                    Label(row.name, systemImage: row.hasAudio ? "music.note" : "sparkles")
+                        .lineLimit(1)
+                    StudioSequenceBadges(unsaved: row.unsaved, open: row.open, effects: row.effects, rendered: row.rendered,
+                                         audioMissing: row.audioMissing, audioName: row.audioName, fseqCurrent: row.fseqCurrent)
+                }
             }
-            .width(min: 180, ideal: 280)
+            .width(min: 180, ideal: 320)
             TableColumn("Length", value: \.length) { row in
                 Text(row.lengthMs.map { studioFormatDuration(ms: $0) } ?? "–")
                     .monospacedDigit()
@@ -425,9 +552,17 @@ struct StudioSequencesPane: View {
         .contextMenu(forSelectionType: String.self) { paths in
             if !paths.isEmpty {
                 Button(paths.count == 1 ? "Open" : "Open \(paths.count) Sequences") { admin.openFiles(paths.map { URL(fileURLWithPath: $0) }) }
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting(paths.map { URL(fileURLWithPath: $0) })
+                Button("Show in Finder") { actions.reveal(paths.map { URL(fileURLWithPath: $0) }) }
+                Divider()
+                Button(paths.count == 1 ? "Duplicate" : "Duplicate \(paths.count) Sequences") {
+                    Task { await actions.duplicate(Array(paths), admin: admin, undo: undoManager) }
                 }
+                .disabled(actions.isBusy)
+                Button(paths.count == 1 ? "Export FSEQ" : "Export \(paths.count) FSEQ Files") {
+                    Task { await actions.exportFseq(Array(paths), admin: admin) }
+                }
+                .help("Render and write <name>.fseq into the show's Export folder, for Falcon Player and other players")
+                .disabled(actions.isBusy)
             }
         } primaryAction: { paths in
             admin.openFiles(paths.map { URL(fileURLWithPath: $0) })

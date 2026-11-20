@@ -117,6 +117,15 @@ command, edits are live with Undo, and each change is verified with harness runs
    `scripts/check_studio_controllers.py`.
 4. **Sequences library**: real modified times, rendered/unsaved/missing-audio badges, "New Sequence from Audio…" by
    dropping an MP3, a context menu (Reveal, Duplicate, Export FSEQ).
+   *Done:* the Sequences section's rows carry badges (`StudioSequenceLibrary.swift`, `studio_library.rs`): Unsaved
+   and Rendering n% / Rendered while a sequence is open, Audio Missing when Media lacks its song, and FSEQ when the
+   Export folder's FSEQ is newer than the saved file; open sequences refresh every 2 s. Dropping a song (or the New
+   Sequence menu's New Sequence from Audio…) copies it into Media, saves Sequence/<song>.tim as long as the song and
+   opens it. The context menu adds Duplicate ("<name> copy") and Export FSEQ (to the Export folder, with Show in
+   Finder in the status line) beside Open and Show in Finder. New Sequence from Audio and Duplicate are on the
+   window's Undo, which removes the file only while it is unchanged and closed. MCP `library_list`,
+   `library_new_from_audio`, `library_duplicate`, `library_discard`, `library_export_fseq`. Harness:
+   `scripts/ui/studio-library.json` with `scripts/check_studio_library.py`.
 
 ## Phase 3: sequencer clarity
 

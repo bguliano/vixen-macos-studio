@@ -20,6 +20,8 @@ mod onsets;
 mod mark_effects;
 #[path = "studio_step_effects.rs"]
 mod step_effects;
+#[path = "studio_library.rs"]
+pub mod library;
 
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
@@ -298,6 +300,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     }
     if name == "music_analyze" {
         return Ok(analyze(core, a)?.0);
+    }
+    if name.starts_with("library_") {
+        return library::execute(core, name, a);
     }
     if name == "sequence_open" || name == "sequence_create" {
         let mut reloaded = false;
@@ -1171,7 +1176,9 @@ pub fn tools() -> Vec<Value> {
         ("sequence_save","Save/overwrite a .tim filename under profile Sequence. scratch:true saves under Sequence/.scratch instead, hidden from the app's sequence list, for throwaway builds and previews (sequence_open with scratch:true reads it back). backup:false overwrites without copying the old file into auto_backup. Requires confirmation.",json!({"sequenceId":string,"file":string,"scratch":boolean,"backup":boolean,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
         ("sequence_export_fseq","Render and export uncompressed FSEQ v2 at 50 ms under profile Export. Requires confirmation; no network transfer.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
     ];
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    let mut entries=entries;
+    entries.extend(library::tools());
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {
