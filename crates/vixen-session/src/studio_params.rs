@@ -245,8 +245,12 @@ pub fn encode(value: &ParamValue) -> Value {
     }
 }
 
-/// How the grouping parameters pick the nodes an effect works on, which the native labels don't say.
+/// What a parameter does where the native label doesn't say: how the grouping parameters pick the nodes an
+/// effect works on, and the motion parameters whose zero isn't "still" or that a mode ignores.
 pub fn note(effect: &str, param: &str) -> Option<&'static str> {
+    if let Some(n) = motion_note(effect, param) {
+        return Some(n);
+    }
     let depth_zero = match effect {
         "Alternating" => "0 = the targets themselves",
         "Dissolve" => "0 = leaf pixels (same as EnableDepth false)",
@@ -258,6 +262,21 @@ pub fn note(effect: &str, param: &str) -> Option<&'static str> {
         ("DepthOfEffect", _) => "Used only when EnableDepth is true. Levels to descend from each target: 0 = leaf pixels (same as EnableDepth false), 1 = their children (a megatree group's strings), 2 = grandchildren. Values deeper than the targets' tree reset to 0. If that level is empty, leaf pixels are used.",
         ("GroupLevel", _) => "How many consecutive nodes (chosen by EnableDepth/DepthOfEffect) share one state. With EnableDepth false these are pixels: to alternate whole strings, set EnableDepth true, DepthOfEffect 1 and GroupLevel 1.",
         ("Colors", _) if effect == "Alternating" => "Each group takes the next entry in turn, cycling through the list.",
+        _ => return None,
+    })
+}
+
+/// Bars and Wipe motion, matching upstream Vixen (Bars.CalculateSpeed, Wipe.RenderMovement).
+fn motion_note(effect: &str, param: &str) -> Option<&'static str> {
+    Some(match (effect, param) {
+        ("Bars", "MovementType") => "Iterations: Speed (labelled Iterations) sets how many times the bars cycle over the effect; Speed 0 is static. Speed: SpeedCurve sets the speed over time. Zig Zag bars always use Speed.",
+        ("Bars", "Speed") => "Used when MovementType is Iterations: how many times the bars cycle over the effect. 0 keeps the bars still.",
+        ("Bars", "SpeedCurve") => "Used when MovementType is Speed (and by Zig Zag bars). Flat bars: curve 0..100 maps to speed -15..+15, so 50 is still, values below and above 50 move in opposite directions, and 0 and 100 are the fastest. Zig Zag bars: 0 is still.",
+        ("Wipe", "WipeMovement") => "Count and PulseLength sweep across the targets on their own. Movement places the pulse band by MovementCurve instead; it ignores ReverseDirection, WipeOn, WipeOff, PassCount and ColorHandling.",
+        ("Wipe", "MovementCurve") => "Used when WipeMovement is Movement: the leading edge of the pulse band over time. 0 = just before the first row in Direction's order (nothing lit), 100 = the band has fully passed the last row (nothing lit); the range covers the targets plus one band width. To run the other way, make the curve fall. Only the band is lit; passed rows go dark.",
+        ("Wipe", "ReverseDirection") => "Count and PulseLength only. In Movement mode the direction comes from MovementCurve: a falling curve moves backwards.",
+        ("Wipe", "WipeOn") => "Count only: on the last pass, rows stay lit once the wipe reaches them. Movement mode has no equivalent; only the pulse band is lit.",
+        ("Wipe", "ReverseColorDirection") => "Movement only: flips the gradient across the band whenever MovementCurve falls, so the band's leading colour follows its travel.",
         _ => return None,
     })
 }
@@ -325,5 +344,19 @@ mod tests {
             }
         }
         assert!(note("Chase", "DepthOfEffect").is_none());
+    }
+
+    #[test]
+    fn motion_parameters_are_explained() {
+        for (name, params) in [
+            ("Bars", &["MovementType", "Speed", "SpeedCurve"][..]),
+            ("Wipe", &["WipeMovement", "MovementCurve", "ReverseDirection", "WipeOn", "ReverseColorDirection"][..]),
+        ] {
+            for param in params {
+                assert!(effect(name).params.iter().any(|p| p.name == *param), "{name}.{param} missing");
+                assert!(note(name, param).is_some(), "{name}.{param}");
+            }
+        }
+        assert!(note("Bars", "SpeedCurve").unwrap().contains("50 is still"));
     }
 }
