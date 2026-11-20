@@ -87,7 +87,7 @@ pub struct SetupEditResult {
     pub patch_revision: u64,
 }
 
-fn edit_result(s: &SetupSession, e: EditResult) -> SetupEditResult {
+pub(crate) fn edit_result(s: &SetupSession, e: EditResult) -> SetupEditResult { // STUDIO: studio_agent.rs builds template outcomes too
     let changes_selection = e.select.is_some();
     SetupEditResult {
         reload_roots: e.reload_roots,
@@ -614,7 +614,7 @@ fn draft_of(kind: SetupTemplateKind, params: &TemplateParams) -> SetupTemplateDr
     d
 }
 
-fn params_of(d: &SetupTemplateDraft) -> TemplateParams {
+pub(crate) fn params_of(d: &SetupTemplateDraft) -> TemplateParams { // STUDIO: studio_agent.rs generates templates with Studio wiring
     let name = d.name.clone();
     match d.kind {
         SetupTemplateKind::SingleItem => TemplateParams::Single { name },

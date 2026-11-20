@@ -19,7 +19,7 @@
 | effect_catalog | true | List registered effects and JSON parameter schemas. Unsupported native value kinds have a rejecting schema. |
 | diagnostics_report | true | Report patches, controller/universe errors, and missing media/targets/native color corrections for open sequences. |
 | profile_save | false | Save current live display configuration and module data. Explicit confirmation required; retains undo history. |
-| element_template | false | Create a bounded single item, arch, group, megatree or matrix using native template algorithms; color (rgb, rgbw, single) sets colour handling on the new lights in the same step. |
+| element_template | false | Create a bounded single item, arch, group, megatree or matrix using native template algorithms; color (rgb, rgbw, single) sets colour handling on the new lights in the same step; megatree/matrix wiring as the template sheet's diagram shows it: start corner, reverseEveryOtherString (alias zigZag) and hiddenPixels per string in a separate "<name> Hidden" group (hiddenId); the result's wiring describes the order. |
 | element_color | false | Set colour handling on an element/group's leaves, as the Color Handling helper does (Color property plus Color Breakdown filter): rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1. |
 | element_wire_order | false | Reverse the selected element/group row order using the native setup command. |
 | controller_configure | false | Configure DDP or E1.31 unicast using an IPv4 literal. Does not connect or start output. E1.31 requires firstUniverse; universeSize defaults 510. |
@@ -30,7 +30,7 @@
 | controller_create | false | Create a disabled controller. Never starts hardware. |
 | controller_rename | false | Rename a controller by UUID. |
 | controller_delete | false | Delete a controller and its patches. Requires confirmation. |
-| patch_elements | false | Patch unconnected element/group channels to unused controller outputs in tree order. startOutput is zero-based. |
+| patch_elements | false | Patch unconnected element/group channels to unused controller outputs as one run; alsoIds adds more elements (a hidden-pixel group). Lights patch in wire order (their Order property) when all have one, otherwise tree order; wireOrder says which. startOutput is zero-based. |
 | unpatch_elements | false | Remove element/group patch connections; retain filters. Requires confirmation. |
 | display_undo | false | Undo the latest shared UI/agent display edit. |
 | display_redo | false | Redo the latest shared UI/agent display edit. |

@@ -11,12 +11,14 @@ struct TemplateSheet: View {
     @State private var problem: SetupTemplateProblem?
     @State private var finished = false
     @State private var colorMode: String // STUDIO: the template's Colour choice (StudioTemplateColor)
+    @State private var hiddenPixels: Int // STUDIO: hidden pixels per string (StudioTemplateWiring)
 
     init(draft: SetupTemplateDraft, rememberOnCancel: ((SetupTemplateDraft) -> Void)? = nil, onFinish: @escaping (SetupTemplateDraft?) -> Void) {
         self.onFinish = onFinish
         self.rememberOnCancel = rememberOnCancel
         _draft = State(initialValue: draft)
         _colorMode = State(initialValue: StudioTemplateColor.mode(for: draft.kind)) // STUDIO: the template's Colour choice
+        _hiddenPixels = State(initialValue: Int(StudioTemplateWiring.hidden(for: draft.kind))) // STUDIO: hidden pixels per string
     }
 
     var body: some View {
@@ -67,6 +69,12 @@ struct TemplateSheet: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(title).font(.headline)
             fields()
+            // STUDIO-BEGIN template-wiring-section: start corner, reverse every other string, hidden pixels and the live diagram
+            if StudioTemplateWiring.supports(draft.kind) {
+                StudioTemplateWiringSection(draft: $draft, hidden: $hiddenPixels)
+                    .disabled(draft.kind == .megatree && !draft.flag)
+            }
+            // STUDIO-END template-wiring-section
             // STUDIO-BEGIN template-color-picker: RGB / RGBW / Single colour, with the channel count it gives
             if StudioTemplateColor.supports(draft.kind) {
                 StudioTemplateColorPicker(mode: $colorMode)
@@ -86,6 +94,7 @@ struct TemplateSheet: View {
         }
         StudioTemplateColor.chosen[draft.kind] = colorMode
         // STUDIO-END template-color-ok
+        StudioTemplateWiring.chosenHidden[draft.kind] = hiddenPixels // STUDIO: remember the hidden pixels per string
         if let found = setupTemplateProblem(draft: draft) {
             problem = found
         } else {
@@ -250,23 +259,8 @@ private struct MegatreeForm: View {
                         .disabled(!draft.flag)
                 }
             }
-            HStack(alignment: .top, spacing: 12) {
-                GroupBox {
-                    Picker("Wire Start Location", selection: $draft.start) {
-                        Text("Bottom Left").tag(SetupStartLocation.bottomLeft)
-                        Text("Bottom Right").tag(SetupStartLocation.bottomRight)
-                    }
-                    .pickerStyle(.radioGroup)
-                    .horizontalRadioGroupLayout()
-                    .labelsHidden()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(4)
-                } label: {
-                    SheetFieldLabel("Wire Start Location", enabled: draft.flag)
-                }
-                ZigZagGroup(draft: $draft)
-            }
-            .disabled(!draft.flag)
+            // STUDIO-BEGIN megatree-wiring-moved: the wiring section under the fields replaces Wire Start Location and Zig Zag (StudioTemplateWiring)
+            // STUDIO-END megatree-wiring-moved
         }
     }
 }
@@ -314,23 +308,8 @@ private struct PixelGridForm: View {
                     SheetTextField("Pixel Prefix:", text: $draft.secondPrefix)
                 }
             }
-            HStack(alignment: .top, spacing: 12) {
-                GroupBox("Wire Start Location") {
-                    Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 8) {
-                        GridRow {
-                            corner("Top Left", .topLeft)
-                            corner("Top Right", .topRight)
-                        }
-                        GridRow {
-                            corner("Bottom Left", .bottomLeft)
-                            corner("Bottom Right", .bottomRight)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(4)
-                }
-                ZigZagGroup(draft: $draft)
-            }
+            // STUDIO-BEGIN grid-wiring-moved: the wiring section under the fields replaces Wire Start Location and Zig Zag (StudioTemplateWiring)
+            // STUDIO-END grid-wiring-moved
         }
     }
 

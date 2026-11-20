@@ -25,7 +25,7 @@ command, edits are live with Undo, and each change is verified with harness runs
 - **The tree build exposed the biggest gaps**:
   - E1.31 destination defaults to multicast over Wi-Fi with the IP hidden behind a "+".
   - Universes are added one row at a time, defaulting to 510 channels.
-  - Templates have no RGBW option, and "Zig Zag Every N" is unexplained.
+  - Templates have no RGBW option, and "Zig Zag Every N" is unexplained. (Fixed: Phase 1 items 2 and 3.)
   - Swapping a group or reversing one string means doing output arithmetic by hand.
   - A preview has to be built and linked separately from the element it shows.
   - Beat detection was unreachable (fixed in b17c7e2a6).
@@ -44,6 +44,11 @@ command, edits are live with Undo, and each change is verified with harness runs
    channel-count note under Color Handling's Color Order, MCP `element_color` mode `rgbw` and `element_template` `color`.
 3. **Megatree and matrix templates explain themselves.** A live wiring diagram (start corner, zig-zag shown as arrows),
    "Reverse every other string" wording, "hidden pixels per string" (the tucked lights) that builds a separate group.
+   *Done:* a Wiring section in the Megatree and Pixel Grid sheets (`StudioTemplateWiring.swift`, `studio_wiring.rs`):
+   start corner (a megatree's named "Bottom of S1" … "Top of S32"), "Reverse every other string", "Hidden pixels per
+   string" into "<name> Hidden", and a live diagram with sentences under it. Every light gets its wire position as its
+   Order. MCP `element_template` `start`/`reverseEveryOtherString`/`hiddenPixels`, `patch_elements` `alsoIds` and wire
+   order.
 4. **Patching by intent, not numbers.** Context-menu actions on a string or group: Reverse, Swap with…, Move to output…,
    with the result shown as universe:channel ranges. MCP: `patch_reverse`, `patch_swap`.
 5. **"Show in a preview" from any prop.** Creating a megatree/matrix offers to add a matching, already-linked shape to a

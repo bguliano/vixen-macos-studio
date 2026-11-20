@@ -213,6 +213,45 @@ impl DisplaySetupSession {
     }
 }
 
+#[uniffi::export]
+impl DisplaySetupSession {
+    /// The Megatree and Pixel Grid sheets' generator: the native template with Studio's wiring (start corner as drawn,
+    /// reverse every other string, `hidden_pixels` per string in their own group), as `studio_wiring::generate`, the code
+    /// the MCP `element_template` tool runs. Other templates generate natively. Selects the prop and its hidden group.
+    pub fn studio_generate_template(
+        &self,
+        draft: crate::setup::SetupTemplateDraft,
+        hidden_pixels: u32,
+    ) -> Result<crate::setup::SetupTemplateOutcome, FfiError> {
+        use vixen_session::setup::templates::{TemplateError, BAD_PATTERN_MESSAGE};
+        let mut guard = self.inner.write();
+        let s = &mut *guard;
+        let built = vixen_session::studio_wiring::generate(&mut s.tree, &crate::setup::params_of(&draft), hidden_pixels)
+            .map_err(|e| match e {
+                TemplateError::EmptyName => FfiError::new("Could not create elements."),
+                TemplateError::BadPattern => FfiError::new(BAD_PATTERN_MESSAGE),
+            })?;
+        let heads: Vec<_> = built.result.head.into_iter().chain(built.hidden_head).collect();
+        let created = built.result.created.clone();
+        s.apply_template_result(built.result);
+        let mut edit = vixen_session::setup::elements::EditResult { reload_roots: true, scroll_to_top: true, ..Default::default() };
+        edit.select = (!heads.is_empty()).then(|| heads.iter().map(|h| s.row_path_of(*h)).collect());
+        let created_paths = created.iter().map(|n| s.row_path_of(*n)).collect();
+        Ok(crate::setup::SetupTemplateOutcome {
+            edit: crate::setup::edit_result(s, edit),
+            created: created.iter().map(|n| n.0).collect(),
+            created_paths,
+        })
+    }
+}
+
+/// The template sheet's wiring diagram for these fields, as JSON (`studio_wiring::plan`): the strings in wire order,
+/// the start corner's labels and the sentences under the diagram.
+#[uniffi::export]
+pub fn studio_template_wiring(draft: crate::setup::SetupTemplateDraft, hidden_pixels: u32) -> String {
+    vixen_session::studio_wiring::plan(&crate::setup::params_of(&draft), hidden_pixels).to_string()
+}
+
 /// The template Colour picker's choices as JSON: [{mode, label, channelsPerPixel, note}].
 #[uniffi::export]
 pub fn studio_color_choices() -> String {

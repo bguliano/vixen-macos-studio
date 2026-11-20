@@ -582,7 +582,8 @@ final class SetupModel {
         }
         guard let chosen else { return }
         drafts[kind] = chosen
-        let outcome = await working { session in Result { try session.generateTemplate(draft: chosen) } }
+        let hidden = StudioTemplateWiring.hidden(for: kind) // STUDIO: hidden pixels per string
+        let outcome = await working { session in Result { try session.studioGenerateTemplate(draft: chosen, hiddenPixels: hidden) } } // STUDIO: Studio wiring (studio_wiring.rs)
         guard case .success(let made)? = outcome else {
             await tell("Error", "Could not create elements.\nPlease close all dialogs and try again.\n\nPlease send error logs to Vixen Team.")
             return

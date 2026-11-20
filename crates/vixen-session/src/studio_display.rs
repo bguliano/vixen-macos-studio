@@ -452,7 +452,14 @@ fn edit(s: &mut SetupSession, command: &str, args: &Value) -> Result<Value, Stri
             Ok(json!({}))
         }
         "patch_elements" => {
-            let p = path(s, id(args, "elementId")?)?;
+            // Several elements patch as one run (a prop and its hidden pixels), in their wire order when every light has one.
+            let mut paths = vec![path(s, id(args, "elementId")?)?];
+            if let Some(more) = args.get("alsoIds") {
+                for extra in more.as_array().ok_or("alsoIds must be a list of element UUIDs")? {
+                    let extra = extra.as_str().and_then(|t| Uuid::parse_str(t).ok()).ok_or("alsoIds must be element UUIDs")?;
+                    paths.push(path(s, extra)?);
+                }
+            }
             let slot = s
                 .slot_of(id(args, "controllerId")?)
                 .ok_or("Controller not found")?;
@@ -467,8 +474,9 @@ fn edit(s: &mut SetupSession, command: &str, args: &Value) -> Result<Value, Stri
             }
             let outputs =
                 crate::setup::controllers::OutputSelection::single(slot, start as u32..count);
-            let n = s.patch_elements(&[p], &outputs, &Default::default(), false);
-            Ok(json!({"patched":n}))
+            let use_order = s.order_check(&paths) == crate::setup::patching::OrderCheck::UseOrder;
+            let n = s.patch_elements(&paths, &outputs, &Default::default(), use_order);
+            Ok(json!({"patched":n,"wireOrder":use_order}))
         }
         "unpatch_elements" => {
             confirm(args)?;
@@ -584,7 +592,7 @@ pub fn command_tools() -> Vec<Value> {
     let boolean = json!({"type":"boolean"});
     let entries=vec![
         ("profile_save","Save current live display configuration and module data. Explicit confirmation required; retains undo history.",json!({"confirm":boolean}),vec!["confirm"],true),
-        ("element_template","Create a bounded single item, arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows (1 for single); pixels=pixels per string/columns. color sets colour handling on every new light in the same step, as the template's Colour picker does: rgb (3 channels per pixel, R G B), rgbw (4, R G B W) or single (1; singleColor, default royal blue). Without color the lights get no colour handling.",json!({"name":string,"kind":{"type":"string","enum":["single","arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean,"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["name","kind","count"],false),
+        ("element_template","Create a bounded single item, arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows (1 for single); pixels=visible pixels per string/columns. Megatree and matrix wiring, as the template sheet's diagram shows it (megatree drawn flat: S1 on the left, each string's Px1 at the bottom; matrix: Row1 at the bottom, Pixel1 on the left): start = the corner where the wire enters (default bottomLeft); reverseEveryOtherString (zigZag is the same option) makes each string run back the way the previous one came; hiddenPixels = dark pixels at the Px1 end (bottom) of every string, such as lights tucked under a tree's base, made in a separate group \"<name> Hidden\" (hiddenId) that keeps their wire position but is not part of the prop. Patch both together: patch_elements with alsoIds:[hiddenId]. The result's wiring gives the order in words. color sets colour handling on every new light in the same step, as the template's Colour picker does: rgb (3 channels per pixel, R G B), rgbw (4, R G B W) or single (1; singleColor, default royal blue). Without color the lights get no colour handling.",json!({"name":string,"kind":{"type":"string","enum":["single","arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean,"reverseEveryOtherString":boolean,"start":{"type":"string","enum":["bottomLeft","bottomRight","topLeft","topRight"]},"hiddenPixels":{"type":"integer","minimum":0,"maximum":1000},"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["name","kind","count"],false),
         ("element_color","Set colour handling on an element/group's leaves, as the Color Handling helper does: the Color property plus a Color Breakdown filter, replacing existing ones. rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1 in color (default royal blue). Patch afterwards; the breakdown's channels are what patching connects.",json!({"id":string,"mode":{"type":"string","enum":["rgb","rgbw","single"]},"color":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["id","mode"],false),
         ("element_wire_order","Reverse the selected element/group row order using the native setup command.",json!({"id":string}),vec!["id"],false),
         ("controller_configure","Set up a DDP or E1.31 controller's network in one step, as the controller inspector does: protocol (changing it replaces the controller, keeping name, outputs and patches, and returns newId), an IPv4 unicast address, output count, and for E1.31 the first universe and channels per universe (510 or 512; or preset wledRgb=510 / wledRgbw=512), with universes generated from the output count. Fields left out keep their current values (new controllers: universe 1, 510 channels). Does not connect or start output. Read back with controller_network.",json!({"id":string,"protocol":{"type":"string","enum":["e131","ddp"]},"address":string,"outputs":{"type":"integer","minimum":1,"maximum":65536},"firstUniverse":{"type":"integer","minimum":1,"maximum":63999},"universeSize":{"type":"integer","minimum":1,"maximum":512},"preset":{"type":"string","enum":["wledRgb","wledRgbw"]}}),vec!["id"],false),
@@ -596,7 +604,7 @@ pub fn command_tools() -> Vec<Value> {
         ("controller_create","Create a disabled controller. Never starts hardware.",json!({"name":string,"typeId":string,"outputs":{"type":"integer","minimum":1,"maximum":65536}}),vec!["name","typeId","outputs"],false),
         ("controller_rename","Rename a controller by UUID.",json!({"id":string,"name":string}),vec!["id","name"],false),
         ("controller_delete","Delete a controller and its patches. Requires confirmation.",json!({"id":string,"confirm":boolean}),vec!["id","confirm"],true),
-        ("patch_elements","Patch unconnected element/group channels to unused controller outputs in tree order. startOutput is zero-based.",json!({"elementId":string,"controllerId":string,"startOutput":{"type":"integer","minimum":0}}),vec!["elementId","controllerId"],false),
+        ("patch_elements","Patch unconnected element/group channels to unused controller outputs as one run. alsoIds adds more elements to the same run (a template's hidden-pixel group). When every light has a wire position (the Order property element_template sets for a start corner, reversing or hidden pixels) they patch in that order, otherwise in tree order; wireOrder in the result says which. startOutput is zero-based.",json!({"elementId":string,"alsoIds":{"type":"array","items":string,"maxItems":1000},"controllerId":string,"startOutput":{"type":"integer","minimum":0}}),vec!["elementId","controllerId"],false),
         ("unpatch_elements","Remove element/group patch connections; retain filters. Requires confirmation.",json!({"id":string,"confirm":boolean}),vec!["id","confirm"],true),
         ("display_undo","Undo the latest shared UI/agent display edit.",json!({}),vec![],false),
         ("display_redo","Redo the latest shared UI/agent display edit.",json!({}),vec![],false),
@@ -621,7 +629,7 @@ impl StudioDisplay {
 fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, String> {
     match command {
         "element_template" => {
-            use crate::setup::templates::{generate_template, StartLocation, TemplateParams};
+            use crate::setup::templates::{StartLocation, TemplateParams};
             let name = text(a, "name")?.to_string();
             let count = a["count"]
                 .as_u64()
@@ -632,7 +640,17 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
                 .map(|n| n.as_u64().ok_or("pixels must be an integer"))
                 .transpose()?
                 .unwrap_or(1);
-            if pixels == 0 || pixels * u64::from(count) > 4096 {
+            let hidden = a
+                .get("hiddenPixels")
+                .map(|n| n.as_u64().filter(|n| *n <= u64::from(crate::studio_wiring::MAX_HIDDEN)).ok_or("hiddenPixels must be 0..1000"))
+                .transpose()?
+                .unwrap_or(0);
+            let start = match a.get("start") {
+                Some(v) => v.as_str().and_then(crate::studio_wiring::parse_corner).ok_or("start must be bottomLeft, bottomRight, topLeft or topRight")?,
+                None => StartLocation::BottomLeft,
+            };
+            let reverse = a["zigZag"] == true || a["reverseEveryOtherString"] == true;
+            if pixels == 0 || (pixels + hidden) * u64::from(count) > 4096 {
                 return Err("Template limit is 4096 leaf elements".into());
             }
             let color = match a.get("color") {
@@ -653,8 +671,8 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
                     pixel: true,
                     pixels: pixels as u32,
                     pixel_prefix: "Pixel".into(),
-                    start: StartLocation::BottomLeft,
-                    zig_zag: a["zigZag"] == true,
+                    start,
+                    zig_zag: reverse,
                 },
                 "matrix" => TemplateParams::PixelGrid {
                     name,
@@ -663,23 +681,31 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
                     columns: pixels as u32,
                     first_prefix: "Row".into(),
                     second_prefix: "Pixel".into(),
-                    start: StartLocation::BottomLeft,
-                    zig_zag: a["zigZag"] == true,
+                    start,
+                    zig_zag: reverse,
                 },
                 _ => return Err("kind must be single, arch, group, megatree or matrix".into()),
             };
-            let result = generate_template(&mut s.tree, &params).map_err(|e| format!("{e:?}"))?;
-            let head_node = result.head;
+            let hidden = if matches!(params, TemplateParams::Megatree { .. } | TemplateParams::PixelGrid { .. }) { hidden as u32 } else { 0 };
+            let wiring = crate::studio_wiring::plan(&params, hidden);
+            let built = crate::studio_wiring::generate(&mut s.tree, &params, hidden).map_err(|e| format!("{e:?}"))?;
+            let head_node = built.result.head;
+            let hidden_node = built.hidden_head;
             let head = head_node.map(|n| s.tree.node(n).id.to_string());
-            let count = result.created.len();
-            s.apply_template_result(result);
+            let hidden_id = hidden_node.map(|n| s.tree.node(n).id.to_string());
+            let count = built.result.created.len();
+            s.apply_template_result(built.result);
             let color = match (color, head_node) {
                 (Some((mode, single)), Some(node)) => {
-                    Some(crate::studio_color::apply(s, &[node], &mode, single)?)
+                    let nodes: Vec<_> = std::iter::once(node).chain(hidden_node).collect();
+                    Some(crate::studio_color::apply(s, &nodes, &mode, single)?)
                 }
                 _ => None,
             };
-            Ok(json!({"id":head,"createdNodes":count,"color":color}))
+            let wiring = (wiring["applies"] == true).then(|| {
+                json!({"start":wiring["start"],"reverseEveryOtherString":wiring["reverseEveryOtherString"],"hiddenPixels":wiring["hidden"],"summary":wiring["summary"],"hidden":wiring["hiddenText"],"totals":wiring["totals"]})
+            });
+            Ok(json!({"id":head,"hiddenId":hidden_id,"createdNodes":count,"color":color,"wiring":wiring}))
         }
         "element_color" => {
             let node = s.tree.find(&id(a, "id")?).ok_or("Element not found")?;
