@@ -504,6 +504,11 @@ mod tests {
         assert_eq!(positions, vec![0.0, 0.5, 1.0]);
         assert_eq!(g.get_color_at(0.0), Color::from_argb_u32(0xffffffff));
         assert_eq!(g.get_color_at(1.0), Color::from_argb_u32(0xff00b4ff));
+        let ParamValue::Gradient(two) = decode(ParamKind::Gradient, &json!(["#ff0000", "#00ff00"])).unwrap() else {
+            panic!()
+        };
+        let middle = two.get_color_at(0.5);
+        assert!(middle.r > 0 && middle.g > 0 && middle.b == 0, "red to green blends, got {middle:?}");
         let encoded = encode(&ParamValue::Gradient(g.clone()));
         assert_eq!(encoded["colors"][2]["position"], json!(1.0));
         assert_eq!(writable(&ParamValue::Gradient(g)), Some(json!(["#ffffff", "#808080", "#00b4ff"])));

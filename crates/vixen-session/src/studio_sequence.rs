@@ -1338,6 +1338,20 @@ mod tests {
         assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 0);
         run("sequence_redo", json!({"sequenceId":id}));
         assert_eq!(level(&single), shaped, "redo restores the inline parameters");
+        // Color-array gradients keep evenly spaced stops through every write path.
+        let stops = |effect: &Value| {
+            let parameters = run("effect_parameters", json!({"sequenceId":id,"effectId":effect}))["parameters"].clone();
+            let gradient = parameters.as_array().unwrap().iter().find(|p| p["name"] == "ColorGradient").unwrap()["value"]["colors"].clone();
+            gradient.as_array().unwrap().iter().map(|c| c["position"].as_f64().unwrap()).collect::<Vec<_>>()
+        };
+        assert_eq!(stops(&single), vec![0.0, 1.0], "effect_add params");
+        run("effect_set_parameter", json!({"sequenceId":id,"effectId":single,"parameter":"ColorGradient","value":["#ff0000","#00ff00","#0000ff"]}));
+        assert_eq!(stops(&single), vec![0.0, 0.5, 1.0], "effect_set_parameter");
+        run("effects_batch", json!({"sequenceId":id,"ops":[{"op":"params","effectId":single,"params":{"ColorGradient":["#ff0000","#00ff00"]}}]}));
+        assert_eq!(stops(&single), vec![0.0, 1.0], "effects_batch");
+        for _ in 0..2 {
+            run("sequence_undo", json!({"sequenceId":id}));
+        }
         assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":target,"startMs":0,"durationMs":400,"params":{"Nope":1}})).contains("Unknown parameter"));
         assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 1, "a rejected add adds nothing");
 
