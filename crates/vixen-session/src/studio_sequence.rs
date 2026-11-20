@@ -13,6 +13,9 @@ use std::{
 use uuid::Uuid;
 use vixen_core::{marks::Mark, MarkCollection, TimeSpan};
 
+#[path = "studio_onsets.rs"]
+mod onsets;
+
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
         .filter(|s| !s.is_empty() && s.len() <= 256)
@@ -109,11 +112,28 @@ fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), St
             &AtomicBool::new(false),
         )
         .map_err(|e| format!("{e:?}"))?;
-    let beats: Vec<_> = collections
-        .iter()
-        .filter(|c| c.name == "Music - All")
-        .flat_map(|c| c.marks.iter().map(|m| m.start_time.total_ms()))
-        .collect();
+    // Vixen's "All" collection repeats the first beat; drop that mark from the collection and the beat list.
+    for c in collections.iter_mut().filter(|c| c.name == "Music - All") {
+        c.marks.dedup_by(|b, a| a.start_time == b.start_time);
+    }
+    let bars = onsets::dedupe(
+        collections
+            .iter()
+            .filter(|c| c.name.contains("(Bar)"))
+            .flat_map(|c| c.marks.iter().map(|m| m.start_time.total_ms()))
+            .collect(),
+        1.0,
+    );
+    // Downbeats are beats too; they restore the last beat when it starts a bar ("All" never includes the last beat).
+    let beats = onsets::dedupe(
+        collections
+            .iter()
+            .filter(|c| c.name == "Music - All")
+            .flat_map(|c| c.marks.iter().map(|m| m.start_time.total_ms()))
+            .chain(bars.iter().copied())
+            .collect(),
+        1.0,
+    );
     let mut intervals: Vec<_> = beats
         .windows(2)
         .map(|p| p[1] - p[0])
@@ -132,11 +152,30 @@ fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), St
         })
         .collect();
     let average = levels.iter().sum::<f64>() / levels.len().max(1) as f64;
-    let onsets: Vec<f64> = levels
-        .windows(2)
-        .enumerate()
-        .filter(|(_, w)| w[1] > average * 1.25 && w[1] > w[0] * 1.5 && w[1] > 0.01)
-        .map(|(i, _)| (i + 1) as f64 * 100.0)
+    let detected = onsets::detect(audio.mono(), audio.sample_rate());
+    let round = |v: f64, places: i32| (v * 10f64.powi(places)).round() / 10f64.powi(places);
+    let onset_list: Vec<Value> = detected
+        .iter()
+        .map(|o| {
+            let mut item = json!({"timeMs":round(o.time_ms, 1),"band":onsets::BANDS[o.band],"strength":round(o.strength, 3)});
+            if let Some((bar, slot, offset)) = onsets::slot(&bars, o.time_ms) {
+                item["bar"] = json!(bar);
+                item["slot"] = json!(slot);
+                item["slotOffsetMs"] = json!(round(offset, 1));
+            }
+            item
+        })
+        .collect();
+    // Any band, with hits closer than 25 ms merged: one time per audible attack.
+    let onsets_ms: Vec<f64> =
+        onsets::dedupe(detected.iter().map(|o| round(o.time_ms, 0)).collect(), 25.0);
+    let slot_grid: Vec<Value> = onsets::slot_grid(&bars, &detected)
+        .iter()
+        .zip(&bars)
+        .map(|(bands, bar)| {
+            let row = |b: usize| bands[b].iter().map(|v| round(*v, 2)).collect::<Vec<_>>();
+            json!({"barMs":bar,"low":row(0),"mid":row(1),"high":row(2)})
+        })
         .collect();
     let energy: Vec<Value> = levels
         .iter()
@@ -152,13 +191,8 @@ fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), St
         .filter(|(_, w)| (w[1] - w[0]).abs() > average * 0.5)
         .map(|(i, _)| (i + 1) as f64 * 5000.0)
         .collect();
-    let bars: Vec<_> = collections
-        .iter()
-        .filter(|c| c.name.contains("(Bar)"))
-        .flat_map(|c| c.marks.iter().map(|m| m.start_time.total_ms()))
-        .collect();
     Ok((
-        json!({"media":name,"durationMs":duration,"tempoBpm":tempo,"beatsMs":beats,"barsMs":bars,"assumedBeatsPerBar":4,"energy":energy,"onsetsMs":onsets,"sectionCandidatesMs":section_candidates,"onsetMethod":"100ms RMS rise heuristic","sectionMethod":"5s RMS change candidates, not semantic song sections","notAnalyzed":["lyrics","phonemes"]}),
+        json!({"media":name,"durationMs":duration,"tempoBpm":tempo,"beatsMs":beats,"barsMs":bars,"assumedBeatsPerBar":4,"energy":energy,"onsetsMs":onsets_ms,"onsets":onset_list,"slotsPerBar":onsets::SLOTS_PER_BAR,"slotGrid":slot_grid,"sectionCandidatesMs":section_candidates,"onsetMethod":"Per-band spectral flux (low <200 Hz, mid 200-2000 Hz, high >2000 Hz), ~46 ms window, ~6 ms hop, adaptive median+MAD threshold; times are estimates, typically within 10 ms","slotMethod":"bar = index into barsMs, slot = nearest 16th of that bar (assumes 4/4); slotGrid holds each band's strongest onset strength per slot","sectionMethod":"5s RMS change candidates, not semantic song sections","notAnalyzed":["lyrics","phonemes"]}),
         collections,
     ))
 }
@@ -559,7 +593,7 @@ pub fn tools() -> Vec<Value> {
 
         ("effect_set_parameter","Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"parameter":string,"value":{}}),vec!["sequenceId","effectId","parameter","value"],false),
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
-        ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker; returns millisecond timestamps and estimated tempo. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
+        ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound.",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
         ("sequence_open","Open a profile Sequence filename, reusing an already open shared session.",json!({"file":string}),vec!["file"],false),
         ("sequence_status","Shared document dirty/render/undo status.",json!({"sequenceId":string}),vec!["sequenceId"],true),

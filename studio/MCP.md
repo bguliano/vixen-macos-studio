@@ -53,7 +53,7 @@ Events: clientConnected/clientDisconnected (command holds opaque client ID), com
 - Controllers: types/list/create/rename/delete, DDP/E1.31 IPv4-unicast configuration/auto universes, patch/unpatch, monitor, separately gated start/stop/test pattern.
 - Preview: preview IDs/linked nodes, native prop/property inventory, common shape creation, primitive property edits, element linking, inspection PNG.
 - Sequences: create with audio/open/status/save/length; effects list/add/delete/timing/copy/parameters; layers list/create/rename/delete/assignment; marks/undo/redo/render; guarded play/pause/stop/seek.
-- Music: native beat/bar tracker, tempo estimate, 100ms RMS energy, explicitly labelled onset/section-change heuristics. Authored phrase/word/phoneme marks supported.
+- Music: native beat/bar tracker (deduplicated beats), tempo estimate, 100ms RMS energy, per-band spectral-flux onsets (low/mid/high, millisecond times with strength, bar and 16th slot) plus a per-bar slot-strength grid, and a labelled section-change heuristic. Authored phrase/word/phoneme marks supported.
 - Shows/schedules: list, sequential show create/rename/delete, disabled schedule drafts and confirmed deletion. No program-launch actions or remote activation.
 - Diagnostics: unpatched elements, unused outputs, invalid patches/configurations, overlapping universes, open-sequence missing media/targets/native color corrections, bounded log tail, actual engine/controller state.
 - Export: confirmed local uncompressed FSEQ v2 at 50ms; no upload.
@@ -71,7 +71,7 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 
 ## Known limits
 
-- No automatic lyrics transcription/phoneme alignment. Bars assume 4/4. Onset/section candidates are energy heuristics, not semantic song structure.
+- No automatic lyrics transcription/phoneme alignment. Bars assume 4/4. Section candidates are an energy heuristic, not semantic song structure; onset times are estimates, typically within 10 ms.
 - PNG uses real geometry/links/schedule/color conversion but CPU inspection rasterization: no background artwork, fixture beams or GPU antialiasing; max 2048 dimensions.
 - Common primitives/enums/colors/RGB/curves/gradients/gradient-level pairs ({gradient, curve} lists, e.g. Alternating, Pinwheel and Dissolve Colors)/nested records supported; effect_catalog and effect_parameters add a `note` where a parameter needs more than its native label (GroupLevel/EnableDepth/DepthOfEffect on Alternating and Dissolve). Font, raw XML and file-path parameter selectors remain rejected with rejecting schemas. Layer creation currently uses highest-value mixing.
 - Controller editing covers IPv4 unicast, not every serial/specialist dialog or manual multicast/universe layout. Real hardware startup/test is deliberately untested.
