@@ -57,7 +57,7 @@ final class SetupModel {
     private(set) var properties: [SetupPropertyRow] = []
     var propertySelection: Set<String> = []
     @ObservationIgnored private var drafts: [SetupTemplateKind: SetupTemplateDraft] = [:]
-    @ObservationIgnored private var addingFromTemplate = false
+    @ObservationIgnored private(set) var addingFromTemplate = false // STUDIO: the live pane holds publication until a template's steps are done, so they undo together
 
     // Simple patching.
     private(set) var elementStats = SetupElementStats.none
@@ -576,6 +576,11 @@ final class SetupModel {
         }
         let kind = info.kind
         guard let draft = drafts[kind] ?? setupTemplateDraft(kind: kind) else { return }
+        // STUDIO-BEGIN template-preview-load: the previews the template's Show in Preview picker offers
+        if StudioTemplatePreview.supports(kind) {
+            StudioTemplatePreview.choices = await working { StudioTemplatePreview.load(from: $0) } ?? []
+        }
+        // STUDIO-END template-preview-load
         // F99: each template remembers its last values for as long as the window is open, Cancel included.
         let chosen: SetupTemplateDraft? = await present { [weak self] finish in
             .template(draft: draft, remember: { self?.drafts[kind] = $0 }, finish: finish)
@@ -589,6 +594,14 @@ final class SetupModel {
             return
         }
         let nodes = (await working { session in session.nodeIdsOf(selection: made.createdPaths) }) ?? []
+        // STUDIO-BEGIN template-preview-apply: the matching preview shape, linked to the new prop (its head is the first selected row), before the helpers' questions so it publishes with the elements
+        let preview = StudioTemplatePreview.preview(for: kind)
+        if !preview.isEmpty, let headRow = made.edit.select.first,
+           let head = (await working { $0.nodeIdsOf(selection: [headRow]) })?.first,
+           let failure = await working({ StudioTemplatePreview.add(to: head, kind: kind, preview: preview, in: $0) }) ?? nil {
+            await tell("Couldn't Show in Preview", "The elements were made, but the preview shape wasn't: \(failure)")
+        }
+        // STUDIO-END template-preview-apply
         // Cancelling either helper doesn't remove what was made.
         if info.askDimming {
             let answer = await ask("Dimming Curve Setup", "Would you like to configure a dimming curve for this Prop?", [

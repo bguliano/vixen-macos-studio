@@ -159,6 +159,18 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "f35e4aef74f867ab"
  },
+ "block:template-preview-apply": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "2cae3f0444333fbb"
+ },
+ "block:template-preview-load": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "49ade970f3830ff0"
+ },
+ "block:template-preview-picker": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "a19f3a04f01a9b68"
+ },
  "block:template-runner-color": {
   "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",
   "hash": "18d8b03bfb8413a2"
@@ -387,6 +399,10 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "0a35fb9481b7dcc6"
  },
+ "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:3845bbc479d7e649": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "3845bbc479d7e649"
+ },
  "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:7c0b925da1b2b494": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "7c0b925da1b2b494"
@@ -399,9 +415,21 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "c01513275a3078ea"
  },
+ "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:c278d96ccb526384": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "c278d96ccb526384"
+ },
  "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:d388ffc074e5dc13": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "d388ffc074e5dc13"
+ },
+ "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:f5d9c1de6e31cdb7": {
+  "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
+  "hash": "f5d9c1de6e31cdb7"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupModel.swift:5e554bed8e4a260e": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "5e554bed8e4a260e"
  },
  "line:app/Sources/VixenSetup/Window/SetupModel.swift:7d79b4f49096c8c0": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",

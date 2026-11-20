@@ -55,7 +55,9 @@ command, edits are live with Undo, and each change is verified with harness runs
    Reverse, Swap With (elements using the same number of outputs, siblings first) and Move to Output (free runs that fit),
    each one undo step; MCP `patch_reverse`, `patch_swap`, `patch_move` and `patch_ranges`.
 5. **"Show in a preview" from any prop.** Creating a megatree/matrix offers to add a matching, already-linked shape to a
-   preview.
+   preview. *Done:* a Show in Preview picker in the Megatree, Pixel Grid and Arch sheets
+   (`StudioTemplatePreview.swift`, `studio_props::add_linked`) adds the matching Mega Tree, Pixel Grid or Arch, linked
+   light for light in the prop's order; MCP `element_template` `previewId` and `preview_prop_create` `elementId`.
 6. **Commissioning tests** per controller and per group: moving pixel, R/G/B/W bars, at a chosen brightness (default 25%),
    gated by the live-output switch. Mirrors the build manual's Part J checks.
 7. **Command palette (⌘K)** over every menu command and MCP-backed action, so nothing is unreachable again.

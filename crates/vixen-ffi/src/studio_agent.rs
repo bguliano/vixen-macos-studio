@@ -219,6 +219,33 @@ impl DisplaySetupSession {
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }
+    /// The previews a template's new prop can be shown in, as JSON [{id, name}], in the profile's order.
+    pub fn studio_preview_choices(&self) -> String {
+        let working = self.inner.read();
+        serde_json::Value::from(
+            vixen_session::preview::preview_entries(&working.system)
+                .into_iter()
+                .map(|p| serde_json::json!({"id":p.id.to_string(),"name":p.name}))
+                .collect::<Vec<_>>(),
+        )
+        .to_string()
+    }
+    /// A preview shape for an element of this working copy, already linked light for light: {previewId, elementId,
+    /// kind:"megatree"|"matrix"|"arch"}, the code the MCP `element_template` previewId and `preview_prop_create` elementId run.
+    /// Returns JSON {previewId, propId, shape, strings, lightsPerString, linkedLights}. A refusal changes nothing.
+    pub fn studio_add_preview_shape(&self, arguments_json: String) -> Result<String, FfiError> {
+        let args: serde_json::Value =
+            serde_json::from_str(&arguments_json).map_err(|e| FfiError::new(e.to_string()))?;
+        let uuid = |key: &str| {
+            args[key].as_str().and_then(|s| uuid::Uuid::parse_str(s).ok()).ok_or_else(|| FfiError::new(format!("{key} must be a UUID")))
+        };
+        let (preview, element) = (uuid("previewId")?, uuid("elementId")?);
+        let kind = args["kind"].as_str().unwrap_or_default();
+        let mut working = self.inner.write();
+        vixen_session::studio_props::add_linked(&mut working, preview, element, kind, None)
+            .map(|v| v.to_string())
+            .map_err(FfiError::new)
+    }
 }
 
 #[uniffi::export]

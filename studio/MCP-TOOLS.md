@@ -19,7 +19,7 @@
 | effect_catalog | true | List registered effects and JSON parameter schemas. Unsupported native value kinds have a rejecting schema. |
 | diagnostics_report | true | Report patches, controller/universe errors, and missing media/targets/native color corrections for open sequences. |
 | profile_save | false | Save current live display configuration and module data. Explicit confirmation required; retains undo history. |
-| element_template | false | Create a bounded single item, arch, group, megatree or matrix using native template algorithms; color (rgb, rgbw, single) sets colour handling on the new lights in the same step; megatree/matrix wiring as the template sheet's diagram shows it: start corner, reverseEveryOtherString (alias zigZag) and hiddenPixels per string in a separate "<name> Hidden" group (hiddenId); the result's wiring describes the order. |
+| element_template | false | Create a bounded single item, arch, group, megatree or matrix using native template algorithms; color (rgb, rgbw, single) sets colour handling on the new lights in the same step; megatree/matrix wiring as the template sheet's diagram shows it: start corner, reverseEveryOtherString (alias zigZag) and hiddenPixels per string in a separate "<name> Hidden" group (hiddenId); the result's wiring describes the order; previewId (megatree, matrix, arch) adds the matching preview shape in the same step, already linked light for light. |
 | element_color | false | Set colour handling on an element/group's leaves, as the Color Handling helper does (Color property plus Color Breakdown filter): rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1. |
 | element_wire_order | false | Reverse the selected element/group row order using the native setup command. |
 | controller_configure | false | Configure DDP or E1.31 unicast using an IPv4 literal. Does not connect or start output. E1.31 requires firstUniverse; universeSize defaults 510. |
@@ -43,7 +43,7 @@
 | show_delete | false | Delete an unreferenced show after confirmation. |
 | schedule_create | false | Draft a DISABLED schedule. id is show UUID; start/end are local ISO date-times; days is seven booleans Sunday-first. Enable locally after review. |
 | schedule_delete | false | Delete a schedule by index with explicit confirmation and snapshot revision. |
-| preview_prop_create | false | Add a native preview prop at the default location; change geometry with preview_prop_set. |
+| preview_prop_create | false | Add a native preview prop at the default location; change geometry with preview_prop_set. With elementId (megatree, matrix, arch) the shape is built from that element, sized for its lights, placed beside the other props and already linked light for light. |
 | preview_prop_link | false | Link a preview prop to element node UUIDs using native linking rules. Requires snapshot expectedRevision. |
 | preview_prop_set | false | Set a native preview property. Use metadata IDs from preview_props and the matching valueType. Requires snapshot expectedRevision. |
 | effect_parameters | true | Read current typed effect parameter values and writable schemas. Native gradient stop positions are reported separately from the evenly-spaced write format. |

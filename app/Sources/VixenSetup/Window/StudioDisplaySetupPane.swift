@@ -152,7 +152,8 @@ final class StudioDisplayLive {
         guard paneVisible, let core = app.core else { return }
         let real = await offMain { core.studioDisplayEditBlock() }
         blocked = testBlock ?? real
-        guard !working else { return }
+        // A template's elements, colour handling and preview shape publish together, as one undo step.
+        guard !working, !model.addingFromTemplate else { return }
         await publish(model: model, core: core, cleanup: false)
         await refreshHistory(core: core, rebuildIfChanged: true)
     }

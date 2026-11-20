@@ -12,6 +12,7 @@ struct TemplateSheet: View {
     @State private var finished = false
     @State private var colorMode: String // STUDIO: the template's Colour choice (StudioTemplateColor)
     @State private var hiddenPixels: Int // STUDIO: hidden pixels per string (StudioTemplateWiring)
+    @State private var previewId: String // STUDIO: the template's Show in Preview choice (StudioTemplatePreview)
 
     init(draft: SetupTemplateDraft, rememberOnCancel: ((SetupTemplateDraft) -> Void)? = nil, onFinish: @escaping (SetupTemplateDraft?) -> Void) {
         self.onFinish = onFinish
@@ -19,6 +20,7 @@ struct TemplateSheet: View {
         _draft = State(initialValue: draft)
         _colorMode = State(initialValue: StudioTemplateColor.mode(for: draft.kind)) // STUDIO: the template's Colour choice
         _hiddenPixels = State(initialValue: Int(StudioTemplateWiring.hidden(for: draft.kind))) // STUDIO: hidden pixels per string
+        _previewId = State(initialValue: StudioTemplatePreview.preview(for: draft.kind)) // STUDIO: the template's Show in Preview choice
     }
 
     var body: some View {
@@ -80,6 +82,11 @@ struct TemplateSheet: View {
                 StudioTemplateColorPicker(mode: $colorMode)
             }
             // STUDIO-END template-color-picker
+            // STUDIO-BEGIN template-preview-picker: Show in Preview adds the matching shape, already linked to the new lights
+            if StudioTemplatePreview.supports(draft.kind) {
+                StudioTemplatePreviewPicker(kind: draft.kind, preview: $previewId)
+            }
+            // STUDIO-END template-preview-picker
             SheetButtons(ok: ok, cancel: cancel)
         }
         .padding(16)
@@ -95,6 +102,7 @@ struct TemplateSheet: View {
         StudioTemplateColor.chosen[draft.kind] = colorMode
         // STUDIO-END template-color-ok
         StudioTemplateWiring.chosenHidden[draft.kind] = hiddenPixels // STUDIO: remember the hidden pixels per string
+        StudioTemplatePreview.chosen[draft.kind] = previewId // STUDIO: remember the Show in Preview choice
         if let found = setupTemplateProblem(draft: draft) {
             problem = found
         } else {
