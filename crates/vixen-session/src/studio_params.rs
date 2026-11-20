@@ -1,7 +1,119 @@
 //! JSON parameter codec using native effect descriptors; unsupported raw XML is never accepted.
 use serde_json::{json, Value};
-use vixen_core::{Color, ColorGradient, Curve, GradientLevelPair, TimeSpan};
-use vixen_effects::framework::{ParamKind, ParamValue, Params};
+use vixen_core::{Color, ColorGradient, ColorPoint, Curve, GradientLevelPair, TimeSpan};
+use vixen_effects::framework::{Display, Editor, ParamDesc, ParamKind, ParamValue, Params};
+
+/// Largest magnitude accepted for a number whose native editor gives no range.
+pub const NUMERIC_SAFETY_LIMIT: f64 = 100000.0;
+
+/// The stored-value range a numeric parameter accepts: its native editor's range taken through the property's
+/// getter/setter conversion, the 0..1 of level and percentage editors, or the safety limit when the editor has none.
+pub fn range(p: &ParamDesc) -> Option<(f64, f64)> {
+    match p.kind {
+        ParamKind::Percentage => return Some((0.0, 1.0)),
+        ParamKind::Time => return Some((0.0, 3600000.0)),
+        ParamKind::Int | ParamKind::Long | ParamKind::Double => {}
+        _ => return None,
+    }
+    Some(match p.editor {
+        Editor::Number { min, max, .. } | Editor::Slider { min, max, .. } | Editor::SliderDouble { min, max, .. } => {
+            match p.display {
+                Display::Stored => (min, max),
+                Display::Times(k) => (min / k as f64, max / k as f64),
+                Display::Minus(k) => (k as f64 - max, k as f64 - min),
+            }
+        }
+        Editor::Level | Editor::Percent => (0.0, 1.0),
+        _ => (-NUMERIC_SAFETY_LIMIT, NUMERIC_SAFETY_LIMIT),
+    })
+}
+
+/// The writable schema of one native parameter: its type's shape with the real range, unit and default.
+pub fn param_schema(p: &ParamDesc) -> Value {
+    let mut s = match p.kind {
+        ParamKind::Record(desc) => record_schema(desc.params),
+        ParamKind::RecordList(desc) => {
+            json!({"type":"array","items":record_schema(desc.params),"maxItems":128})
+        }
+        kind => schema(kind),
+    };
+    if let Some((min, max)) = range(p) {
+        let integer = matches!(p.kind, ParamKind::Int | ParamKind::Long);
+        let bound = |n: f64| if integer { json!(n.round() as i64) } else { json!(n) };
+        s["minimum"] = bound(min);
+        s["maximum"] = bound(max);
+    }
+    let unit = match (p.kind, p.editor) {
+        (ParamKind::Time, _) => Some("milliseconds"),
+        (ParamKind::Percentage, _) | (_, Editor::Level | Editor::Percent) => Some("fraction"),
+        _ => None,
+    };
+    if let Some(unit) = unit {
+        s["unit"] = json!(unit);
+    }
+    let shown = match (p.editor, p.display) {
+        (Editor::Level | Editor::Percent, _) => Some("0..1; the native editor shows it as 0..100%".to_string()),
+        (Editor::Number { min, max, .. } | Editor::Slider { min, max, .. }, Display::Times(k)) => {
+            Some(format!("Stored value; the native editor shows it multiplied by {k} ({min}..{max})"))
+        }
+        (Editor::Number { .. } | Editor::Slider { .. }, Display::Minus(k)) => {
+            Some(format!("Stored value; the native editor shows {k} minus it"))
+        }
+        _ => None,
+    };
+    if let Some(text) = shown {
+        s["description"] = json!(text);
+    }
+    if let Some(default) = writable(&(p.default)()) {
+        s["default"] = default;
+    }
+    s
+}
+
+fn record_schema(params: &[ParamDesc]) -> Value {
+    json!({"type":"object","properties":params.iter().map(|p|(p.name.to_string(),param_schema(p))).collect::<serde_json::Map<_,_>>(),"additionalProperties":false})
+}
+
+/// A gradient through the given colours at evenly spaced stops, as the writable JSON describes it.
+fn even_gradient(colors: &[Color]) -> ColorGradient {
+    let mut gradient = ColorGradient::solid(colors[0]);
+    if colors.len() > 1 {
+        let last = (colors.len() - 1) as f64;
+        gradient.set_colors(colors.iter().enumerate().map(|(i, &c)| ColorPoint::new(c, i as f64 / last)).collect());
+    }
+    gradient
+}
+
+/// The value in the form decode accepts, when that form can express it exactly.
+fn writable(value: &ParamValue) -> Option<Value> {
+    let hex = |c: Color| json!(format!("#{:02x}{:02x}{:02x}", c.r, c.g, c.b));
+    let gradient = |g: &ColorGradient| {
+        let colors = g.colors().iter().map(|p| p.rgb_color()).collect::<Vec<_>>();
+        (!colors.is_empty() && *g == even_gradient(&colors)).then(|| json!(colors.iter().map(|&c| hex(c)).collect::<Vec<_>>()))
+    };
+    Some(match value {
+        ParamValue::Gradient(g) => gradient(g)?,
+        ParamValue::GradientList(v) => json!(v.iter().map(gradient).collect::<Option<Vec<_>>>()?),
+        ParamValue::GradientLevels(v) => json!(v
+            .iter()
+            .map(|g| Some(json!({"gradient":gradient(&g.color_gradient)?,"curve":g.curve.points})))
+            .collect::<Option<Vec<_>>>()?),
+        ParamValue::Record(p) => json!(p
+            .desc
+            .iter()
+            .map(|d| Some((d.name.to_string(), writable(p.get(d.name))?)))
+            .collect::<Option<serde_json::Map<_, _>>>()?),
+        ParamValue::RecordList(v) => json!(v
+            .iter()
+            .map(|p| writable(&ParamValue::Record(Box::new(p.clone()))))
+            .collect::<Option<Vec<_>>>()?),
+        ParamValue::None => return None,
+        other => match encode(other) {
+            Value::Object(o) if o.contains_key("supported") => return None,
+            v => v,
+        },
+    })
+}
 
 pub fn schema(kind: ParamKind) -> Value {
     let color = json!({"type":"string","pattern":"^#[0-9a-fA-F]{6}$","description":"#RRGGBB"});
@@ -20,11 +132,14 @@ pub fn schema(kind: ParamKind) -> Value {
             json!({"type":"string","enum":desc.members.iter().map(|m|m.name).collect::<Vec<_>>()})
         }
         ParamKind::Color | ParamKind::Rgb => color,
-        ParamKind::ColorList | ParamKind::Gradient => {
-            json!({"type":"array","items":color,"minItems":1,"maxItems":64,"description":"Evenly spaced colors; for gradient, interpolated by Vixen"})
+        ParamKind::ColorList => {
+            json!({"title":"colorList","type":"array","items":color,"minItems":1,"maxItems":64,"description":"A flat list of #RRGGBB colors, each used on its own, e.g. [\"#ff0000\",\"#00ff00\"]"})
+        }
+        ParamKind::Gradient => {
+            json!({"title":"gradient","type":"array","items":color,"minItems":1,"maxItems":64,"description":"One gradient: a flat list of #RRGGBB colors at evenly spaced stops, blended by Vixen; one color is solid. E.g. [\"#ffffff\",\"#00b4ff\"]"})
         }
         ParamKind::GradientList => {
-            json!({"type":"array","items":schema(ParamKind::Gradient),"maxItems":64})
+            json!({"title":"gradientList","type":"array","items":schema(ParamKind::Gradient),"maxItems":64,"description":"A list of gradients, each a flat list of #RRGGBB colors, e.g. [[\"#ff0000\"],[\"#ffffff\",\"#00b4ff\"]]"})
         }
         ParamKind::GradientLevels => {
             json!({"type":"array","items":{"type":"object","properties":{"gradient":schema(ParamKind::Gradient),"curve":schema(ParamKind::Curve)},"required":["gradient"],"additionalProperties":false},"minItems":1,"maxItems":64,"description":"Gradient and brightness curve pairs, used in order (Alternating cycles through them). curve defaults to flat 100%"})
@@ -32,11 +147,9 @@ pub fn schema(kind: ParamKind) -> Value {
         ParamKind::Curve => {
             json!({"type":"array","items":{"type":"array","items":{"type":"number","minimum":0,"maximum":100},"minItems":2,"maxItems":2},"minItems":2,"maxItems":128,"description":"[x,y] curve control points, both 0..100"})
         }
-        ParamKind::Record(desc) => {
-            json!({"type":"object","properties":desc.params.iter().map(|p|(p.name.to_string(),schema(p.kind))).collect::<serde_json::Map<_,_>>(),"additionalProperties":false})
-        }
+        ParamKind::Record(desc) => record_schema(desc.params),
         ParamKind::RecordList(desc) => {
-            json!({"type":"array","items":schema(ParamKind::Record(desc)),"maxItems":128})
+            json!({"type":"array","items":record_schema(desc.params),"maxItems":128})
         }
         _ => {
             json!({"not":{},"description":"Not yet supported by Studio JSON; use the native editor"})
@@ -102,26 +215,41 @@ pub fn decode(kind: ParamKind, v: &Value) -> Result<ParamValue, String> {
         ParamKind::Color => ParamValue::Color(color(v)?),
         ParamKind::Rgb => ParamValue::Rgb(vixen_core::color::Rgb::from_color(color(v)?)),
         ParamKind::ColorList | ParamKind::Gradient => {
-            let values = array(v, 64)?;
+            let shape = if matches!(kind, ParamKind::ColorList) { "colorList" } else { "gradient" };
+            let values = array(v, 64).map_err(|e| format!("{e}: a {shape} is a flat list of #RRGGBB colors"))?;
             if values.is_empty() {
                 return Err("At least one color required".into());
+            }
+            if values.iter().any(Value::is_array) {
+                return Err(format!(
+                    "Expected a {shape}: a flat list of #RRGGBB colors, not a list of lists (that is a gradientList)"
+                ));
             }
             let colors = values.iter().map(color).collect::<Result<Vec<_>, _>>()?;
             if matches!(kind, ParamKind::ColorList) {
                 ParamValue::ColorList(colors)
             } else {
-                ParamValue::Gradient(ColorGradient::from_colors(&colors))
+                ParamValue::Gradient(even_gradient(&colors))
             }
         }
-        ParamKind::GradientList => ParamValue::GradientList(
-            array(v, 64)?
-                .iter()
-                .map(|item| match decode(ParamKind::Gradient, item)? {
-                    ParamValue::Gradient(g) => Ok(g),
-                    _ => unreachable!(),
-                })
-                .collect::<Result<Vec<_>, String>>()?,
-        ),
+        ParamKind::GradientList => {
+            let items = array(v, 64)?;
+            if items.iter().any(|item| !item.is_array()) {
+                return Err(
+                    "Expected a gradientList: a list of gradients, each a list of #RRGGBB colors, e.g. [[\"#ff0000\"]]"
+                        .into(),
+                );
+            }
+            ParamValue::GradientList(
+                items
+                    .iter()
+                    .map(|item| match decode(ParamKind::Gradient, item)? {
+                        ParamValue::Gradient(g) => Ok(g),
+                        _ => unreachable!(),
+                    })
+                    .collect::<Result<Vec<_>, String>>()?,
+            )
+        }
         ParamKind::GradientLevels => {
             let items = array(v, 64)?;
             if items.is_empty() {
@@ -222,7 +350,7 @@ pub fn encode(value: &ParamValue) -> Value {
         ParamValue::ColorList(v) => json!(v.iter().map(|c| hex(*c)).collect::<Vec<_>>()),
         ParamValue::Curve(v) => json!(v.points),
         ParamValue::Gradient(v) => {
-            json!({"colors":v.colors().iter().map(|c|json!({"color":hex(c.rgb_color()),"position":c.position})).collect::<Vec<_>>(),"note":"Writable JSON uses evenly-spaced color arrays; this reports native stop positions"})
+            json!({"colors":v.colors().iter().map(|c|json!({"color":hex(c.rgb_color()),"position":c.position})).collect::<Vec<_>>(),"note":"Native stop positions (0..1). Writable JSON is a flat color list placed at evenly spaced stops"})
         }
         ParamValue::GradientList(v) => json!(v
             .iter()
@@ -323,6 +451,62 @@ mod tests {
             assert_eq!(encoded[1]["curve"], json!([[0.0, 0.0], [100.0, 50.0]]));
             assert_eq!(encoded[0]["gradient"]["colors"][0]["color"], "#0000ff");
         }
+    }
+
+    fn param(effect_name: &str, name: &str) -> &'static ParamDesc {
+        effect(effect_name).params.iter().find(|p| p.name == name).unwrap()
+    }
+
+    #[test]
+    fn schemas_carry_native_ranges_units_and_defaults() {
+        let speed = param_schema(param("Bars", "Speed"));
+        assert_eq!((speed["minimum"].clone(), speed["maximum"].clone()), (json!(0), json!(20)));
+        assert_eq!(speed["default"], json!(1));
+        let level = param_schema(param("Twinkle", "MaximumLevel"));
+        assert_eq!((level["minimum"].clone(), level["maximum"].clone()), (json!(0.0), json!(1.0)));
+        assert_eq!(level["unit"], "fraction");
+        assert_eq!(level["default"], json!(1.0));
+        // Editors without a range report the limit validation enforces, not the full int32 range.
+        let pulse = param_schema(param("Wipe", "PulseTime"));
+        assert_eq!(pulse["maximum"], json!(NUMERIC_SAFETY_LIMIT as i64));
+        // Gain is stored as a tenth of what its 0..200 slider shows.
+        let gain = param("Fireworks", "Gain");
+        assert_eq!(range(gain), Some((0.0, 20.0)));
+        assert!(param_schema(gain)["description"].as_str().unwrap().contains("multiplied by 10"));
+        for descriptor in vixen_effect_registry::all() {
+            for p in descriptor.params {
+                let s = param_schema(p);
+                assert_ne!(s["maximum"], json!(i32::MAX), "{}.{}", descriptor.name, p.name);
+                if let (Some(default), Some(_)) = (s.get("default"), s.get("not")) {
+                    panic!("{}.{} has default {default} but no writable form", descriptor.name, p.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn color_shapes_are_named_and_mismatches_explained() {
+        assert_eq!(param_schema(param("Spiral", "Colors"))["title"], "gradientList");
+        assert_eq!(param_schema(param("Spiral", "Colors"))["items"]["title"], "gradient");
+        assert_eq!(param_schema(param("Spiral", "Colors"))["default"], json!([["#ff0000"], ["#00ff00"], ["#0000ff"]]));
+        let gradient_err = decode(ParamKind::Gradient, &json!([["#ff0000"]])).unwrap_err();
+        assert!(gradient_err.contains("gradientList"), "{gradient_err}");
+        let list_err = decode(ParamKind::GradientList, &json!(["#ff0000"])).unwrap_err();
+        assert!(list_err.contains("list of gradients"), "{list_err}");
+    }
+
+    #[test]
+    fn multi_color_gradients_get_evenly_spaced_stops() {
+        let ParamValue::Gradient(g) = decode(ParamKind::Gradient, &json!(["#ffffff", "#808080", "#00b4ff"])).unwrap() else {
+            panic!()
+        };
+        let positions = g.colors().iter().map(|c| c.position).collect::<Vec<_>>();
+        assert_eq!(positions, vec![0.0, 0.5, 1.0]);
+        assert_eq!(g.get_color_at(0.0), Color::from_argb_u32(0xffffffff));
+        assert_eq!(g.get_color_at(1.0), Color::from_argb_u32(0xff00b4ff));
+        let encoded = encode(&ParamValue::Gradient(g.clone()));
+        assert_eq!(encoded["colors"][2]["position"], json!(1.0));
+        assert_eq!(writable(&ParamValue::Gradient(g)), Some(json!(["#ffffff", "#808080", "#00b4ff"])));
     }
 
     #[test]

@@ -60,7 +60,7 @@ Events: clientConnected/clientDisconnected (command holds opaque client ID), com
 - Export: confirmed local uncompressed FSEQ v2 at 50ms; no upload.
 - Resource studio://contract and build_show workflow prompt.
 
-Shared structural schema validation enforces types/required fields/ranges, followed by native domain validation. Raw XML parameters are never accepted. Strings/lists/numeric work are bounded.
+Shared structural schema validation enforces types/required fields/ranges, followed by native domain validation. Effect parameter schemas (effect_catalog, effect_parameters) give each numeric parameter the stored-value minimum/maximum its native editor allows, converted through the property's getter/setter (the same range effect writes enforce; editors without one report the 100000 safety limit), a unit where known (milliseconds, fraction), the native default, and name the color shapes colorList, gradient (flat #RRGGBB list) and gradientList (list of those). A multi-color gradient is written with evenly spaced stops. Raw XML parameters are never accepted. Strings/lists/numeric work are bounded.
 
 ## Safety
 
