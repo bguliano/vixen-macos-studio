@@ -12,6 +12,7 @@ use std::{
 };
 use uuid::Uuid;
 use vixen_core::{marks::Mark, MarkCollection, TimeSpan};
+use vixen_effects::framework::{EffectDescriptor, ParamDesc, ParamValue};
 
 #[path = "studio_onsets.rs"]
 mod onsets;
@@ -304,6 +305,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             "Stop this sequence locally before agent edits that may alter live output".into(),
         );
     }
+    if name == "sequence_close" {
+        return close(core, shared, a);
+    }
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
         let mut s = shared.lock();
@@ -342,30 +346,8 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>()})).collect::<Vec<_>>(),"total":s.effect_count()})
         }
         "effect_add" => {
-            let target = uuid(a, "targetId")?;
-            let type_id = uuid(a, "typeId")?;
-            let start = ms(a, "startMs")?;
-            let duration = ms(a, "durationMs")?;
-            if duration < 1.0 || start + duration > s.length().total_ms() {
-                return Err("Effect must fit within sequence and have positive duration".into());
-            }
-            let target_name = {
-                let system = core.system.read();
-                system
-                    .tree
-                    .find(&target)
-                    .map(|n| system.tree.node(n).name.clone())
-                    .ok_or("Target not found")?
-            };
-            let id = s
-                .add_new_effect(
-                    type_id,
-                    target,
-                    &target_name,
-                    TimeSpan::from_ms(start),
-                    TimeSpan::from_ms(duration),
-                )
-                .ok_or("Effect type not found")?;
+            let new = plan_add(core, &s, a)?;
+            let id = apply_add(&mut s, new);
             record(
                 &mut s,
                 "Add effect",
@@ -376,6 +358,24 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
                 agent,
             );
             json!({"effectId":id.0})
+        }
+        "effects_batch" => return effects_batch(core, &mut s, a, agent),
+        "sequence_clear" => {
+            confirm(a)?;
+            let ids: Vec<EffectId> = s.effects().map(|e| e.id).collect();
+            if !ids.is_empty() {
+                let effects = s.remove_effects(&ids);
+                record(
+                    &mut s,
+                    "Clear effects",
+                    UndoAction::EffectsRemoved {
+                        kind: AddRemoveKind::AddedOrRemoved,
+                        effects,
+                    },
+                    agent,
+                );
+            }
+            json!({"removed":ids.len()})
         }
         "effect_delete" => {
             confirm(a)?;
@@ -416,35 +416,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "effect_parameters"=>{let effect=effect_id(&s,a)?;let entry=s.effect(effect).unwrap();let desc=entry.descriptor.ok_or("Unknown effect type")?;json!({"parameters":desc.params.iter().map(|p|{let mut o=json!({"name":p.name,"value":crate::studio_params::encode(entry.node.params.get(p.name)),"schema":crate::studio_params::schema(p.kind)});if let Some(n)=crate::studio_params::note(desc.name,p.name){o["note"]=json!(n);}o}).collect::<Vec<_>>()})},
         "effect_set_parameter" => {
             let effect = effect_id(&s, a)?;
-            let parameter = string(a, "parameter")?;
             let entry = s.effect(effect).unwrap();
             let descriptor = entry.descriptor.ok_or("Unknown effect descriptor")?;
-            let param = descriptor
-                .params
-                .iter()
-                .find(|p| p.name == parameter)
-                .ok_or("Unknown parameter")?;
-            if matches!(param.editor, vixen_effects::framework::Editor::Path(_)) {
-                return Err("File-path parameters require a future profile-media selector".into());
-            }
-            let value = crate::studio_params::decode(param.kind, &a["value"])?;
-            if let Some(number) = a["value"].as_f64() {
-                use vixen_effects::framework::Editor;
-                match param.editor {
-                    Editor::Number { min, max, .. }
-                    | Editor::Slider { min, max, .. }
-                    | Editor::SliderDouble { min, max, .. } => {
-                        if number < min || number > max {
-                            return Err(format!("Parameter must be within {min}..{max}"));
-                        }
-                    }
-                    _ => {
-                        if number.abs() > 100000.0 {
-                            return Err("Numeric parameter safety limit is 100000".into());
-                        }
-                    }
-                }
-            }
+            let (parameter, value) = parameter_value(descriptor, string(a, "parameter")?, &a["value"])?;
             let old = entry.node.params.clone();
             s.set_param(effect, parameter, value);
             record(
@@ -609,6 +583,301 @@ fn effect_id(s: &SequenceSession, a: &Value) -> Result<EffectId, String> {
     Ok(id)
 }
 
+/// Decodes one parameter through the native descriptor and its editor's numeric bounds. Nothing is applied.
+fn parameter_value(
+    descriptor: &'static EffectDescriptor,
+    parameter: &str,
+    value: &Value,
+) -> Result<(&'static str, ParamValue), String> {
+    let param: &ParamDesc = descriptor
+        .params
+        .iter()
+        .find(|p| p.name == parameter)
+        .ok_or_else(|| format!("Unknown parameter {parameter}"))?;
+    if matches!(param.editor, vixen_effects::framework::Editor::Path(_)) {
+        return Err("File-path parameters require a future profile-media selector".into());
+    }
+    let decoded = crate::studio_params::decode(param.kind, value)
+        .map_err(|e| format!("{parameter}: {e}"))?;
+    if let Some(number) = value.as_f64() {
+        use vixen_effects::framework::Editor;
+        match param.editor {
+            Editor::Number { min, max, .. }
+            | Editor::Slider { min, max, .. }
+            | Editor::SliderDouble { min, max, .. } => {
+                if number < min || number > max {
+                    return Err(format!("{parameter} must be within {min}..{max}"));
+                }
+            }
+            _ => {
+                if number.abs() > 100000.0 {
+                    return Err(format!("{parameter}: numeric parameter safety limit is 100000"));
+                }
+            }
+        }
+    }
+    Ok((param.name, decoded))
+}
+/// Decodes a `params` object of parameter name to value, as effect_parameters reports them.
+fn parameter_values(
+    descriptor: &'static EffectDescriptor,
+    params: &Value,
+) -> Result<Vec<(&'static str, ParamValue)>, String> {
+    let object = params
+        .as_object()
+        .filter(|o| o.len() <= 256)
+        .ok_or("params must be an object of parameter name to value (max 256)")?;
+    object
+        .iter()
+        .map(|(name, value)| parameter_value(descriptor, name, value))
+        .collect()
+}
+fn target_name(core: &AppCore, target: Uuid) -> Result<String, String> {
+    let system = core.system.read();
+    system
+        .tree
+        .find(&target)
+        .map(|n| system.tree.node(n).name.clone())
+        .ok_or("Target not found".into())
+}
+/// A validated effect_add, ready to apply without failing.
+struct NewEffect {
+    type_id: Uuid,
+    target: Uuid,
+    target_name: String,
+    start: TimeSpan,
+    duration: TimeSpan,
+    params: Vec<(&'static str, ParamValue)>,
+    layer: Option<Uuid>,
+}
+fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<NewEffect, String> {
+    let target = uuid(a, "targetId")?;
+    let type_id = uuid(a, "typeId")?;
+    let start = ms(a, "startMs")?;
+    let duration = ms(a, "durationMs")?;
+    if duration < 1.0 || start + duration > s.length().total_ms() {
+        return Err("Effect must fit within sequence and have positive duration".into());
+    }
+    let descriptor = vixen_effect_registry::by_type_id(&type_id).ok_or("Effect type not found")?;
+    let params = match a.get("params") {
+        Some(params) => parameter_values(descriptor, params)?,
+        None => Vec::new(),
+    };
+    let layer = match a.get("layerId") {
+        Some(_) => {
+            let layer = uuid(a, "layerId")?;
+            if !s.document().layers.layers.iter().any(|l| l.id == layer) {
+                return Err("Layer not found".into());
+            }
+            Some(layer)
+        }
+        None => None,
+    };
+    Ok(NewEffect {
+        type_id,
+        target,
+        target_name: target_name(core, target)?,
+        start: TimeSpan::from_ms(start),
+        duration: TimeSpan::from_ms(duration),
+        params,
+        layer,
+    })
+}
+/// Adds a planned effect with its parameters and layer, with no undo record. The added effect's undo keeps both.
+fn apply_add(s: &mut SequenceSession, new: NewEffect) -> EffectId {
+    let id = s
+        .add_new_effect(new.type_id, new.target, &new.target_name, new.start, new.duration)
+        .expect("type checked by plan_add");
+    for (name, value) in new.params {
+        s.set_param(id, name, value);
+    }
+    if let Some(layer) = new.layer {
+        s.set_layer(&[id], layer);
+    }
+    id
+}
+const BATCH_LIMIT: usize = 100_000;
+const OPS_FILE_LIMIT: u64 = 64 * 1024 * 1024;
+/// Reads batch ops from a JSON file inside the profile: a bare array, or an object with an `ops` array.
+fn ops_file(core: &AppCore, relative: &str) -> Result<Vec<Value>, String> {
+    use std::path::{Component, Path};
+    let rel = Path::new(relative);
+    if relative.len() > 1024
+        || !relative.to_lowercase().ends_with(".json")
+        || !rel.components().all(|c| matches!(c, Component::Normal(_)))
+    {
+        return Err("opsFile must be a .json path relative to the profile folder, without .. or a leading /".into());
+    }
+    let root = core.paths.root().canonicalize().map_err(|e| e.to_string())?;
+    let mut path = root.clone();
+    for component in rel.components() {
+        path.push(component);
+        let meta = std::fs::symlink_metadata(&path).map_err(|_| "opsFile not found in the profile folder")?;
+        if meta.file_type().is_symlink() {
+            return Err("opsFile must not be or pass through a symlink".into());
+        }
+    }
+    let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    if !meta.is_file() || meta.len() > OPS_FILE_LIMIT {
+        return Err("opsFile must be an ordinary file of at most 64 MiB".into());
+    }
+    let text = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let value: Value = serde_json::from_slice(&text).map_err(|e| format!("opsFile is not valid JSON: {e}"))?;
+    match value {
+        Value::Array(ops) => Ok(ops),
+        Value::Object(mut object) => match object.remove("ops") {
+            Some(Value::Array(ops)) => Ok(ops),
+            _ => Err("opsFile must hold an array of ops, or an object with an ops array".into()),
+        },
+        _ => Err("opsFile must hold an array of ops, or an object with an ops array".into()),
+    }
+}
+fn op_schema() -> Value {
+    let string = json!({"type":"string","minLength":1,"maxLength":256});
+    let number = json!({"type":"number","minimum":0,"maximum":3600000});
+    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","delete","timing","params"]},"typeId":string,"targetId":string,"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0}},"required":["op"],"additionalProperties":false})
+}
+enum BatchOp {
+    Add(NewEffect),
+    Delete(EffectId),
+    Timing(EffectId, TimeSpan, TimeSpan),
+    Params(EffectId, Vec<(&'static str, ParamValue)>),
+}
+/// Validates every op before changing anything, applies them in order as one undo step, and renders once at the end.
+fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> Result<Value, String> {
+    let file;
+    let ops: &[Value] = match (a.get("ops"), a.get("opsFile")) {
+        (Some(ops), None) => ops.as_array().unwrap(),
+        (None, Some(path)) => {
+            file = ops_file(core, path.as_str().unwrap_or_default())?;
+            &file
+        }
+        _ => return Err("Give exactly one of ops or opsFile".into()),
+    };
+    if ops.is_empty() || ops.len() > BATCH_LIMIT {
+        return Err(format!("A batch needs 1..{BATCH_LIMIT} ops"));
+    }
+    let schema = op_schema();
+    let mut deleted = std::collections::HashSet::new();
+    let mut planned = Vec::with_capacity(ops.len());
+    for (index, op) in ops.iter().enumerate() {
+        let step = (|| -> Result<BatchOp, String> {
+            crate::studio_schema::arguments(&schema, op)?;
+            let kind = op["op"].as_str().unwrap();
+            let allowed: &[&str] = match kind {
+                "add" => &["op", "typeId", "targetId", "startMs", "durationMs", "params", "layerId"],
+                "delete" => &["op", "effectId"],
+                "timing" => &["op", "effectId", "startMs", "durationMs"],
+                _ => &["op", "effectId", "params"],
+            };
+            if let Some(extra) = op.as_object().unwrap().keys().find(|k| !allowed.contains(&k.as_str())) {
+                return Err(format!("{extra} does not apply to a {kind} op"));
+            }
+            if kind == "add" {
+                return Ok(BatchOp::Add(plan_add(core, s, op)?));
+            }
+            let id = effect_id(s, op)?;
+            if deleted.contains(&id) {
+                return Err("Effect was deleted earlier in this batch".into());
+            }
+            Ok(match kind {
+                "delete" => {
+                    confirm(a).map_err(|_| "Batches that delete effects require confirm:true".to_string())?;
+                    deleted.insert(id);
+                    BatchOp::Delete(id)
+                }
+                "timing" => {
+                    let start = ms(op, "startMs")?;
+                    let span = ms(op, "durationMs")?;
+                    if span < 1.0 || start + span > s.length().total_ms() {
+                        return Err("Effect must fit within sequence and have positive duration".into());
+                    }
+                    BatchOp::Timing(id, TimeSpan::from_ms(start), TimeSpan::from_ms(span))
+                }
+                _ => {
+                    let descriptor = s.effect(id).unwrap().descriptor.ok_or("Unknown effect descriptor")?;
+                    BatchOp::Params(id, parameter_values(descriptor, op.get("params").ok_or("params is required")?)?)
+                }
+            })
+        })()
+        .map_err(|e| format!("ops[{index}]: {e}"))?;
+        planned.push(step);
+    }
+    // Runs of adds and of deletes become one undo action each, so undo and redo stay one pass over the schedule.
+    let mut actions = Vec::new();
+    let (mut added, mut adding, mut deleting) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut removed, mut changed) = (0usize, 0usize);
+    for op in planned {
+        if !matches!(op, BatchOp::Add(_)) && !adding.is_empty() {
+            actions.push(UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids: std::mem::take(&mut adding) });
+        }
+        if !matches!(op, BatchOp::Delete(_)) && !deleting.is_empty() {
+            let effects = s.remove_effects(&std::mem::take(&mut deleting));
+            actions.push(UndoAction::EffectsRemoved { kind: AddRemoveKind::AddedOrRemoved, effects });
+        }
+        match op {
+            BatchOp::Add(new) => {
+                let id = apply_add(s, new);
+                added.push(id.0);
+                adding.push(id);
+            }
+            BatchOp::Delete(id) => {
+                deleting.push(id);
+                removed += 1;
+            }
+            BatchOp::Timing(id, start, span) => {
+                let old = s.effect(id).unwrap();
+                let times = vec![(id, old.node.start, old.node.time_span)];
+                s.set_times(&[(id, start, span)]);
+                actions.push(UndoAction::TimesChanged { kind: MoveKind::Moved, times });
+                changed += 1;
+            }
+            BatchOp::Params(id, values) => {
+                let old = s.effect(id).unwrap().node.params.clone();
+                for (name, value) in values {
+                    s.set_param(id, name, value);
+                }
+                actions.push(UndoAction::ParamsChanged { label: "Batch parameters".into(), params: vec![(id, old)] });
+                changed += 1;
+            }
+        }
+    }
+    if !adding.is_empty() {
+        actions.push(UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids: adding });
+    }
+    if !deleting.is_empty() {
+        let effects = s.remove_effects(&deleting);
+        actions.push(UndoAction::EffectsRemoved { kind: AddRemoveKind::AddedOrRemoved, effects });
+    }
+    s.record_undo(UndoAction::Group {
+        label: format!("Batch edit{}", if agent { " (Agent)" } else { "" }),
+        actions,
+    });
+    s.render_all_dirty();
+    Ok(json!({"effectIds":added,"removed":removed,"changed":changed,"effects":s.effect_count()}))
+}
+/// Drops this Studio session's hold on a document. An agent-made or agent-opened document that nothing else holds is closed;
+/// one the app still has open in a window stays open there.
+fn close(core: &AppCore, shared: Arc<Mutex<SequenceSession>>, a: &Value) -> Result<Value, String> {
+    let session_id = shared.lock().playback_id();
+    let mut owned = core.studio_display.owned_sequences.lock();
+    let held = owned.get(&session_id).is_some_and(|o| Arc::ptr_eq(o, &shared));
+    // Holders besides this call and the owned map: app windows.
+    let others = Arc::strong_count(&shared) - 1 - usize::from(held);
+    if others == 0 {
+        if shared.lock().is_modified() && a["confirm"] != true {
+            return Err("Unsaved changes would be lost: sequence_save first, or pass confirm:true to discard them".into());
+        }
+        core.playback.stop_session(session_id);
+    }
+    if held {
+        owned.remove(&session_id);
+    }
+    drop(owned);
+    drop(shared);
+    Ok(json!({"closed":others == 0,"openInApp":others > 0}))
+}
+
 pub fn tools() -> Vec<Value> {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
@@ -634,7 +903,10 @@ pub fn tools() -> Vec<Value> {
         ("sequence_open","Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":string}),vec!["file"],false),
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times.",json!({"sequenceId":string}),vec!["sequenceId"],true),
-        ("effect_add","Add an undoable effect to a target UUID.",json!({"sequenceId":string,"typeId":string,"targetId":string,"startMs":number,"durationMs":number}),vec!["sequenceId","typeId","targetId","startMs","durationMs"],false),
+        ("effect_add","Add an undoable effect to a target UUID. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step.",json!({"sequenceId":string,"typeId":string,"targetId":string,"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","targetId","startMs","durationMs"],false),
+        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId,startMs,durationMs,params?,layerId?}, {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request. Deletes need confirm:true. Returns effectIds of the adds in order.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
+        ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
+        ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),
         ("effect_timing","Move/resize an effect in milliseconds, in one undo step.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"startMs":number,"durationMs":number}),vec!["sequenceId","effectId","startMs","durationMs"],false),
         ("sequence_marks","List mark collections and timestamps.",json!({"sequenceId":string}),vec!["sequenceId"],true),
@@ -646,7 +918,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_save","Save/overwrite a .tim filename under profile Sequence. Requires confirmation.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
         ("sequence_export_fseq","Render and export uncompressed FSEQ v2 at 50 ms under profile Export. Requires confirmation; no network transfer.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
     ];
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {
@@ -790,5 +1062,102 @@ mod tests {
         .is_err());
         drop(core);
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn batch_clear_and_close() {
+        let root = std::env::temp_dir().join(format!("studio-batch-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let target = core.studio_display.execute(&core, "element_create", &json!({"name":"Pixel"}), false).unwrap()["result"]["ids"][0].clone();
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let id = run("sequence_create", json!({"lengthMs":3_600_000}))["sequenceId"].clone();
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().type_id.to_string();
+        let curve = json!([[0,0],[50,100],[100,0]]);
+
+        // Inline params on effect_add, kept by one undo/redo.
+        let single = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":target,"startMs":0,"durationMs":400,"params":{"LevelCurve":curve,"ColorGradient":["#ff0000","#0000ff"]}}))["effectId"].clone();
+        let level = |effect: &Value| run("effect_parameters", json!({"sequenceId":id,"effectId":effect}))["parameters"].as_array().unwrap().iter().find(|p| p["name"]=="LevelCurve").unwrap()["value"].clone();
+        let shaped = level(&single);
+        let default = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().params.iter().find(|p| p.name == "LevelCurve").unwrap().default;
+        assert_ne!(shaped, crate::studio_params::encode(&default()), "the inline curve was applied");
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 0);
+        run("sequence_redo", json!({"sequenceId":id}));
+        assert_eq!(level(&single), shaped, "redo restores the inline parameters");
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":target,"startMs":0,"durationMs":400,"params":{"Nope":1}})).contains("Unknown parameter"));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 1, "a rejected add adds nothing");
+
+        // A show-sized batch: one undo step, one render pass.
+        let ops: Vec<Value> = (0..6000u64).map(|i| json!({"op":"add","typeId":pulse,"targetId":target,"startMs":i*500,"durationMs":400,"params":{"LevelCurve":curve}})).collect();
+        let started = std::time::Instant::now();
+        let batch = run("effects_batch", json!({"sequenceId":id,"ops":ops}));
+        let applied = started.elapsed();
+        let ids = batch["effectIds"].as_array().unwrap().clone();
+        assert_eq!(ids.len(), 6000);
+        assert_eq!(batch["effects"], 6001);
+        assert_eq!(level(&ids[5999]), shaped);
+        let render = run("sequence_render", json!({"sequenceId":id}));
+        eprintln!("6000-effect batch applied in {applied:?}, rendered in {:?}", started.elapsed());
+        assert_eq!(render["rendered"], 6001);
+        assert!(applied < std::time::Duration::from_secs(20));
+        let undo = run("sequence_status", json!({"sequenceId":id}))["undo"].clone();
+        assert_eq!(undo[0], "Batch edit (Agent)");
+
+        // Mixed ops in order, validated first: a bad op changes nothing and names its index.
+        let before = run("sequence_status", json!({"sequenceId":id}))["undo"].as_array().unwrap().len();
+        let bad = fail("effects_batch", json!({"sequenceId":id,"confirm":true,"ops":[{"op":"delete","effectId":ids[0]},{"op":"timing","effectId":ids[0],"startMs":0,"durationMs":10}]}));
+        assert!(bad.starts_with("ops[1]:"), "{bad}");
+        assert!(fail("effects_batch", json!({"sequenceId":id,"ops":[{"op":"delete","effectId":ids[0]}]})).contains("confirm"));
+        assert!(fail("effects_batch", json!({"sequenceId":id,"ops":[{"op":"delete","effectId":ids[0],"typeId":pulse}]})).contains("does not apply"));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 6001);
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["undo"].as_array().unwrap().len(), before);
+        let mixed = run("effects_batch", json!({"sequenceId":id,"confirm":true,"ops":[
+            {"op":"delete","effectId":ids[0]},{"op":"delete","effectId":ids[1]},
+            {"op":"timing","effectId":ids[2],"startMs":5,"durationMs":50},
+            {"op":"params","effectId":ids[3],"params":{"LevelCurve":[[0,100],[100,100]]}},
+            {"op":"add","typeId":pulse,"targetId":target,"startMs":10,"durationMs":20}]}));
+        assert_eq!((mixed["removed"].clone(), mixed["changed"].clone(), mixed["effects"].clone()), (json!(2), json!(2), json!(6000)));
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 6001);
+        assert_eq!(level(&ids[3]), shaped);
+        let timing = run("sequence_effects", json!({"sequenceId":id}))["effects"].as_array().unwrap().iter().find(|e| e["id"]==ids[2]).unwrap()["startMs"].clone();
+        assert_eq!(timing, 1000.0);
+
+        // Ops from a profile file, never outside it or through a link.
+        std::fs::create_dir_all(root.join("_show_tools")).unwrap();
+        std::fs::write(root.join("_show_tools/spec.json"), json!({"name":"spec","ops":[{"op":"add","typeId":pulse,"targetId":target,"startMs":0,"durationMs":100}]}).to_string()).unwrap();
+        assert_eq!(run("effects_batch", json!({"sequenceId":id,"opsFile":"_show_tools/spec.json"}))["effectIds"].as_array().unwrap().len(), 1);
+        let outside = root.with_extension("ops.json");
+        std::fs::write(&outside, "[]").unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("link.json")).unwrap();
+        assert!(fail("effects_batch", json!({"sequenceId":id,"opsFile":"link.json"})).contains("symlink"));
+        assert!(fail("effects_batch", json!({"sequenceId":id,"opsFile":"../x.json"})).contains("relative"));
+        assert!(fail("effects_batch", json!({"sequenceId":id,"opsFile":outside.to_string_lossy()})).contains("relative"));
+        assert!(fail("effects_batch", json!({"sequenceId":id})).contains("exactly one"));
+
+        // Clear is one undo step.
+        assert!(fail("sequence_clear", json!({"sequenceId":id,"confirm":false})).contains("confirm"));
+        assert_eq!(run("sequence_clear", json!({"sequenceId":id,"confirm":true}))["removed"], 6002);
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 0);
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 6002);
+
+        // Close: unsaved changes need confirm; afterwards the document is gone.
+        assert!(fail("sequence_close", json!({"sequenceId":id})).contains("Unsaved"));
+        assert_eq!(run("sequence_close", json!({"sequenceId":id,"confirm":true})), json!({"closed":true,"openInApp":false}));
+        assert!(fail("sequence_status", json!({"sequenceId":id})).contains("not open"));
+        // A window's hold keeps it open in the app.
+        let kept = run("sequence_create", json!({"lengthMs":1000}))["sequenceId"].clone();
+        let window = find(&core, Uuid::parse_str(kept.as_str().unwrap()).unwrap()).unwrap();
+        assert_eq!(run("sequence_close", json!({"sequenceId":kept})), json!({"closed":false,"openInApp":true}));
+        assert!(core.studio_display.owned_sequences.lock().is_empty());
+        drop(window);
+        assert!(fail("sequence_status", json!({"sequenceId":kept})).contains("not open"));
+
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_file(outside);
+        let _ = std::fs::remove_dir_all(root);
     }
 }

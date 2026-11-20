@@ -10,7 +10,7 @@ Use StudioAgentActivity.observe(core:) for the toolbar, and studioAgentSnapshot 
 
 Wire the local setting to studioSetAllowAgentsLiveOutput. It defaults OFF each app launch; there is deliberately no MCP setter. Revocation stops agent-started controllers/test output. Startup is one explicitly confirmed network controller at a time; execution must first be opened locally. Tests never enable real hardware.
 
-Full FFI/event/command contract and explicit limitations: MCP.md. Current tool inventory: MCP-TOOLS.md (71 tools when generated). Client registration: MCP-CLIENTS.md.
+Full FFI/event/command contract and explicit limitations: MCP.md. Current tool inventory: MCP-TOOLS.md (74 tools when generated). Client registration: MCP-CLIENTS.md.
 
 ## Verified work
 

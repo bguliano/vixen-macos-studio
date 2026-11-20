@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-71 tools, generated from the tested bridge tools/list result. No placeholder tools.
+74 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -56,12 +56,15 @@
 | sequence_seek | false | Seek in milliseconds. Non-muted seeking needs local permission and confirm:true. |
 | effect_set_parameter | false | Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted. |
 | preview_frame | false | Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename. |
-| music_analyze | true | Analyze actual profile media with Vixen's beat/bar tracker; returns millisecond timestamps and estimated tempo. Assumes 4/4; no playback. |
-| sequence_create | false | Create a new in-memory sequence with optional profile audio; never plays sound. |
-| sequence_open | false | Open a profile Sequence filename, reusing an already open shared session. |
-| sequence_status | true | Shared document dirty/render/undo status. |
+| music_analyze | true | Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback. |
+| sequence_create | false | Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working). |
+| sequence_open | false | Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified. |
+| sequence_status | true | Shared document file, path, dirty/render/undo status and sharedWithApp. |
 | sequence_effects | true | List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times. |
-| effect_add | false | Add an undoable effect to a target UUID. |
+| effect_add | false | Add an undoable effect to a target UUID. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. |
+| effects_batch | false | Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:"add",typeId,targetId,startMs,durationMs,params?,layerId?}, {op:"delete",effectId}, {op:"timing",effectId,startMs,durationMs}, {op:"params",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request. Deletes need confirm:true. Returns effectIds of the adds in order. |
+| sequence_clear | false | Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation. |
+| sequence_close | false | Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them. |
 | effect_delete | false | Delete an effect; requires confirmation. |
 | effect_timing | false | Move/resize an effect in milliseconds, in one undo step. |
 | sequence_marks | true | List mark collections and timestamps. |
