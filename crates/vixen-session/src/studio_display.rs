@@ -606,6 +606,9 @@ pub fn command_tools() -> Vec<Value> {
         ("controller_delete","Delete a controller and its patches. Requires confirmation.",json!({"id":string,"confirm":boolean}),vec!["id","confirm"],true),
         ("patch_elements","Patch unconnected element/group channels to unused controller outputs as one run. alsoIds adds more elements to the same run (a template's hidden-pixel group). When every light has a wire position (the Order property element_template sets for a start corner, reversing or hidden pixels) they patch in that order, otherwise in tree order; wireOrder in the result says which. startOutput is zero-based.",json!({"elementId":string,"alsoIds":{"type":"array","items":string,"maxItems":1000},"controllerId":string,"startOutput":{"type":"integer","minimum":0}}),vec!["elementId","controllerId"],false),
         ("unpatch_elements","Remove element/group patch connections; retain filters. Requires confirmation.",json!({"id":string,"confirm":boolean}),vec!["id","confirm"],true),
+        ("patch_reverse","Reverse the order an element or group's lights are patched in, within the outputs it already uses: a string wired backwards, fixed in one undoable step. Each light keeps its channels together and in order (an RGB pixel stays R, G, B). The result gives the outputs as universe:channel ranges.",json!({"id":string}),vec!["id"],false),
+        ("patch_swap","Swap where two elements or groups are patched (two strings or groups hung in each other's place) in one undoable step. Both must use the same number of outputs and share no lights; each keeps its own light order. The result gives both as universe:channel ranges.",json!({"id":string,"withId":string}),vec!["id","withId"],false),
+        ("patch_move","Move an element or group's patched outputs, in order, to a controller's outputs from startOutput (zero-based, as patch_elements counts), in one undoable step. The destination must be unpatched or the element's own outputs. patch_ranges shows where it is now. The result gives the new universe:channel ranges.",json!({"id":string,"controllerId":string,"startOutput":{"type":"integer","minimum":0,"maximum":1048576}}),vec!["id","controllerId","startOutput"],false),
         ("display_undo","Undo the latest shared UI/agent display edit.",json!({}),vec![],false),
         ("display_redo","Redo the latest shared UI/agent display edit.",json!({}),vec![],false),
     ];
@@ -718,6 +721,9 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             Ok(json!({}))
         }
         "controller_configure" => crate::studio_controller_network::configure(s, a),
+        "patch_reverse" => crate::studio_patch::reverse(s, a),
+        "patch_swap" => crate::studio_patch::swap(s, a),
+        "patch_move" => crate::studio_patch::move_to(s, a),
         _ => {
             if command.starts_with("preview_prop_") {
                 crate::studio_props::edit(s, command, a)

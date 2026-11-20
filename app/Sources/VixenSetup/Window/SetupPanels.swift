@@ -588,6 +588,12 @@ extension SetupModel {
         menu.addItem(wireItem)
         menu.addItem(SetupMenuItem("Export Element Tree", enabled: state.exportElementTree, tooltip: "Export the element tree for importing into other profiles.", handler: run { await $0.exportElementTree() }))
         menu.addItem(.separator())
+        // STUDIO-BEGIN patch-by-intent: Reverse, Swap With and Move to Output on one element's patched outputs, in the live Display pane
+        if let patch = studioPatchMenuItem() {
+            menu.addItem(patch)
+            menu.addItem(.separator())
+        }
+        // STUDIO-END patch-by-intent
 
         let tagMenu = NSMenu()
         tagMenu.autoenablesItems = false

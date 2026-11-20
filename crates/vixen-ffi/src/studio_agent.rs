@@ -201,6 +201,14 @@ impl DisplaySetupSession {
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }
+    /// The Patch submenu for one element row of this working copy, as JSON (`studio_patch::menu`): where it's patched as
+    /// universe:channel ranges, whether it can be reversed, what it can swap with and where it can move. Nil when the row is gone.
+    pub fn studio_patch_menu(&self, row: String) -> Option<String> {
+        let working = self.inner.read();
+        let node = *working.tree.resolve(&row)?.last()?;
+        let id = working.tree.node(node).id;
+        vixen_session::studio_patch::menu(&working, id).map(|v| v.to_string())
+    }
     /// Colour handling on this working copy: {ids:[UUID], mode:"rgb"|"rgbw"|"single", color?:"#RRGGBB"}, the code the MCP
     /// `element_color` tool and the template's `color` field run. Returns JSON {mode, updatedLeaves, filters, channelsPerPixel}.
     pub fn studio_apply_color_handling(&self, arguments_json: String) -> Result<String, FfiError> {

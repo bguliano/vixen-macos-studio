@@ -50,7 +50,10 @@ command, edits are live with Undo, and each change is verified with harness runs
    Order. MCP `element_template` `start`/`reverseEveryOtherString`/`hiddenPixels`, `patch_elements` `alsoIds` and wire
    order.
 4. **Patching by intent, not numbers.** Context-menu actions on a string or group: Reverse, Swap with…, Move to output…,
-   with the result shown as universe:channel ranges. MCP: `patch_reverse`, `patch_swap`.
+   with the result shown as universe:channel ranges. MCP: `patch_reverse`, `patch_swap`. *Done:* a Patch submenu on one
+   element or group in the Display pane (`StudioPatchMenu.swift`, `studio_patch.rs`): its ranges as universe:channel,
+   Reverse, Swap With (elements using the same number of outputs, siblings first) and Move to Output (free runs that fit),
+   each one undo step; MCP `patch_reverse`, `patch_swap`, `patch_move` and `patch_ranges`.
 5. **"Show in a preview" from any prop.** Creating a megatree/matrix offers to add a matching, already-linked shape to a
    preview.
 6. **Commissioning tests** per controller and per group: moving pixel, R/G/B/W bars, at a chosen brightness (default 25%),

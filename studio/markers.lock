@@ -71,6 +71,10 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "2e68e2f86a0f473e"
  },
+ "block:patch-by-intent": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "3ce730d05f99469f"
+ },
  "block:patching-header": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "601aaf96b1858243"
@@ -550,6 +554,10 @@
  "line:crates/vixen-session/src/lib.rs:54e1cfc535d64c95": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "54e1cfc535d64c95"
+ },
+ "line:crates/vixen-session/src/lib.rs:8d1d07c80410de8e": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "8d1d07c80410de8e"
  },
  "line:crates/vixen-session/src/lib.rs:968e890add5b20b4": {
   "file": "crates/vixen-session/src/lib.rs",

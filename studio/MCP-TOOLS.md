@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-80 tools, generated from the tested bridge tools/list result. No placeholder tools.
+84 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -32,6 +32,10 @@
 | controller_delete | false | Delete a controller and its patches. Requires confirmation. |
 | patch_elements | false | Patch unconnected element/group channels to unused controller outputs as one run; alsoIds adds more elements (a hidden-pixel group). Lights patch in wire order (their Order property) when all have one, otherwise tree order; wireOrder says which. startOutput is zero-based. |
 | unpatch_elements | false | Remove element/group patch connections; retain filters. Requires confirmation. |
+| patch_ranges | true | Where an element or group is patched: lights, outputs, and each contiguous run as controller, one-based outputs and universe:channel ends (output numbers for non-E1.31 controllers). |
+| patch_reverse | false | Reverse the order an element or group's lights are patched in, within its own outputs; each light keeps its channels in order. One undo step. |
+| patch_swap | false | Swap where two elements or groups are patched; both must use the same number of outputs and share no lights. One undo step. |
+| patch_move | false | Move an element or group's patched outputs, in order, to a controller's outputs from startOutput (zero-based); the destination must be free or its own. One undo step. |
 | display_undo | false | Undo the latest shared UI/agent display edit. |
 | display_redo | false | Redo the latest shared UI/agent display edit. |
 | show_create | false | Create a sequential show from local .tim filenames; no program-launch actions or playback. |

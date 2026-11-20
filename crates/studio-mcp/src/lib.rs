@@ -122,6 +122,7 @@ impl Server {
                 tools.extend(vixen_session::studio_live::tools());
                 tools.push(geometry::tool());
                 tools.push(vixen_session::studio_controller_network::tool());
+                tools.push(vixen_session::studio_patch::ranges_tool());
                 json!({"tools":tools})
             }
             "tools/call" => {
@@ -135,6 +136,7 @@ impl Server {
                     && !TOOLS.iter().any(|(n, _)| *n == name)
                     && name != "display_geometry"
                     && name != "controller_network"
+                    && name != "patch_ranges"
                     && !vixen_session::studio_display::command_tools()
                         .iter()
                         .any(|t| t["name"] == name)
@@ -242,6 +244,9 @@ impl Server {
         }
         if name == "controller_network" {
             return vixen_session::studio_controller_network::execute(&self.setup, self.core.as_deref(), args);
+        }
+        if name == "patch_ranges" {
+            return vixen_session::studio_patch::ranges_of(&self.setup, args);
         }
         let obj = args.as_object().ok_or("arguments must be an object")?;
         if obj.keys().any(|k| k != "offset" && k != "limit") {
