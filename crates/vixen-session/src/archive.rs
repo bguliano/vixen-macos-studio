@@ -208,7 +208,7 @@ pub trait ArchiveProgress: Send + Sync {
 pub fn run_archive(archive: &PreparedArchive, cancel: &AtomicBool, progress: &dyn ArchiveProgress) -> Result<(), SessionError> {
     let logs = DataPaths::shared_logs_dir();
     let settings = vixen_io::settings_dir();
-    let result = write_archive(archive, &logs, &settings, cancel, progress);
+    let result = write_archive(archive, logs.as_deref(), &settings, cancel, progress);
     progress.status("Complete");
     if let Err(error) = &result {
         logging::error(LOGGER, "An error occurred adding files to archive", Some(&error.to_string()));
@@ -223,7 +223,7 @@ pub fn error_alert_text(error: &SessionError) -> String {
 
 fn write_archive(
     archive: &PreparedArchive,
-    logs_folder: &Path,
+    logs_folder: Option<&Path>,
     settings_folder: &Path,
     cancel: &AtomicBool,
     progress: &dyn ArchiveProgress,
@@ -238,7 +238,8 @@ fn write_archive(
     let result = (|| {
         progress.status("Zipping profile please wait...");
         add_folder(&mut writer, &archive.profile_folder, &exclusions, &parent, &archive.output, cancel, progress)?;
-        if archive.selection.logs {
+        // No log folder without `HOME`: nothing was logged, so there is nothing to add.
+        if let (true, Some(logs_folder)) = (archive.selection.logs, logs_folder) {
             progress.status("Zipping logs please wait...");
             add_folder(&mut writer, logs_folder, &[], &entry_name(&parent, "Core Logs"), &archive.output, cancel, progress)?;
         }
@@ -417,7 +418,7 @@ mod tests {
     fn run_with_folder(f: &Fixture, folder: PathBuf, selection: ArchiveSelection) -> (Result<(), SessionError>, Vec<String>) {
         let archive = PreparedArchive { profile_folder: folder, output: f.dir.join("out.zip"), file_name: "out".to_string(), selection };
         let flag = AtomicBool::new(false);
-        let result = write_archive(&archive, &f.logs, &f.settings, &flag, &Recorder::default());
+        let result = write_archive(&archive, Some(&f.logs), &f.settings, &flag, &Recorder::default());
         (result, names_in(&f.dir.join("out.zip")))
     }
 
@@ -430,7 +431,7 @@ mod tests {
         };
         let recorder = Recorder::default();
         let flag = AtomicBool::new(cancel);
-        let result = write_archive(&archive, &f.logs, &f.settings, &flag, &recorder);
+        let result = write_archive(&archive, Some(&f.logs), &f.settings, &flag, &recorder);
         (result, names_in(&f.dir.join("out.zip")), recorder)
     }
 
@@ -598,7 +599,7 @@ mod tests {
             selection: only_profile(),
         };
         let flag = AtomicBool::new(false);
-        write_archive(&archive, &f.logs, &f.settings, &flag, &Recorder::default()).unwrap();
+        write_archive(&archive, Some(&f.logs), &f.settings, &flag, &Recorder::default()).unwrap();
         let names = names_in(&f.profile.join("backup.zip"));
         assert!(!names.iter().any(|n| n.ends_with("backup.zip")), "{names:?}");
         assert!(!names.is_empty());

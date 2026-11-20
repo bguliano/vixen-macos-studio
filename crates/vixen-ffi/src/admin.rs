@@ -73,7 +73,9 @@ impl From<LaunchOptionsRecord> for LaunchOptions {
 /// The very first thing the app does: the log files, and logging panics.
 #[uniffi::export]
 pub fn start_logging() {
-    logging::init(&DataPaths::shared_logs_dir());
+    if let Some(logs) = DataPaths::shared_logs_dir() {
+        logging::init(&logs);
+    }
     logging::install_crash_hooks();
     logging::info("VixenApplication.Program", "Vixen app starting.");
 }
@@ -750,13 +752,13 @@ impl CpuReader {
 /// Where the log files are.
 #[uniffi::export]
 pub fn logs_folder() -> String {
-    logging::logs_folder().unwrap_or_else(DataPaths::shared_logs_dir).to_string_lossy().into_owned()
+    logging::logs_folder().or_else(DataPaths::shared_logs_dir).map(|folder| folder.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
 /// System > Logs: the files directly in the log folder, by name.
 #[uniffi::export]
 pub fn list_log_files() -> Vec<String> {
-    logging::list_log_files(&logging::logs_folder().unwrap_or_else(DataPaths::shared_logs_dir))
+    logging::logs_folder().or_else(DataPaths::shared_logs_dir).map(|folder| logging::list_log_files(&folder)).unwrap_or_default()
 }
 
 /// A bundled text file, decoded by its byte order mark. `None` if it can't be read.

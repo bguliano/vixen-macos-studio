@@ -95,13 +95,10 @@ impl DataPaths {
     }
 
     /// Where every profile's logs go: `~/Documents/Vixen 3/logs`, as `NLog.config` has it. With `VIXEN_DATA` set, which only tests do,
-    /// it's that folder's `logs`, so a test never touches the real ones.
-    pub fn shared_logs_dir() -> PathBuf {
-        let root = std::env::var_os("VIXEN_DATA")
-            .map(PathBuf::from)
-            .or_else(DataPaths::default_root)
-            .unwrap_or_else(|| PathBuf::from(VIXEN_DATA_DIR));
-        root.join("logs")
+    /// it's that folder's `logs`, so a test never touches the real ones. `None` with neither `VIXEN_DATA` nor `HOME`: there is no file
+    /// log then, rather than one relative to the working directory.
+    pub fn shared_logs_dir() -> Option<PathBuf> {
+        shared_logs_dir_from(|name| std::env::var_os(name))
     }
 
     /// `SystemConfig.DefaultFilePath`.
@@ -141,6 +138,11 @@ impl DataPaths {
     }
 }
 
+fn shared_logs_dir_from(env: impl Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
+    let root = env("VIXEN_DATA").map(PathBuf::from).or_else(|| env("HOME").map(|home| PathBuf::from(home).join("Documents").join(VIXEN_DATA_DIR)))?;
+    Some(root.join("logs"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,5 +174,13 @@ mod tests {
         assert!(paths.sequence_backup_dir().is_dir());
         assert!(paths.element_template_dir().is_dir());
         assert!(paths.effect_defaults_dir().is_dir());
+    }
+
+    #[test]
+    fn shared_logs_dir_is_never_relative() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| move |name: &str| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.into());
+        assert_eq!(shared_logs_dir_from(env(&[("HOME", "/owner")])), Some(PathBuf::from("/owner/Documents/Vixen 3/logs")));
+        assert_eq!(shared_logs_dir_from(env(&[("HOME", "/owner"), ("VIXEN_DATA", "/test")])), Some(PathBuf::from("/test/logs")));
+        assert_eq!(shared_logs_dir_from(env(&[])), None);
     }
 }
