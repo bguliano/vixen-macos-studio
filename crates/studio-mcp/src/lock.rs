@@ -70,13 +70,35 @@ pub fn recover_dead(profile: &Path) -> io::Result<bool> {
     Ok(true)
 }
 
-/// `create_lock_file`, clearing a dead process's lock first if that is what stands in the way.
+/// Who holds the profile's lock, for the refusal: "pid 45080 (running)", "pid 45080 (not running)", "pid 45080 on OTHER-MAC", or
+/// what the file says when it isn't `pid@host`.
+pub fn describe_owner(profile: &Path) -> String {
+    let path = profile.join(LOCK_FILE);
+    if fs::symlink_metadata(&path).is_ok_and(|m| !m.is_file()) {
+        return "a lock that is not a regular file".to_string();
+    }
+    let Ok(text) = fs::read_to_string(&path) else { return "an unreadable lock".to_string() };
+    let text = text.trim();
+    let Some((pid, machine)) = text.split_once('@') else { return format!("{text:?}") };
+    let Ok(pid) = pid.trim().parse::<i32>() else { return format!("{text:?}") };
+    if machine != machine_name() {
+        format!("pid {pid} on {machine}")
+    } else if is_dead(pid) {
+        format!("pid {pid} (not running)")
+    } else {
+        format!("pid {pid} (running)")
+    }
+}
+
+/// `create_lock_file`, clearing a dead process's lock first if that is what stands in the way. A refusal names the owner.
 pub fn take(profile: &Path) -> Result<PathBuf, Box<dyn std::error::Error>> {
     match vixen_io::lock::create_lock_file(profile) {
         Ok(path) => Ok(path),
         Err(first) => {
             if recover_dead(profile)? {
                 Ok(vixen_io::lock::create_lock_file(profile)?)
+            } else if profile.join(LOCK_FILE).symlink_metadata().is_ok() {
+                Err(format!("{first}: locked by {}", describe_owner(profile)).into())
             } else {
                 Err(first.into())
             }
@@ -196,6 +218,28 @@ mod tests {
             assert!(take(&d).is_err(), "{text}");
             assert_eq!(fs::read_to_string(&lock).unwrap(), text);
         }
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn a_refusal_names_the_owner() {
+        let d = dir("owner");
+        let lock = d.join(LOCK_FILE);
+        let (parent, dead) = (std::os::unix::process::parent_id(), dead_pid());
+        for (text, expected) in [
+            (format!("{parent}@{}", machine_name()), format!("locked by pid {parent} (running)")),
+            (format!("{dead}@SOME-OTHER-MAC"), format!("locked by pid {dead} on SOME-OTHER-MAC")),
+            ("abc".to_string(), "locked by \"abc\"".to_string()),
+        ] {
+            fs::write(&lock, &text).unwrap();
+            let error = take(&d).unwrap_err().to_string();
+            assert!(error.contains("the profile is already locked") && error.ends_with(&expected), "{error}");
+        }
+        let real = d.join("real");
+        fs::write(&real, format!("{dead}@{}", machine_name())).unwrap();
+        fs::remove_file(&lock).unwrap();
+        std::os::unix::fs::symlink(&real, &lock).unwrap();
+        assert!(take(&d).unwrap_err().to_string().ends_with("locked by a lock that is not a regular file"));
         let _ = fs::remove_dir_all(d);
     }
 

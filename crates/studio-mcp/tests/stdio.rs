@@ -146,3 +146,68 @@ fn app_recognizes_running_bridge_lock() {
     assert!(!root.join(".lock").exists());
     std::fs::remove_dir(root).unwrap();
 }
+
+/// Starts the bridge on `root`, answers one `initialize`, and returns it still running with its stdin open.
+fn running_bridge(root: &std::path::Path) -> (std::process::Child, std::process::ChildStdin) {
+    use std::io::{BufRead, BufReader};
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vixen-studio-mcp"))
+        .args(["--profile", root.to_str().unwrap()])
+        .env("VIXEN_MUTE", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    writeln!(stdin,"{}",json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","clientInfo":{"name":"lock-test","version":"1"},"capabilities":{}}})).unwrap();
+    let mut line = String::new();
+    BufReader::new(child.stdout.take().unwrap()).read_line(&mut line).unwrap();
+    assert!(serde_json::from_str::<Value>(&line).unwrap().get("result").is_some(), "{line}");
+    (child, stdin)
+}
+
+#[test]
+fn a_stop_signal_removes_the_lock() {
+    use std::os::unix::process::ExitStatusExt;
+    for (tag, signal) in [("term", libc::SIGTERM), ("int", libc::SIGINT), ("hup", libc::SIGHUP)] {
+        let root = std::env::temp_dir().join(format!("studio-mcp-signal-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let (mut child, stdin) = running_bridge(&root);
+        assert!(root.join(".lock").exists());
+        // SAFETY: the pid is this test's own running child.
+        assert_eq!(unsafe { libc::kill(child.id() as i32, signal) }, 0);
+        let status = child.wait().unwrap();
+        drop(stdin);
+        assert_eq!((status.code(), status.signal()), (Some(128 + signal), None), "{tag}");
+        assert!(!root.join(".lock").exists(), "{tag}: lock left behind");
+        std::fs::remove_dir(root).unwrap();
+    }
+}
+
+#[test]
+fn a_killed_bridges_lock_is_taken_over_and_a_live_ones_names_its_owner() {
+    let root = std::env::temp_dir().join(format!("studio-mcp-takeover-{}", std::process::id()));
+    std::fs::create_dir_all(&root).unwrap();
+    // SIGKILL can't be handled, so it leaves the lock naming a dead pid, as a crash would.
+    let (mut killed, stdin) = running_bridge(&root);
+    let dead = killed.id();
+    killed.kill().unwrap();
+    killed.wait().unwrap();
+    drop(stdin);
+    assert_eq!(std::fs::read_to_string(root.join(".lock")).unwrap().split('@').next(), Some(dead.to_string().as_str()));
+    let (mut next, stdin) = running_bridge(&root);
+    let live = next.id();
+    let refused = Command::new(env!("CARGO_BIN_EXE_vixen-studio-mcp"))
+        .args(["--profile", root.to_str().unwrap()])
+        .env("VIXEN_MUTE", "1")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    drop(stdin);
+    assert!(next.wait().unwrap().success());
+    assert!(!refused.status.success());
+    let stderr = String::from_utf8_lossy(&refused.stderr);
+    assert!(stderr.contains(&format!("locked by pid {live} (running)")), "{stderr}");
+    assert!(!root.join(".lock").exists());
+    std::fs::remove_dir(root).unwrap();
+}

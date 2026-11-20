@@ -26,7 +26,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let connected = match studio_mcp::socket::connect(&root) {
         Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
             let held = lock::hold(lock::take(&root)
-                .map_err(|_| "MCP endpoint is refusing connections and the profile is locked by a running process; open the app, or remove the stale socket")?);
+                .map_err(|e| format!("MCP endpoint is refusing connections and the profile is locked by a running process; open the app, or remove the stale socket ({e})"))?);
             let path = studio_mcp::socket::socket_path(&root)?;
             let recovered = studio_mcp::socket::recover_stale(&path, studio_mcp::socket::lock_held_here(&root));
             drop(held);
