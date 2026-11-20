@@ -11,12 +11,20 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
-        Arc,
+        mpsc, Arc, Mutex,
     },
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use vixen_session::app::AppCore;
+
+/// A connection that sends nothing for this long is closed, freeing one of the eight client slots.
+pub const IDLE_READ: Duration = Duration::from_secs(120);
+/// A proxying bridge pings the session after this long without writing, so an idle MCP client keeps its connection while
+/// the bridge's stdin is open. Well under `IDLE_READ`.
+pub const KEEPALIVE: Duration = Duration::from_secs(30);
+/// The id of the bridge's own pings; their replies never reach the MCP client.
+const KEEPALIVE_ID: &str = "vixen-studio-mcp-keepalive";
 
 pub fn socket_path(profile: &Path) -> io::Result<PathBuf> {
     let root = profile.canonicalize()?;
@@ -51,6 +59,11 @@ pub struct SocketServer {
     inode: u64,
     clients: Arc<AtomicUsize>,
 }
+#[doc(hidden)]
+/// Tests only: a headless endpoint with a shorter idle limit.
+pub fn start_headless_idle(core: &Arc<AppCore>, idle: Duration) -> io::Result<SocketServer> {
+    SocketServer::serve(core, false, idle)
+}
 /// The endpoint a stop signal removes (`remove_on_stop_signal`), with its inode.
 static SERVED: std::sync::Mutex<Option<(PathBuf, u64)>> = std::sync::Mutex::new(None);
 fn remove_if_same(path: &Path, inode: u64) {
@@ -67,12 +80,12 @@ pub(crate) fn remove_served_endpoint() {
 impl SocketServer {
     /// Serves the running app's core.
     pub fn start(core: &Arc<AppCore>) -> io::Result<Self> {
-        Self::serve(core, true)
+        Self::serve(core, true, IDLE_READ)
     }
     /// Serves a headless bridge's own muted core, so later bridges and scripts on the profile attach to its session instead
     /// of failing on the profile lock it holds.
     pub fn start_headless(core: &Arc<AppCore>) -> io::Result<Self> {
-        Self::serve(core, false)
+        Self::serve(core, false, IDLE_READ)
     }
     /// Connected clients right now.
     pub fn clients(&self) -> usize {
@@ -82,7 +95,7 @@ impl SocketServer {
     pub fn remove_on_stop_signal(&self) {
         *SERVED.lock().unwrap_or_else(|e| e.into_inner()) = Some((self.path.clone(), self.inode));
     }
-    fn serve(core: &Arc<AppCore>, shared: bool) -> io::Result<Self> {
+    fn serve(core: &Arc<AppCore>, shared: bool, idle: Duration) -> io::Result<Self> {
         let path = socket_path(core.paths.root())?;
         let dir = path.parent().unwrap();
         if !dir.exists() {
@@ -118,7 +131,7 @@ impl SocketServer {
                         clients.fetch_add(1, Ordering::AcqRel);
                         let clients = clients.clone();
                         thread::spawn(move || {
-                            let _ = handle(stream, core, shared);
+                            let _ = handle(stream, core, shared, idle);
                             clients.fetch_sub(1, Ordering::AcqRel);
                         });
                     }
@@ -142,10 +155,10 @@ impl Drop for SocketServer {
         remove_if_same(&self.path, self.inode);
     }
 }
-fn handle(mut stream: UnixStream, core: Arc<AppCore>, shared: bool) -> io::Result<()> {
+fn handle(mut stream: UnixStream, core: Arc<AppCore>, shared: bool, idle: Duration) -> io::Result<()> {
     // Darwin may inherit the listener nonblocking flag on accepted sockets.
     stream.set_nonblocking(false)?;
-    stream.set_read_timeout(Some(Duration::from_secs(120)))?;
+    stream.set_read_timeout(Some(idle))?;
     stream.set_write_timeout(Some(Duration::from_secs(30)))?;
     let mut input = BufReader::new(stream.try_clone()?);
     let mut identity = Vec::new();
@@ -230,6 +243,72 @@ pub fn connect(profile: &Path) -> io::Result<Option<UnixStream>> {
     }
     stream.set_read_timeout(None)?;
     Ok(Some(stream))
+}
+
+/// A stdio bridge attached to someone else's session: copies `input` lines to the session and its replies to `output`.
+/// After `keepalive` without a write it sends a `ping` and drops the reply, so the session's idle limit closes the connection
+/// only when the bridge itself is gone or stuck, never because its MCP client is quiet. Returns when `input` ends and the
+/// session has answered everything sent before it.
+pub fn proxy(
+    socket: UnixStream,
+    mut input: impl BufRead,
+    output: impl Write + Send + 'static,
+    keepalive: Duration,
+) -> io::Result<()> {
+    let writer = Arc::new(Mutex::new((socket.try_clone()?, Instant::now())));
+    let reader = BufReader::new(socket.try_clone()?);
+    let inbound = thread::spawn(move || copy_replies(reader, output));
+    let (stop, stopped) = mpsc::channel::<()>();
+    let pinging = writer.clone();
+    let pinger = thread::spawn(move || {
+        let ping = format!("{{\"jsonrpc\":\"2.0\",\"id\":\"{KEEPALIVE_ID}\",\"method\":\"ping\"}}\n");
+        let mut wait = keepalive;
+        while let Err(mpsc::RecvTimeoutError::Timeout) = stopped.recv_timeout(wait) {
+            let mut guard = pinging.lock().unwrap_or_else(|e| e.into_inner());
+            let (stream, last) = &mut *guard;
+            let quiet = last.elapsed();
+            if quiet >= keepalive {
+                if stream.write_all(ping.as_bytes()).is_err() {
+                    return;
+                }
+                *last = Instant::now();
+                wait = keepalive;
+            } else {
+                wait = keepalive - quiet;
+            }
+        }
+    });
+    let forwarded = (|| -> io::Result<()> {
+        loop {
+            // Whole lines, so a ping never lands inside a client message. The session rejects lines over 1 MiB anyway.
+            let mut line = Vec::new();
+            if io::Read::take(&mut input, (MAX_MESSAGE + 1) as u64).read_until(b'\n', &mut line)? == 0 {
+                return Ok(());
+            }
+            let mut guard = writer.lock().unwrap_or_else(|e| e.into_inner());
+            guard.0.write_all(&line)?;
+            guard.1 = Instant::now();
+        }
+    })();
+    drop(stop);
+    let _ = pinger.join();
+    socket.shutdown(std::net::Shutdown::Write)?;
+    forwarded?;
+    inbound.join().map_err(|_| io::Error::other("socket reader failed"))?
+}
+fn copy_replies(mut reader: impl BufRead, mut output: impl Write) -> io::Result<()> {
+    loop {
+        let mut line = Vec::new();
+        if reader.read_until(b'\n', &mut line)? == 0 {
+            return Ok(());
+        }
+        let own = line.windows(KEEPALIVE_ID.len()).any(|w| w == KEEPALIVE_ID.as_bytes())
+            && serde_json::from_slice::<serde_json::Value>(&line).is_ok_and(|v| v["id"] == KEEPALIVE_ID);
+        if !own {
+            output.write_all(&line)?;
+            output.flush()?;
+        }
+    }
 }
 
 #[cfg(test)]

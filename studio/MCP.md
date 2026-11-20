@@ -84,7 +84,7 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 - No program-launch show steps or silent profile switching; the scheduler's on switch stays local.
 - An open designer holds its own working copy and writes it back when it closes (one undo step), over agent preview_prop edits made to that preview meanwhile. The Previews pane holds Undo and Delete for a preview while its designer is open.
 - Undo is bounded by count, not bytes; huge profiles may be memory-intensive. Audio analysis: 100 MiB input/15 minutes. Templates: 4096 leaves. Long tasks have no MCP cancellation yet.
-- A connection idle for 120 seconds is closed, including a bridge attached to the app or to another bridge's session; scripts reconnect (vixen_studio.py does so once per call). An MCP client that sits idle longer should be the session's host (plain `--profile`, started before any script), not `--persist`.
+- A connection idle for 120 seconds is closed, freeing its client slot; scripts reconnect (vixen_studio.py does so once per call). A bridge attached to the app or to another bridge's session (`--persist`, or a plain bridge started after a script's session) pings the session after 30 seconds without traffic and drops the reply, so its MCP client keeps the connection however long it sits idle, for as long as the bridge's stdin stays open.
 - A socket left by a crash or force-quit is recovered automatically under the rules below. One that fails them (wrong owner or mode, a symlink, something answering, or a profile lock this process doesn't hold) still blocks the server; the log names the file.
 
 ## Stale-socket recovery

@@ -65,3 +65,49 @@ fn local_socket_edits_are_live_and_share_ui_undo() {
     drop(core);
     std::fs::remove_dir_all(root).unwrap();
 }
+
+/// A proxying bridge (one attached to the app's or another bridge's session) runs `socket::proxy` with an MCP client on
+/// `client`. The endpoint here closes connections after one idle second.
+fn proxied(tag: &str, keepalive: std::time::Duration) -> (std::os::unix::net::UnixStream, BufReader<std::os::unix::net::UnixStream>, std::path::PathBuf, studio_mcp::socket::SocketServer, Arc<vixen_session::app::AppCore>) {
+    use std::os::unix::net::UnixStream;
+    let root = std::env::temp_dir().join(format!("studio-keepalive-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let core = Arc::new(vixen_session::app::AppCore::open(root.clone(), true).unwrap());
+    let server = studio_mcp::socket::start_headless_idle(&core, std::time::Duration::from_secs(1)).unwrap();
+    let socket = studio_mcp::socket::connect(&root).unwrap().unwrap();
+    let (client, bridge_in) = UnixStream::pair().unwrap();
+    let (bridge_out, client_out) = UnixStream::pair().unwrap();
+    std::thread::spawn(move || studio_mcp::socket::proxy(socket, BufReader::new(bridge_in), bridge_out, keepalive));
+    client_out.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
+    (client, BufReader::new(client_out), root, server, core)
+}
+
+#[test]
+fn a_proxying_bridge_outlives_the_idle_limit_and_hides_its_pings() {
+    let (mut client, mut replies, root, _server, _core) = proxied("ping", std::time::Duration::from_millis(200));
+    let mut request = |id: u32, method: &str, params: Value| -> Value {
+        writeln!(client, "{}", json!({"jsonrpc":"2.0","id":id,"method":method,"params":params})).unwrap();
+        let mut line = String::new();
+        replies.read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap_or(Value::Null)
+    };
+    assert!(request(1, "initialize", json!({"protocolVersion":"2024-11-05","clientInfo":{},"capabilities":{}}))["result"].is_object());
+    std::thread::sleep(std::time::Duration::from_millis(2500));
+    // The next line read is this request's reply: the bridge's own ping replies never reach the client.
+    let reply = request(2, "tools/list", json!({}));
+    assert_eq!(reply["id"], 2, "{reply}");
+    assert!(reply["result"]["tools"].is_array());
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn an_idle_connection_without_pings_is_still_closed() {
+    let (mut client, mut replies, root, server, _core) = proxied("quiet", std::time::Duration::from_secs(60));
+    writeln!(client, "{}", json!({"jsonrpc":"2.0","id":1,"method":"ping"})).unwrap();
+    let mut line = String::new();
+    replies.read_line(&mut line).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(2500));
+    assert_eq!(server.clients(), 0, "the idle limit still frees the slot");
+    let _ = std::fs::remove_dir_all(root);
+}

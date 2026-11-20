@@ -123,12 +123,8 @@ fn host(root: &Path) -> Result<Host, Box<dyn std::error::Error>> {
     Ok(Host { endpoint, core, _held: held })
 }
 
-fn proxy(mut socket: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
-    let mut reader = socket.try_clone()?;
-    let inbound = std::thread::spawn(move || std::io::copy(&mut reader, &mut std::io::stdout().lock()));
-    std::io::copy(&mut std::io::stdin().lock(), &mut socket)?;
-    socket.shutdown(std::net::Shutdown::Write)?;
-    inbound.join().map_err(|_| "socket reader failed")??;
+fn proxy(socket: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
+    studio_mcp::socket::proxy(socket, std::io::stdin().lock(), std::io::stdout(), studio_mcp::socket::KEEPALIVE)?;
     Ok(())
 }
 

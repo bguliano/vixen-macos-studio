@@ -47,7 +47,7 @@ Many calls on one connection, from Python (standard library only; copy `studio/p
         seq = studio.call("sequence_create", lengthMs=30000)
         studio.call("sequence_status", sequenceId=seq["sequenceId"])
 
-It runs `vixen-studio-mcp --profile PATH --persist`, which speaks MCP on stdio like the plain bridge but starts the background session instead of hosting one itself, so the session outlives the script. Any MCP client can do the same. To keep a session running while scripts come and go, start it yourself: `vixen-studio-mcp --profile PATH --serve` (add `--idle SECONDS` to stop it after that long with no clients). Connections idle for 120 seconds are closed; vixen_studio.py reconnects on its next call.
+It runs `vixen-studio-mcp --profile PATH --persist`, which speaks MCP on stdio like the plain bridge but starts the background session instead of hosting one itself, so the session outlives the script. Any MCP client can do the same. To keep a session running while scripts come and go, start it yourself: `vixen-studio-mcp --profile PATH --serve` (add `--idle SECONDS` to stop it after that long with no clients). The bridge keeps its connection alive while the script is idle; if the session itself went away, vixen_studio.py reconnects on its next call.
 
 ## First workflow
 

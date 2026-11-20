@@ -36,7 +36,7 @@ class Studio:
         try:
             reply = self._request("tools/call", {"name": tool, "arguments": arguments})
         except (BrokenPipeError, ConnectionError):
-            # The session closes connections idle for 120 s; the documents live in the session, so reconnect once.
+            # The bridge or its session went away; the documents live in the session, so reconnect once.
             self.close()
             reply = self._request("tools/call", {"name": tool, "arguments": arguments})
         if "error" in reply:
