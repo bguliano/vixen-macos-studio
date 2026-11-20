@@ -35,7 +35,7 @@ Definitions live under mcp.servers; tool-profile/session policy still applies. A
 2. music_analyze on a filename in the profile's Media folder.
 3. sequence_create with lengthMs and media; retain sequenceId.
 4. effect_catalog, then effect_add at detected beats; marks_create or sequence_music_marks.
-5. sequence_render, preview_frame, diagnostics_report; correct using shared undo/redo.
+5. sequence_render, preview_frame, preview_sheet or preview_video, diagnostics_report; correct using shared undo/redo.
 6. Confirm sequence_save/profile_save/sequence_export_fseq only when wanted.
 
 No hardware is needed to author, render or export. Output permission defaults OFF and can only be enabled locally through Studio. Headless and VIXEN_MUTE=1 cannot send output even if permission is set. Real hardware tools are separate and require confirmation. Schedule drafts stay disabled for local review.

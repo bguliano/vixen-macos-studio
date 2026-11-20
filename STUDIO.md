@@ -75,6 +75,7 @@ reason. If a change would also help vanilla, note it here so it can be offered u
 | `sequence-settings-undo`, `sequence-settings-inverse` | vixen-session | Undo document length and layer configuration on the native stack. | Yes. |
 | `render-queue-dedupe`, `render-queue-skip`, `render-result-dedupe` | vixen-session | Edits arriving faster than rendering (agent tool calls, scripted bulk edits) re-queued every pending effect each time, and the duplicate results each added schedule entries: quadratic memory growth (200 agent edits on a 554-pixel group: 20M entries, 4.2 GB, vs 221,600 entries once reopened). Each effect generation is now queued and applied once. | Yes: the same race exists for fast UI edits. |
 | Preview color conversion visibility | vixen-session | Reuse real color handling in offscreen inspection frames. | Possibly. |
+| `preview-video-deps` (Cargo.toml, marked Cargo.lock lines) | vixen-session | AVFoundation bindings for the MCP preview_video H.264/AAC writer; the code itself is Studio-only (`studio_video.rs`). | No: agent review tool. |
 | `authoring-modules` and Studio module registrations | vixen-session | Register Studio-only command/schema/diagnostic implementations without changing vanilla UI behavior. | No. |
 | `mcp-app-start`, `shared-sequence-wrapper`, `reuse-open-sequence`, Studio FFI/dependency hooks, Display Setup session visibility | vixen-ffi | Serve the running core and share documents/undo with agents; expose callbacks without view changes. | Generic shared document reuse may help vanilla. |
 

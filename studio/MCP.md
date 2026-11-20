@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented: local bridge/in-app socket, shared live display undo, sequence authoring, real beat/bar analysis, inspection PNGs and FSEQ export. Only executable tools are advertised. The main UI branch must wire the new Studio FFI API into its panes. Legacy modal APIs remain compatible but must not be mixed with the live pane. This is not a claim of exhaustive native-editor parity; limitations are explicit below.
+Implemented: local bridge/in-app socket, shared live display undo, sequence authoring, real beat/bar analysis, inspection PNGs, contact sheets and MP4 preview videos, and FSEQ export. Only executable tools are advertised. The main UI branch must wire the new Studio FFI API into its panes. Legacy modal APIs remain compatible but must not be mixed with the live pane. This is not a claim of exhaustive native-editor parity; limitations are explicit below.
 
 ## Transport/process model
 
@@ -51,7 +51,7 @@ Events: clientConnected/clientDisconnected (command holds opaque client ID), com
 - Profile/status: identity/version/safety, sequence/media inventory, confirmed save. Profile selection is a launch argument, not silent app switching.
 - Display: elements/groups CRUD, native arch/group/megatree/matrix templates, RGB/single-color handling, reverse wire order, undo/redo.
 - Controllers: types/list/create/rename/delete, DDP/E1.31 IPv4-unicast configuration/auto universes, patch/unpatch, monitor, separately gated start/stop/test pattern.
-- Preview: preview IDs/linked nodes, native prop/property inventory, common shape creation, primitive property edits, element linking, inspection PNG.
+- Preview: preview IDs/linked nodes, native prop/property inventory, common shape creation, primitive property edits, element linking, inspection PNG. preview_video renders a span (default the whole sequence, 25 fps) to one H.264 MP4 under Export, with the sequence audio for that span as AAC, through AVFoundation, so no ffmpeg and no per-frame files; a 2:46 song (4,155 frames, 1,019 lights, glow on) takes about 38 s. preview_sheet tiles a span into one PNG, each frame captioned with its m:ss.cc time (default 2 fps, 8 columns, 160 px tiles, at most 400 tiles), for reviewing a passage as one image. Both hold the sequence lock only to render effects and take the schedule, so the editor stays responsive while frames are painted; audio a file AVFoundation cannot decode is reported under `audio.omitted` and the video is written without it.
 - Sequences: create with audio/open/status/save/length/clear/close; effects list/add/delete/timing/copy/parameters; layers list/create/rename/delete/assignment; marks/undo/redo/render; guarded play/pause/stop/seek.
 - Bulk authoring: effect_add takes params and layerId inline. effects_batch applies add/delete/timing/params ops as one undo step (consecutive adds and deletes each undo in one pass) with one render pass; every op is validated before anything changes, and an invalid op fails the batch naming its index. Ops come inline or from opsFile, a .json path relative to the profile folder (no `..`, absolute paths or symlinks; up to 100,000 ops and 64 MiB), since a whole show exceeds the 1 MiB request limit. Measured: 6,000 Pulse adds with a level curve each apply in about 0.7 s. sequence_clear deletes every effect as one undo step. sequence_close releases a document this Studio session created or opened; one the app has open in a window stays open there, and discarding unsaved changes needs confirm.
 - Music: native beat/bar tracker (deduplicated beats), tempo estimate, 100ms RMS energy, per-band spectral-flux onsets (low/mid/high, millisecond times with strength, bar and 16th slot) plus a per-bar slot-strength grid, and a labelled section-change heuristic. Authored phrase/word/phoneme marks supported.
@@ -73,7 +73,7 @@ Writes stay within selected-profile Sequence/Export/config directories. Filename
 ## Known limits
 
 - No automatic lyrics transcription/phoneme alignment. Bars assume 4/4. Section candidates are an energy heuristic, not semantic song structure; onset times are estimates, typically within 10 ms.
-- PNG uses real geometry/links/schedule/color conversion but CPU inspection rasterization: no background artwork, fixture beams or GPU antialiasing; max 2048 dimensions.
+- PNG uses real geometry/links/schedule/color conversion but CPU inspection rasterization: no background artwork, fixture beams or GPU antialiasing; max 2048 dimensions. Videos and sheets use the same rasterizer; glow adds a soft additive halo, not the app's GPU bloom.
 - Common primitives/enums/colors/RGB/curves/gradients/gradient-level pairs ({gradient, curve} lists, e.g. Alternating, Pinwheel and Dissolve Colors)/nested records supported; effect_catalog and effect_parameters add a `note` where a parameter needs more than its native label (GroupLevel/EnableDepth/DepthOfEffect on Alternating and Dissolve). Font, raw XML and file-path parameter selectors remain rejected with rejecting schemas. Layer creation currently uses highest-value mixing.
 - Controller editing covers IPv4 unicast, not every serial/specialist dialog or manual multicast/universe layout. Real hardware startup/test is deliberately untested.
 - Schedule creation is disabled until local review; no program-launch actions or silent profile switching.

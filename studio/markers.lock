@@ -71,6 +71,10 @@
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "3783f94619bccede"
  },
+ "block:preview-video-deps": {
+  "file": "crates/vixen-session/Cargo.toml",
+  "hash": "514fc5083be026c2"
+ },
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
@@ -135,6 +139,22 @@
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
  },
+ "line:Cargo.lock:0292fe78aab20be9": {
+  "file": "Cargo.lock",
+  "hash": "0292fe78aab20be9"
+ },
+ "line:Cargo.lock:195b79b8419dcd23": {
+  "file": "Cargo.lock",
+  "hash": "195b79b8419dcd23"
+ },
+ "line:Cargo.lock:700eeb3c7fc73867": {
+  "file": "Cargo.lock",
+  "hash": "700eeb3c7fc73867"
+ },
+ "line:Cargo.lock:924439979ca95b27": {
+  "file": "Cargo.lock",
+  "hash": "924439979ca95b27"
+ },
  "line:Cargo.lock:9e38d460bcd2c432": {
   "file": "Cargo.lock",
   "hash": "9e38d460bcd2c432"
@@ -142,6 +162,18 @@
  "line:Cargo.lock:b9eb6b16d05a8117": {
   "file": "Cargo.lock",
   "hash": "b9eb6b16d05a8117"
+ },
+ "line:Cargo.lock:daa51a6f271b1ec6": {
+  "file": "Cargo.lock",
+  "hash": "daa51a6f271b1ec6"
+ },
+ "line:Cargo.lock:e45ea5646186e6bc": {
+  "file": "Cargo.lock",
+  "hash": "e45ea5646186e6bc"
+ },
+ "line:Cargo.lock:ea365013a34562c4": {
+  "file": "Cargo.lock",
+  "hash": "ea365013a34562c4"
  },
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",

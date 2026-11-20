@@ -308,6 +308,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "sequence_close" {
         return close(core, shared, a);
     }
+    if name == "preview_video" || name == "preview_sheet" {
+        return preview_range(core, &shared, name, a);
+    }
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
         let mut s = shared.lock();
@@ -866,6 +869,55 @@ fn close(core: &AppCore, shared: Arc<Mutex<SequenceSession>>, a: &Value) -> Resu
     Ok(json!({"closed":others == 0,"openInApp":others > 0}))
 }
 
+/// preview_video and preview_sheet: many frames from one rendered schedule, without holding the sequence lock while painting.
+fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &str, a: &Value) -> Result<Value, String> {
+    confirm(a)?;
+    let video = name == "preview_video";
+    let file = filename(a, "file")?;
+    let extension = if video { ".mp4" } else { ".png" };
+    if !file.to_lowercase().ends_with(extension) {
+        return Err(format!("Use {extension} extension"));
+    }
+    let path = output(core, "Export", &file)?;
+    let (length, audio) = {
+        let s = shared.lock();
+        let audio = crate::export::audio_file_name(s.document(), &core.paths);
+        (s.length().total_ms(), (!audio.is_empty()).then(|| PathBuf::from(audio)).filter(|p| p.is_file()))
+    };
+    let start = if a.get("startMs").is_some() { ms(a, "startMs")? } else { 0.0 };
+    let end = if a.get("endMs").is_some() { ms(a, "endMs")?.min(length) } else { length };
+    if start >= end {
+        return Err(format!("startMs must be before endMs and inside the sequence (0..{length})"));
+    }
+    let fps = a.get("fps").map_or(Some(if video { 25.0 } else { 2.0 }), Value::as_f64).ok_or("fps must be a number")?;
+    let range = crate::studio_preview::Range {
+        preview_id: uuid(a, "previewId")?,
+        start_ms: start,
+        end_ms: end,
+        fps,
+        glow: a["glow"] == true,
+    };
+    if video {
+        if fps.fract() != 0.0 || !(1.0..=60.0).contains(&fps) {
+            return Err("fps must be a whole number in 1..60".into());
+        }
+        if end - start > 900_000.0 {
+            return Err("A preview video is limited to 15 minutes".into());
+        }
+        let scale = a.get("scale").map_or(Some(1.0), Value::as_f64).filter(|s| (0.1..=1.0).contains(s)).ok_or("scale must be in 0.1..1")?;
+        let audio = if a["withAudio"] == false { None } else { audio };
+        crate::studio_preview::video(core, shared, &range, scale as f32, audio.as_deref(), &path)
+    } else {
+        if !(0.1..=30.0).contains(&fps) {
+            return Err("fps must be in 0.1..30".into());
+        }
+        let whole = |k: &str, default: u32, range: std::ops::RangeInclusive<u32>| {
+            a.get(k).map_or(Some(default), |v| v.as_u64().and_then(|n| u32::try_from(n).ok())).filter(|n| range.contains(n)).ok_or(format!("{k} must be a whole number in {}..{}", range.start(), range.end()))
+        };
+        crate::studio_preview::sheet(core, shared, &range, whole("cols", 8, 1..=30)?, whole("tileWidth", 160, 64..=640)?, &path)
+    }
+}
+
 pub fn tools() -> Vec<Value> {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
@@ -886,6 +938,8 @@ pub fn tools() -> Vec<Value> {
 
         ("effect_set_parameter","Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"parameter":string,"value":{}}),vec!["sequenceId","effectId","parameter","value"],false),
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
+        ("preview_video","Render a sequence span as an H.264 MP4 of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, scale 1. Up to 15 minutes. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"scale":{"type":"number","minimum":0.1,"maximum":1},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
+        ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
         ("sequence_open","Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":string}),vec!["file"],false),
@@ -906,7 +960,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_save","Save/overwrite a .tim filename under profile Sequence. Requires confirmation.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
         ("sequence_export_fseq","Render and export uncompressed FSEQ v2 at 50 ms under profile Export. Requires confirmation; no network transfer.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
     ];
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {

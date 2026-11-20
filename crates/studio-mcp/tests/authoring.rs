@@ -150,6 +150,28 @@ fn real_music_thirty_second_show_via_stdio_only() {
         assert!(frame["lights"].as_u64().unwrap() > 0);
         assert!(frame["illuminated"].as_u64().unwrap() > 0, "{frame}");
         assert!(frame["width"].as_u64().unwrap() >= 64);
+        let start = (selected[0] - 1000.0).max(0.0);
+        let video = call(
+            "preview_video",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+4000.0,"fps":25,"glow":true,"file":"MCP-music-test.mp4","confirm":true}),
+        );
+        assert_eq!(video["frames"], 100, "{video}");
+        assert_eq!(video["audio"], song.as_str(), "{video}");
+        assert!(video["maxIlluminated"].as_u64().unwrap() > 0, "{video}");
+        let mp4 = std::fs::read(root.join("Export/MCP-music-test.mp4")).unwrap();
+        assert_eq!(&mp4[4..8], b"ftyp");
+        let sheet = call(
+            "preview_sheet",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+4000.0,"fps":4,"cols":4,"file":"MCP-music-test-sheet.png","confirm":true}),
+        );
+        assert_eq!(sheet["tiles"], 16, "{sheet}");
+        assert_eq!(sheet["rows"], 4, "{sheet}");
+        let png = std::fs::read(root.join("Export/MCP-music-test-sheet.png")).unwrap();
+        let png_width = u32::from_be_bytes(png[16..20].try_into().unwrap());
+        assert_eq!(u64::from(png_width), sheet["width"].as_u64().unwrap());
+        assert!(std::fs::read_dir(root.join("Export"))
+            .unwrap()
+            .all(|e| !e.unwrap().file_name().to_string_lossy().contains(".partial.")));
     }
     let show = call(
         "show_create",

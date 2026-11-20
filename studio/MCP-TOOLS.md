@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-74 tools, generated from the tested bridge tools/list result. No placeholder tools.
+76 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -56,6 +56,8 @@
 | sequence_seek | false | Seek in milliseconds. Non-muted seeking needs local permission and confirm:true. |
 | effect_set_parameter | false | Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted. |
 | preview_frame | false | Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename. |
+| preview_video | false | Render a sequence span as an H.264 MP4 of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, scale 1. Up to 15 minutes. Requires confirmed output filename. |
+| preview_sheet | false | Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename. |
 | music_analyze | true | Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback. |
 | sequence_create | false | Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working). |
 | sequence_open | false | Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified. |
