@@ -248,6 +248,10 @@ private struct PasteboardItems: View {
                 }
             }
             .disabled(model == nil)
+            // STUDIO-BEGIN place-effect-on-marks: the effects_on_marks command's sheet
+            Button("Place Effect on Marks…") { model?.openPlaceOnMarks() }
+                .disabled(model == nil)
+            // STUDIO-END place-effect-on-marks
             Divider()
         }
         Button("Cut") {
@@ -424,6 +428,8 @@ private struct ToolsMenu: View {
             Button("Beat/Bar Detection") {}
                 .disabled(true)
             #endif
+            Button("Add Onset Marks") { model?.addOnsetMarks() } // STUDIO: sequence_onset_marks beside the beat marks
+                .disabled(!(ui?.removeAudioEnabled ?? false)) // STUDIO: needs the sequence's audio
             Divider()
             toggle("Speed / Tempo", (ui?.speedTempoEnabled ?? false) ? ui?.prefs.useTempoForSpeed : nil) { model?.set(.speedTempo, $0) }
         }

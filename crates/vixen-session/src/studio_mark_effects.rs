@@ -20,6 +20,8 @@ const BEATS: &str = "Music - All";
 const ONSET_MARK_MS: f64 = 25.0;
 /// Level parameters levelFromStrength scales, in order of preference.
 const LEVEL_PARAMS: &[&str] = &["LevelCurve", "Curve", "PulseCurve", "IntensityLevel"];
+/// Colour parameters cycleColors prefers, before any other colour-kind parameter.
+const COLOR_PARAMS: &[&str] = &["ColorGradient", "Color", "Colors"];
 
 /// sequence_onset_marks: one mark collection per band, each mark's text its strength.
 pub(super) fn onset_marks(
@@ -89,7 +91,7 @@ fn sequence_audio(s: &SequenceSession) -> Option<String> {
         .find_map(|m| m.file_name.rsplit(['/', '\\']).next().filter(|n| !n.is_empty()).map(str::to_string))
 }
 
-pub(super) const DESCRIPTION: &str = "Place one template effect on every mark of a mark collection, in one undo step with one render pass: the GUI-visible way to put effects on the rhythm (see sequence_onset_marks). markCollection is the collection's id or exact name. range [startMs,endMs] limits which marks are used (default the whole sequence). A mark's strength is its text read as a number 0..1 (as sequence_onset_marks writes it); a mark whose text is not a number counts as 1, so hand-added marks always fire. minStrength skips weaker marks. snap moves each mark to the nearest beat, 8th or 16th of gridCollection, a beat collection (default \"Music - All\" from sequence_music_marks; 8th halves each beat, 16th quarters it); marks that land on the same point merge, keeping the strongest. template is effect_add's own fields: {typeId, targetId|targetIds|targetSlice, params?, layerId?, rotateTargets?}; every target gets an effect on every mark, or with rotateTargets:true one target per mark in turn. duration is \"untilNext\" (default: each effect lasts until the next mark times gapFraction, default 0.8, so staccato passages keep gaps; the last runs to the range end) or a number of milliseconds; maxMs caps it. levelFromStrength:true scales the effect's level (LevelCurve, Curve, PulseCurve or IntensityLevel, whichever it has) by levelRange[0] + (levelRange[1]-levelRange[0]) * strength percent, default [0,100]. cycle {param, values} (or a list of them) sets that parameter to values[i % n] on the i-th mark, e.g. rotating ColorGradient colours per hit. Returns effectIds, marks used and why others were skipped.";
+pub(super) const DESCRIPTION: &str = "Place one template effect on every mark of a mark collection, in one undo step with one render pass: the GUI-visible way to put effects on the rhythm (see sequence_onset_marks). markCollection is the collection's id or exact name. range [startMs,endMs] limits which marks are used (default the whole sequence). A mark's strength is its text read as a number 0..1 (as sequence_onset_marks writes it); a mark whose text is not a number counts as 1, so hand-added marks always fire. minStrength skips weaker marks. snap moves each mark to the nearest beat, 8th or 16th of gridCollection, a beat collection (default \"Music - All\" from sequence_music_marks; 8th halves each beat, 16th quarters it); marks that land on the same point merge, keeping the strongest. template is effect_add's own fields: {typeId, targetId|targetIds|targetSlice, params?, layerId?, rotateTargets?}; every target gets an effect on every mark, or with rotateTargets:true one target per mark in turn. duration is \"untilNext\" (default: each effect lasts until the next mark times gapFraction, default 0.8, so staccato passages keep gaps; the last runs to the range end) or a number of milliseconds; maxMs caps it. levelFromStrength:true scales the effect's level (LevelCurve, Curve, PulseCurve or IntensityLevel, whichever it has) by levelRange[0] + (levelRange[1]-levelRange[0]) * strength percent, default [0,100]. cycle {param, values} (or a list of them) sets that parameter to values[i % n] on the i-th mark, e.g. rotating ColorGradient colours per hit. cycleColors [\"#RRGGBB\", ...] does the same for the effect's colour parameter (ColorGradient, Color or Colors, else its first colour parameter), each mark solid in the next colour, without naming the parameter. dryRun:true checks everything and returns the counts (effects, marksUsed, skipped) without adding anything. Returns effectIds, marks used and why others were skipped.";
 
 pub(super) fn schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
@@ -109,6 +111,8 @@ pub(super) fn schema() -> Value {
         "levelFromStrength": {"type":"boolean"},
         "levelRange": {"type":"array","items":percent,"minItems":2,"maxItems":2},
         "cycle": {"description":"{param, values} or a list of them", "maxItems":16},
+        "cycleColors": {"type":"array","items":{"type":"string","minLength":7,"maxLength":7},"minItems":1,"maxItems":64},
+        "dryRun": {"type":"boolean"},
     })
 }
 fn cycle_schema() -> Value {
@@ -251,7 +255,7 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
     let type_id = uuid(&a["template"], "typeId")?;
     let descriptor = vixen_effect_registry::by_type_id(&type_id).ok_or("Effect type not found")?;
 
-    let cycles: Vec<(&'static str, Vec<ParamValue>)> = match a.get("cycle") {
+    let mut cycles: Vec<(&'static str, Vec<ParamValue>)> = match a.get("cycle") {
         None => Vec::new(),
         Some(value) => {
             let list = match value {
@@ -279,6 +283,27 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
                 .collect::<Result<_, String>>()?
         }
     };
+
+    if let Some(colors) = a.get("cycleColors").and_then(Value::as_array) {
+        let param = color_param(descriptor).ok_or_else(|| format!("cycleColors: {} has no colour parameter", descriptor.name))?;
+        if cycles.iter().any(|(name, _)| *name == param.name) {
+            return Err(format!("cycleColors and cycle both set {}; use one", param.name));
+        }
+        let values = colors
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                let solid = match param.kind {
+                    ParamKind::Color | ParamKind::Rgb => c.clone(),
+                    ParamKind::Gradient | ParamKind::ColorList => json!([c]),
+                    ParamKind::GradientList => json!([[c]]),
+                    _ => json!([{"gradient":[c]}]),
+                };
+                parameter_value(descriptor, param.name, &solid).map(|(_, v)| v).map_err(|e| format!("cycleColors[{i}]: {e}"))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        cycles.push((param.name, values));
+    }
 
     let level = if a["levelFromStrength"] == true {
         let param = LEVEL_PARAMS
@@ -332,11 +357,26 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
     if planned.is_empty() {
         return Err("Every effect would be shorter than 1 ms; raise gapFraction or use a fixed duration".into());
     }
+    let skipped = json!({"belowMinStrength":weak,"merged":merged,"tooShort":short});
+    if a["dryRun"] == true {
+        return Ok(json!({"dryRun":true,"effects":planned.len(),"marksUsed":hits.len() - short,"skipped":skipped}));
+    }
     let ids: Vec<_> = planned.into_iter().map(|new| super::apply_add(s, new)).collect();
     let all: Vec<u64> = ids.iter().map(|id| id.0).collect();
     record(s, "Place effects on marks", UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids }, agent);
     s.render_all_dirty();
-    Ok(json!({"effectIds":all,"marksUsed":hits.len() - short,"skipped":{"belowMinStrength":weak,"merged":merged,"tooShort":short},"effects":s.effect_count()}))
+    Ok(json!({"effectIds":all,"marksUsed":hits.len() - short,"skipped":skipped,"effects":s.effect_count()}))
+}
+
+/// The parameter cycleColors sets: a preferred colour parameter by name, else the first of a colour kind.
+fn color_param(descriptor: &'static vixen_effects::framework::EffectDescriptor) -> Option<&'static vixen_effects::framework::ParamDesc> {
+    let colorish = |p: &&'static vixen_effects::framework::ParamDesc| {
+        matches!(p.kind, ParamKind::Color | ParamKind::Rgb | ParamKind::Gradient | ParamKind::ColorList | ParamKind::GradientList | ParamKind::GradientLevels)
+    };
+    COLOR_PARAMS
+        .iter()
+        .find_map(|n| descriptor.params.iter().find(|p| p.name == *n).filter(colorish))
+        .or_else(|| descriptor.params.iter().find(colorish))
 }
 
 #[cfg(test)]

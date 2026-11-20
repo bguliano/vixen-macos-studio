@@ -1759,6 +1759,20 @@ mod tests {
         assert_ne!(color(&list[0]), color(&list[1]));
         assert_eq!(color(&list[0]), color(&list[2]));
         assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":template,"cycle":{"param":"Nope","values":[1]}})).starts_with("cycle[0]"));
+        run("sequence_undo", json!({"sequenceId":id}));
+
+        // dryRun counts without adding (the Place Effect on Marks sheet's summary); cycleColors finds the colour parameter itself.
+        let undo_before = run("sequence_status", json!({"sequenceId":id}))["undo"].clone();
+        let dry = run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","minStrength":0.3,"duration":50,"template":rotating,"cycleColors":["#ff0000","#0000ff"],"dryRun":true}));
+        assert_eq!((dry["dryRun"].clone(), dry["effects"].clone(), dry["marksUsed"].clone(), dry["skipped"]["belowMinStrength"].clone()), (json!(true), json!(3), json!(3), json!(1)), "{dry}");
+        assert!(effects().is_empty() && run("sequence_status", json!({"sequenceId":id}))["undo"] == undo_before, "a dry run changes nothing");
+        run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","minStrength":0.3,"duration":50,"template":rotating,"cycleColors":["#ff0000","#0000ff"]}));
+        let list = effects();
+        assert_eq!(color(&list[0]), color(&list[2]));
+        assert_ne!(color(&list[0]), color(&list[1]));
+        assert_eq!(color(&list[1])["colors"][0]["color"], "#0000ff", "{}", color(&list[1]));
+        assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":template,"cycle":cycle,"cycleColors":["#ff0000"]})).contains("use one"));
+        assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":template,"cycleColors":["#zzzzzz"]})).starts_with("cycleColors[0]"));
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_dir_all(root);

@@ -1,5 +1,6 @@
 //! Studio-only live command/event boundary; no Swift view ownership or styling.
 use crate::core::{FfiError, VixenCore};
+use crate::sequence::SequencerSession;
 use crate::setup::DisplaySetupSession;
 use std::sync::Arc;
 
@@ -121,6 +122,22 @@ impl VixenCore {
             self.inner.clone(),
             shared,
         ))
+    }
+}
+
+#[uniffi::export]
+impl SequencerSession {
+    /// A Studio sequence command (studioSequenceCommand) on this window's own document, its sequenceId filled in, so a
+    /// sequencer sheet runs the same authoring code as the MCP tool and lands as one step on the window's Undo.
+    pub fn studio_command(&self, command: String, arguments_json: String) -> Result<String, FfiError> {
+        let mut args: serde_json::Value =
+            serde_json::from_str(&arguments_json).map_err(|e| FfiError::new(e.to_string()))?;
+        let object = args.as_object_mut().ok_or_else(|| FfiError::new("arguments must be a JSON object"))?;
+        let id = self.session.lock().playback_id().to_string();
+        object.insert("sequenceId".into(), serde_json::Value::String(id));
+        vixen_session::studio_sequence::execute(&self.core, &command, &args, false)
+            .map(|v| v.to_string())
+            .map_err(FfiError::new)
     }
 }
 

@@ -262,6 +262,9 @@ private struct StudioAudioMenu: View {
             Button("Detect Beats and Bars…") { model.sheet = .beatsAndBars }
                 .disabled(!(ui?.beatBarEnabled ?? false))
             #endif
+            Button("Add Onset Marks") { model.addOnsetMarks() }
+                .disabled(!(ui?.removeAudioEnabled ?? false))
+                .help("Adds the song's detected hits as mark collections (Onsets - low, mid and high), each mark's text its strength.")
             Divider()
             Section("Output Device") {
                 ForEach(devices, id: \.id) { device in

@@ -1551,6 +1551,22 @@ impl TimelineController {
         TimelineRowTarget { node: r.node_uuid.to_string(), name: r.name.clone() }
     }
 
+    // STUDIO-BEGIN timeline-selected-targets: the selected rows' elements, the targets of Studio commands such as Place Effect on Marks
+    /// The display elements of the selected rows, in row order without repeats, or the active row's when none is selected.
+    pub fn studio_selected_targets(&self) -> Vec<TimelineRowTarget> {
+        let t = self.timeline.lock();
+        let mut rows: Vec<_> = t.rows.rows.iter().filter(|r| r.selected).collect();
+        if rows.is_empty() {
+            rows.extend(t.active_row().map(|id| t.rows.row(id)));
+        }
+        let mut seen = std::collections::HashSet::new();
+        rows.into_iter()
+            .filter(|r| seen.insert(r.node_uuid))
+            .map(|r| TimelineRowTarget { node: r.node_uuid.to_string(), name: r.name.clone() })
+            .collect()
+    }
+    // STUDIO-END timeline-selected-targets
+
     /// `SelectedRow ?? ActiveRow ?? TopVisibleRow`. F27.
     /// F27, paste: `SelectedRow ?? ActiveRow ?? TopVisibleRow`.
     pub fn paste_target_row(&self) -> Option<u32> {

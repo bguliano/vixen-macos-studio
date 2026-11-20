@@ -20,6 +20,7 @@ enum SequencerSheet: Identifiable {
     case effectDefaults([ShellEffectDefault])
     case text(TextPrompt)
     case beatsAndBars
+    case placeOnMarks // STUDIO: Edit ▸ Place Effect on Marks… (StudioPlaceOnMarksSheet.swift)
 
     var id: String {
         switch self {
@@ -34,6 +35,7 @@ enum SequencerSheet: Identifiable {
         case .effectDefaults: "effect-defaults"
         case .text(let prompt): "text-\(prompt.prompt)"
         case .beatsAndBars: "beats-and-bars"
+        case .placeOnMarks: "place-on-marks" // STUDIO: Place Effect on Marks sheet
         }
     }
 }
@@ -90,6 +92,8 @@ struct SequencerSheetView: View {
             #else
             EmptyView()
             #endif
+        case .placeOnMarks: // STUDIO: Place Effect on Marks sheet
+            PlaceOnMarksSheet(model: model) // STUDIO: Place Effect on Marks sheet
         }
     }
 }
