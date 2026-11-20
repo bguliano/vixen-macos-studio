@@ -7,6 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 use vixen_session::app::AppCore;
 use vixen_session::setup::SetupSession;
+use vixen_session::studio_preview::geometry;
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
 const TOOLS: &[(&str, &str)] = &[
@@ -36,6 +37,13 @@ pub struct Server {
     shared: bool,
 }
 impl Server {
+    /// The live display when serving a core, otherwise the snapshot loaded at startup, with its revision.
+    fn with_system<T>(&self, f: impl FnOnce(&vixen_io::SystemData, u64) -> T) -> T {
+        match &self.core {
+            Some(core) => f(&core.system.read(), core.display.revision()),
+            None => f(&self.setup.system, 0),
+        }
+    }
     pub fn open(root: &Path) -> Result<Self, String> {
         let root = root.canonicalize().map_err(|e| e.to_string())?;
         // Load only: unlike AppCore::open this creates no folders/cache and starts no services.
@@ -107,6 +115,7 @@ impl Server {
                 tools.extend(vixen_session::studio_display::command_tools());
                 tools.extend(vixen_session::studio_sequence::tools());
                 tools.extend(vixen_session::studio_live::tools());
+                tools.push(geometry::tool());
                 json!({"tools":tools})
             }
             "tools/call" => {
@@ -118,6 +127,7 @@ impl Server {
                         .iter()
                         .any(|t| t["name"] == name)
                     && !TOOLS.iter().any(|(n, _)| *n == name)
+                    && name != "display_geometry"
                     && !vixen_session::studio_display::command_tools()
                         .iter()
                         .any(|t| t["name"] == name)
@@ -149,17 +159,21 @@ impl Server {
                 }
             }
             "resources/list" => {
-                json!({"resources":[{"uri":"studio://contract","name":"Studio MCP contract","mimeType":"text/markdown"}]})
+                json!({"resources":[{"uri":"studio://contract","name":"Studio MCP contract","mimeType":"text/markdown"},{"uri":"display://summary","name":"Display prop orientation summary","description":"Every preview prop's type, size, Px1 end, S1 position and numbering direction; read once at the start of a session.","mimeType":"application/json"}]})
             }
             "resources/read" if p["uri"] == "studio://contract" => {
                 json!({"contents":[{"uri":"studio://contract","mimeType":"text/markdown","text":include_str!("../../../studio/MCP.md")}]})
+            }
+            "resources/read" if p["uri"] == "display://summary" => {
+                let summary = self.with_system(|system, revision| geometry::summary(system, revision));
+                json!({"contents":[{"uri":"display://summary","mimeType":"application/json","text":summary.to_string()}]})
             }
             "resources/read" => return Some(error(id, -32602, "Unknown resource")),
             "prompts/list" => {
                 json!({"prompts":[{"name":"build_show","description":"Safe music-synchronized show workflow and current capability limits"}]})
             }
             "prompts/get" if p["name"] == "build_show" => {
-                json!({"messages":[{"role":"user","content":{"type":"text","text":"Inspect studio_status, display_elements, controller_list, preview_list and diagnostics_report. Analyze real profile audio with music_analyze. Create a sequence with media, place effects on detected beats, add marks (sequence_onset_marks writes the hits as editable mark collections; effects_on_marks places an effect on every mark in one undo step; effect_step turns staccato stabs into discrete segment walks, alternations, stacks or jumps), then sequence_render and preview_frame; review whole passages with preview_sheet (one tiled PNG) or preview_video (MP4 with the song) instead of many preview_frame calls. Validate diagnostics and render results before confirmed sequence_save, profile_save and sequence_export_fseq. Use shared undo to correct edits. Never enable hardware merely to author a show. Scheduling tools create disabled drafts for local review. Unsupported parameter codecs and heuristic onset/section estimates must not be misrepresented as exact."}}]})
+                json!({"messages":[{"role":"user","content":{"type":"text","text":"Inspect studio_status, display_elements, controller_list, preview_list and diagnostics_report, and read display://summary (or display_geometry) for which way each prop runs: Px1 end, S1 position and numbering direction. Analyze real profile audio with music_analyze. Create a sequence with media, place effects on detected beats, add marks (sequence_onset_marks writes the hits as editable mark collections; effects_on_marks places an effect on every mark in one undo step; effect_step turns staccato stabs into discrete segment walks, alternations, stacks or jumps), then sequence_render and preview_frame; review whole passages with preview_sheet (one tiled PNG) or preview_video (MP4 with the song) instead of many preview_frame calls. Validate diagnostics and render results before confirmed sequence_save, profile_save and sequence_export_fseq. Use shared undo to correct edits. Never enable hardware merely to author a show. Scheduling tools create disabled drafts for local review. Unsupported parameter codecs and heuristic onset/section estimates must not be misrepresented as exact."}}]})
             }
             _ => return Some(error(id, -32601, "Method not found")),
         };
@@ -211,6 +225,9 @@ impl Server {
             }
             let core = self.core.as_ref().unwrap();
             return core.studio_display.execute(core, name, args, true);
+        }
+        if name == "display_geometry" {
+            return self.with_system(|system, revision| geometry::execute(system, revision, args));
         }
         if let Some(core) = &self.core {
             self.setup =

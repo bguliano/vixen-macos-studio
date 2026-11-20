@@ -11,6 +11,9 @@ use vixen_engine::{EvalScratch, Schedule};
 #[path = "studio_video.rs"]
 mod video;
 
+#[path = "studio_geometry.rs"]
+pub mod geometry;
+
 const OMITTED: [&str; 3] = ["background artwork", "fixture beams", "GPU antialiasing"];
 
 /// One linked light, resolved once so each frame only evaluates the schedule and paints.
