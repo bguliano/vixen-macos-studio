@@ -219,7 +219,8 @@ private struct PathField: View {
     let extensions: [String]
     let readOnly: Bool
     let onChoose: (String) -> Void
-    @State private var hostWindow: NSWindow?
+    @State private var hostReference = WeakWindow()
+    private var hostWindow: NSWindow? { hostReference.window }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -235,7 +236,7 @@ private struct PathField: View {
                     .frame(width: 26)
             }
         }
-        .background(WindowFinder(window: $hostWindow))
+        .background(WindowFinder(into: hostReference))
     }
 
     private func choose() {

@@ -366,7 +366,7 @@ struct MarksPanelContent: View {
             .background(Color.black)
         }
         .frame(minWidth: 180, minHeight: 120)
-        .background(WindowFinder(window: Binding(get: { model.window }, set: { model.window = $0 })))
+        .background(WindowFinder { model.window = $0 })
         .background(PanelFocusCapture(testHook: "marksFocus"))
         .sheet(item: $model.sheet) { sheet in
             MarksSheetContent(model: model, sheet: sheet)

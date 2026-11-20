@@ -246,7 +246,6 @@ private struct EffectEditorTestView: View {
     private let state = EffectEditorTestState.shared
     @State private var sequences: [String] = []
     @State private var tableSelection = Set<UInt64>()
-    @State private var hostWindow: NSWindow?
 
     var body: some View {
         HSplitView {
@@ -283,7 +282,7 @@ private struct EffectEditorTestView: View {
             .frame(minWidth: 380, idealWidth: 520, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(WindowFinder(window: Binding(get: { state.window }, set: { state.window = $0 })))
+        .background(WindowFinder { state.window = $0 })
         .task(id: app.core != nil) {
             if !app.startsElsewhere {
                 await app.start()

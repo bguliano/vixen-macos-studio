@@ -1126,6 +1126,7 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
     private let rowPane: RowPaneView
     private let timePanel: TimePanelView
     weak var canvas: TimelineCanvas?
+    nonisolated(unsafe) private var splitObserver: NSObjectProtocol?
     private var didSetDivider = false
     /// F2's restore rule: this if it's above 0 and the control is wider, otherwise the default if the control is wider than that.
     var splitterDistance: CGFloat = 200
@@ -1146,11 +1147,18 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
         split.setHoldingPriority(.defaultLow, forSubviewAt: 1)
         addSubview(split)
         setAccessibilityIdentifier("timeline")
-        NotificationCenter.default.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: split, queue: .main) { [weak self] _ in
+        // Through `self` only, and removed in deinit: a block that captured the row pane kept the whole closed timeline (and its sequence) alive.
+        splitObserver = NotificationCenter.default.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: split, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.didSetDivider else { return }
-                self.canvas?.controllerSplitterMoved(width: rowPane.bounds.width)
+                self.canvas?.controllerSplitterMoved(width: self.rowPane.bounds.width)
             }
+        }
+    }
+
+    deinit {
+        if let splitObserver {
+            NotificationCenter.default.removeObserver(splitObserver)
         }
     }
 

@@ -177,23 +177,13 @@ private struct EffectEditorContent: View {
     // STUDIO-END preview-switch
 }
 
-private struct HostWindowReader: NSViewRepresentable {
+/// The window the editor's dialogs open on. Read when the pane moves into a window: the dock builds the pane first, so a one-time read when
+/// the view was made found no window, and double-clicking a curve or gradient did nothing.
+private struct HostWindowReader: View {
     let model: EffectEditorModel
 
-    func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { [weak view, weak model] in
-            model?.hostWindow = view?.window
-        }
-        return view
-    }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        if model.hostWindow !== view.window {
-            DispatchQueue.main.async { [weak view, weak model] in
-                model?.hostWindow = view?.window
-            }
-        }
+    var body: some View {
+        WindowFinder { [weak model] in model?.hostWindow = $0 }
     }
 }
 

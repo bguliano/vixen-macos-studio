@@ -118,7 +118,8 @@ private struct CurveEditorContent: View {
     @State private var model: CurveEditorViewModel
     @State private var drawInterval: String
     @State private var drawBalloon: BalloonText?
-    @State private var hostWindow: NSWindow?
+    @State private var hostReference = WeakWindow()
+    private var hostWindow: NSWindow? { hostReference.window }
     /// The row's name is shown until Load or Unlink sets F71's title.
     @State private var usesRowTitle: Bool
 
@@ -162,7 +163,7 @@ private struct CurveEditorContent: View {
         }
         .padding(16)
         .frame(minWidth: 591)
-        .background(WindowFinder(window: $hostWindow))
+        .background(WindowFinder(into: hostReference))
     }
 
     private var curveGroup: some View {
@@ -368,27 +369,44 @@ private struct FunctionGeneratorSheet: View {
     }
 }
 
-/// Finds the window a SwiftUI view is in.
-public struct WindowFinder: NSViewRepresentable {
-    @Binding var window: NSWindow?
+/// A window reference that doesn't keep the window alive. A view inside a window that holds its window strongly (in `@State`, or in a
+/// `Binding`, which keeps a copy of its value) makes a cycle through the window's own view graph, so a closed window was never freed.
+@MainActor
+public final class WeakWindow {
+    public weak var window: NSWindow?
 
-    public init(window: Binding<NSWindow?>) {
-        _window = window
+    public init() {}
+}
+
+/// Finds the window a SwiftUI view is in, and reports it without holding on to it. It reports whenever the view moves to a window, so a
+/// view built before it was put in one (a docked pane, for instance) still learns its window.
+public struct WindowFinder: NSViewRepresentable {
+    private let found: @MainActor (NSWindow?) -> Void
+
+    public init(into reference: WeakWindow) {
+        found = { [weak reference] in reference?.window = $0 }
     }
 
-    public func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async { [weak view] in
-            window = view?.window
-        }
+    public init(_ found: @escaping @MainActor (NSWindow?) -> Void) {
+        self.found = found
+    }
+
+    public func makeNSView(context: Context) -> TrackingView {
+        let view = TrackingView()
+        view.found = found
         return view
     }
 
-    public func updateNSView(_ view: NSView, context: Context) {
-        if window !== view.window {
-            DispatchQueue.main.async { [weak view] in
-                window = view?.window
-            }
+    public func updateNSView(_ view: TrackingView, context: Context) {
+        view.found = found
+    }
+
+    public final class TrackingView: NSView {
+        var found: (@MainActor (NSWindow?) -> Void)?
+
+        public override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            found?(window)
         }
     }
 }

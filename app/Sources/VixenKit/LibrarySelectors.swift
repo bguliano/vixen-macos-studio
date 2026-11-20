@@ -23,7 +23,8 @@ private struct CurveSelectorContent: View {
     let onFinish: (LibraryCurveItem?) -> Void
     @State private var items: [LibraryCurveItem] = []
     @State private var selected: String?
-    @State private var hostWindow: NSWindow?
+    @State private var hostReference = WeakWindow()
+    private var hostWindow: NSWindow? { hostReference.window }
 
     var body: some View {
         SelectorLayout(
@@ -45,7 +46,7 @@ private struct CurveSelectorContent: View {
                     .onTapGesture { selected = item.name }
             }
         }
-        .background(WindowFinder(window: $hostWindow))
+        .background(WindowFinder(into: hostReference))
         .onAppear(perform: refill)
     }
 
@@ -108,7 +109,8 @@ private struct GradientSelectorContent: View {
     let onFinish: (LibraryGradientItem?) -> Void
     @State private var items: [LibraryGradientItem] = []
     @State private var selected: String?
-    @State private var hostWindow: NSWindow?
+    @State private var hostReference = WeakWindow()
+    private var hostWindow: NSWindow? { hostReference.window }
 
     var body: some View {
         SelectorLayout(
@@ -130,7 +132,7 @@ private struct GradientSelectorContent: View {
                     .onTapGesture { selected = item.name }
             }
         }
-        .background(WindowFinder(window: $hostWindow))
+        .background(WindowFinder(into: hostReference))
         .onAppear(perform: refill)
     }
 

@@ -120,8 +120,8 @@ final class SequencerModel: OpenEditor {
         guard self.window !== window else { return }
         self.window = window
         window.tabbingMode = .disallowed
-        window.setFrameAutosaveName("TimedSequenceEditorForm")
         window.minSize = NSSize(width: 640, height: 480)
+        SequencerWindowFrame.restore(window)
         let proxy = SequencerWindowDelegate(model: self, original: window.delegate)
         delegateProxy = proxy
         window.delegate = proxy
@@ -1082,6 +1082,21 @@ final class SequencerWindowDelegate: NSObject, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         model?.windowBecameKey()
         original?.windowDidBecomeKey?(notification)
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        SequencerWindowFrame.save(notification.object as? NSWindow)
+        original?.windowDidMove?(notification)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        SequencerWindowFrame.save(notification.object as? NSWindow)
+        original?.windowDidResize?(notification)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        SequencerWindowFrame.save(notification.object as? NSWindow)
+        original?.windowWillClose?(notification)
     }
 
     nonisolated override func responds(to selector: Selector!) -> Bool {

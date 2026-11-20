@@ -98,7 +98,8 @@ private struct GradientEditorContent: View {
     let rowTitle: String?
     let onFinish: (GradientValue?) -> Void
     @State private var model: GradientEditorViewModel
-    @State private var hostWindow: NSWindow?
+    @State private var hostReference = WeakWindow()
+    private var hostWindow: NSWindow? { hostReference.window }
     @State private var usesRowTitle: Bool
 
     init(session: GradientEditorSession, core: VixenCore, rowTitle: String?, onFinish: @escaping (GradientValue?) -> Void) {
@@ -180,7 +181,7 @@ private struct GradientEditorContent: View {
         }
         .padding(16)
         .frame(minWidth: 560)
-        .background(WindowFinder(window: $hostWindow))
+        .background(WindowFinder(into: hostReference))
     }
 
     /// F90.
