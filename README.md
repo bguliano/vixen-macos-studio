@@ -40,6 +40,16 @@ Studio carries the port's full history and takes its changes by merging, so fixe
 being redone. Studio's own changes to shared code are marked so a merge can't silently undo them. See
 [STUDIO.md](STUDIO.md).
 
+## Credits
+
+- **Vixen Lights** — the original Windows application, its show format and its effects — is the work of
+  [the Vixen team](https://github.com/VixenLights/Vixen) and its contributors since 2011. Their commit history is kept
+  in this repository, which is why they appear in its contributor list. They aren't involved in this edition and
+  aren't responsible for it.
+- **The macOS port** ([vixen-macos-port](https://github.com/bguliano/vixen-macos-port)) — the Rust engine and native
+  Mac app that replace the Windows/.NET code — and **Vixen Studio** — the redesigned interface, workflows and built-in
+  MCP server — are by [Braden Guliano](https://github.com/bguliano).
+
 ## Licenses and attribution
 
 Vixen is created by the Vixen team; its copyright and license are retained in [License.txt](License.txt) and the upstream
