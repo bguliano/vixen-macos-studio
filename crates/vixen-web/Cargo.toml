@@ -8,4 +8,4 @@ license-file.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 base64 = "0.22"
-socket2 = "0.5"
+socket2 = "0.6"

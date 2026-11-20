@@ -10,7 +10,7 @@ parking_lot.workspace = true
 uuid.workspace = true
 libc = "0.2"
 serialport = { version = "4", default-features = false }
-socket2 = { version = "0.5", features = ["all"] }
+socket2 = { version = "0.6", features = ["all"] }
 core-foundation-sys = "0.8"
 
 [build-dependencies]
