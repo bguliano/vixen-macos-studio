@@ -1,5 +1,6 @@
 //! Studio-only live command/event boundary; no Swift view ownership or styling.
 use crate::core::{FfiError, VixenCore};
+use crate::setup::DisplaySetupSession;
 use std::sync::Arc;
 
 #[derive(Clone, uniffi::Record)]
@@ -177,5 +178,45 @@ impl VixenCore {
     /// Why local display edits are paused right now, or nil.
     pub fn studio_display_edit_block(&self) -> Option<String> {
         self.inner.studio_display.ui_edit_block(&self.inner).map(Into::into)
+    }
+}
+
+#[uniffi::export]
+impl DisplaySetupSession {
+    /// The controller inspector's settings for one controller of this working copy, as JSON
+    /// (`studio_controller_network::info`), or nil when it's gone.
+    pub fn studio_controller_network(&self, id: String) -> Option<String> {
+        let id = uuid::Uuid::parse_str(&id).ok()?;
+        let working = self.inner.read();
+        let slot = working.slot_of(id)?;
+        Some(vixen_session::studio_controller_network::info(&working.controllers[slot as usize]).to_string())
+    }
+    /// `controller_configure` on this working copy: the same code the MCP tool runs. Returns JSON {controller, newId?}.
+    pub fn studio_configure_controller_network(&self, arguments_json: String) -> Result<String, FfiError> {
+        let args: serde_json::Value =
+            serde_json::from_str(&arguments_json).map_err(|e| FfiError::new(e.to_string()))?;
+        // `configure` checks every field before changing anything, so a refused edit leaves the working copy as it was.
+        let mut working = self.inner.write();
+        vixen_session::studio_controller_network::configure(&mut working, &args)
+            .map(|v| v.to_string())
+            .map_err(FfiError::new)
+    }
+}
+
+#[uniffi::export]
+impl VixenCore {
+    /// The controller inspector's status line for a published controller, as JSON (`studio_controller_network::status`).
+    pub fn studio_controller_status(&self, id: String) -> String {
+        match uuid::Uuid::parse_str(&id) {
+            Ok(id) => vixen_session::studio_controller_network::status(&self.inner, id).to_string(),
+            Err(_) => serde_json::json!({"text":""}).to_string(),
+        }
+    }
+    /// Whether anything answers at an IPv4 address (TCP port 80; no lighting data). Refused while muted. Blocks up to 0.8 s.
+    pub fn studio_probe_controller(&self, address: String) -> String {
+        if !self.inner.playback.hardware_allowed() {
+            return serde_json::json!({"reachable":null,"text":"Muted: reachability checks are off"}).to_string();
+        }
+        vixen_session::studio_controller_network::probe(&address).to_string()
     }
 }

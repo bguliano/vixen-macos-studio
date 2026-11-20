@@ -2,6 +2,7 @@
 
 pub mod app;
 pub mod studio_display; // STUDIO: shared live display commands and undo
+pub mod studio_controller_network; // STUDIO: the controller inspector's network settings and status
 pub mod archive;
 pub mod boot;
 pub mod compare;

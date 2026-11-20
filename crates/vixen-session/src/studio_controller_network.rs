@@ -1,0 +1,533 @@
+//! The controller inspector's network settings (Display ▸ Controllers), shared by the Display pane and the MCP
+//! `controller_configure` / `controller_network` tools: protocol, a unicast IPv4 address, universes generated from the
+//! output count, WLED presets, and a status line (packets sent, an optional reachability check).
+use crate::app::AppCore;
+use crate::setup::controllers::{output_limit, ControllerEntry};
+use crate::setup::SetupSession;
+use parking_lot::Mutex;
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use uuid::Uuid;
+use vixen_output::modules::e131::UniverseEntry;
+use vixen_output::{ids, ControllerConfig};
+
+pub const MAX_UNIVERSE: u64 = 63999;
+pub const DEFAULT_UNIVERSE_SIZE: u64 = 510;
+
+/// WLED's E1.31 "DMX mode" presets: how many channels it reads from each universe.
+pub fn presets() -> Value {
+    json!([
+        {"id":"wledRgb","name":"WLED: Multiple RGB","universeSize":510,"channelsPerPixel":3},
+        {"id":"wledRgbw","name":"WLED: Multiple RGBW","universeSize":512,"channelsPerPixel":4},
+    ])
+}
+
+fn protocol_of(c: &ControllerEntry) -> Option<&'static str> {
+    match c.type_id {
+        ids::E131 => Some("e131"),
+        ids::DDP => Some("ddp"),
+        _ => None,
+    }
+}
+
+/// The universes `configure` would generate, for comparing with what a controller has.
+fn generate(outputs: usize, first: u64, size: u64, address: &str) -> Result<Vec<UniverseEntry>, String> {
+    let mut universes = Vec::new();
+    let mut offset = 0usize;
+    while offset < outputs {
+        let universe = first + universes.len() as u64;
+        if universe > MAX_UNIVERSE {
+            return Err(format!("{outputs} outputs at {size} channels per universe need universes past {MAX_UNIVERSE}"));
+        }
+        let count = (outputs - offset).min(size as usize);
+        let mut entry = UniverseEntry::new(true, universe as i32, offset as i32, count as i32);
+        entry.unicast = Some(address.to_string());
+        universes.push(entry);
+        offset += count;
+    }
+    Ok(universes)
+}
+
+fn plural(n: usize, one: &str, many: &str) -> String {
+    format!("{} {}", group_digits(n), if n == 1 { one } else { many })
+}
+
+fn group_digits(n: usize) -> String {
+    let text = n.to_string();
+    let mut out = String::new();
+    for (i, ch) in text.chars().enumerate() {
+        if i > 0 && (text.len() - i) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+/// The channels per universe last chosen for each controller, for a controller whose outputs fit in one universe: its
+/// layout can't record the choice, and the inspector shouldn't snap back to 510 after 512 was picked.
+static CHOSEN_SIZE: Mutex<Option<HashMap<Uuid, u64>>> = Mutex::new(None);
+
+fn chosen_size(id: Uuid) -> Option<u64> {
+    CHOSEN_SIZE.lock().as_ref().and_then(|m| m.get(&id).copied())
+}
+
+fn remember_size(id: Uuid, size: u64) {
+    CHOSEN_SIZE.lock().get_or_insert_with(HashMap::new).insert(id, size);
+}
+
+/// What the inspector shows for one controller.
+pub fn info(c: &ControllerEntry) -> Value {
+    let outputs = c.outputs.len();
+    let pixels = json!({"rgb": outputs / 3, "rgbw": outputs / 4});
+    let base = json!({"id":c.id.to_string(),"name":c.name,"typeName":c.type_name(),"outputs":outputs,"outputLimit":output_limit(&c.type_id),"pixels":pixels});
+    let mut v = base;
+    match &c.config {
+        Some(ControllerConfig::E131(config)) => {
+            let universes = config.universes.as_deref().unwrap_or(&[]);
+            let address = config
+                .unicast
+                .clone()
+                .or_else(|| universes.iter().find_map(|u| u.unicast.clone()))
+                .filter(|a| !a.is_empty());
+            let first = universes.first().map(|u| u.universe.max(1) as u64);
+            // Every universe but the last holds the chosen size. One universe doesn't show it, so the size chosen this
+            // run is used if it fits; otherwise a short universe reads as the default 510 and one past 510 as 512.
+            let size = match universes {
+                [] => None,
+                [only] => Some(
+                    chosen_size(c.id)
+                        .filter(|size| only.size as u64 <= *size)
+                        .unwrap_or(if only.size > DEFAULT_UNIVERSE_SIZE as i32 { 512 } else { DEFAULT_UNIVERSE_SIZE }),
+                ),
+                [first, ..] => Some(first.size.max(1) as u64),
+            };
+            let generated = match (&address, first, size) {
+                (Some(address), Some(first), Some(size)) if (1..=512).contains(&size) => generate(outputs, first, size, address)
+                    .is_ok_and(|g| g.len() == universes.len() && g.iter().zip(universes).all(|(a, b)| a.universe == b.universe && a.start == b.start && a.size == b.size && b.active)),
+                _ => false,
+            };
+            let destination = if address.is_some() {
+                "unicast"
+            } else if config.multicast.as_deref().is_some_and(|m| !m.is_empty()) {
+                "multicast"
+            } else {
+                "none"
+            };
+            let layout = if address.is_none() {
+                "Enter the address; universes are generated from the outputs".to_string()
+            } else if universes.is_empty() {
+                "No universes yet".to_string()
+            } else if generated {
+                let (first, size) = (first.unwrap_or(1), size.unwrap_or(DEFAULT_UNIVERSE_SIZE));
+                let last = first + universes.len() as u64 - 1;
+                let span = if universes.len() == 1 { format!("universe {first}") } else { format!("universes {first}–{last}") };
+                format!("{span}, {} channels each", size)
+            } else {
+                format!("{} set by hand (Advanced…)", plural(universes.len(), "universe", "universes"))
+            };
+            v["protocol"] = json!("e131");
+            v["address"] = json!(address);
+            v["destination"] = json!(destination);
+            v["firstUniverse"] = json!(first);
+            v["universeSize"] = json!(size);
+            v["universeCount"] = json!(universes.len());
+            v["generated"] = json!(generated);
+            v["layout"] = json!(layout);
+        }
+        Some(ControllerConfig::Ddp(config)) => {
+            v["protocol"] = json!("ddp");
+            v["address"] = json!(config.address);
+            v["destination"] = json!(if config.address.is_some() { "unicast" } else { "none" });
+            v["layout"] = json!(format!("{} in one DDP stream", plural(outputs, "channel", "channels")));
+        }
+        _ => {
+            v["protocol"] = Value::Null;
+        }
+    }
+    v
+}
+
+fn number(a: &Value, key: &str, range: std::ops::RangeInclusive<u64>) -> Result<Option<u64>, String> {
+    match a.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v
+            .as_u64()
+            .filter(|n| range.contains(n))
+            .map(Some)
+            .ok_or(format!("{key} must be an integer {}..{}", range.start(), range.end())),
+    }
+}
+
+/// Replaces a controller with one of another protocol. It keeps its name, place, run state and outputs, so every
+/// patch survives; it gets a new id, because a running controller's module can't change type. Returns the new slot.
+fn switch_protocol(s: &mut SetupSession, slot: usize, type_id: Uuid) -> u32 {
+    let old = &mut s.controllers[slot];
+    old.alive = false;
+    let outputs = std::mem::take(&mut old.outputs);
+    let instance_id = Uuid::new_v4();
+    let entry = ControllerEntry {
+        id: Uuid::new_v4(),
+        name: old.name.clone(),
+        type_id,
+        instance_id,
+        outputs,
+        alive: true,
+        running: old.running,
+        running_at_open: old.running_at_open,
+        is_new: true,
+        config: ControllerConfig::new_default(&type_id, instance_id),
+        config_changed: true,
+    };
+    if !old.is_new {
+        let removed = (old.type_id, old.instance_id);
+        s.removed_controller_data.push(removed);
+    }
+    let new_slot = s.controllers.len() as u32;
+    s.controllers.push(entry);
+    for place in s.controller_order.iter_mut().filter(|p| **p as usize == slot) {
+        *place = new_slot;
+    }
+    new_slot
+}
+
+/// `controller_configure`: protocol, address, output count and generated universes in one step. Fields left out keep
+/// their current values; an E1.31 controller's universes are regenerated from the output count every time.
+pub fn configure(s: &mut SetupSession, a: &Value) -> Result<Value, String> {
+    let id = a["id"].as_str().and_then(|t| Uuid::parse_str(t).ok()).ok_or("id must be a controller UUID")?;
+    let mut slot = s.slot_of(id).ok_or("Controller not found")? as usize;
+    let preset = match a.get("preset").and_then(Value::as_str) {
+        None => None,
+        Some(name) => Some(
+            presets()
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|p| p["id"] == name)
+                .cloned()
+                .ok_or("preset must be wledRgb or wledRgbw")?,
+        ),
+    };
+    let protocol = match a.get("protocol").and_then(Value::as_str) {
+        None => preset.as_ref().map(|_| "e131"),
+        Some(p @ ("e131" | "ddp")) => Some(p),
+        Some(_) => return Err("protocol must be e131 or ddp".into()),
+    };
+    if preset.is_some() && protocol == Some("ddp") {
+        return Err("WLED presets set E1.31 universe sizes; DDP has no universes".into());
+    }
+    let current = protocol_of(&s.controllers[slot]).ok_or("Network configuration supports DDP and E1.31 only")?;
+    let address_arg = match a.get("address").and_then(Value::as_str) {
+        None => None,
+        Some(text) => Some(
+            text.trim()
+                .parse::<std::net::Ipv4Addr>()
+                .map_err(|_| "address must be an IPv4 address such as 192.168.1.50; host names are not looked up")?
+                .to_string(),
+        ),
+    };
+    let previous = info(&s.controllers[slot]);
+    let outputs = number(a, "outputs", 1..=u64::from(output_limit(&s.controllers[slot].type_id)))?;
+    let first = number(a, "firstUniverse", 1..=MAX_UNIVERSE)?;
+    let size = match (number(a, "universeSize", 1..=512)?, &preset) {
+        (Some(_), Some(_)) => return Err("Give either preset or universeSize, not both".into()),
+        (size, Some(p)) => size.or(p["universeSize"].as_u64()),
+        (size, None) => size,
+    };
+    // Check everything before changing anything, so a refused call leaves the controller as it was.
+    let target = protocol.unwrap_or(current);
+    let address = address_arg
+        .or_else(|| previous["address"].as_str().map(str::to_string))
+        .ok_or("address is required: the controller's IPv4 address, such as 192.168.1.50")?;
+    let output_count = outputs.map_or(s.controllers[slot].outputs.len(), |n| n as usize);
+    let first = first.or(previous["firstUniverse"].as_u64()).unwrap_or(1);
+    let size = size.or(previous["universeSize"].as_u64().filter(|_| previous["generated"] == true)).unwrap_or(DEFAULT_UNIVERSE_SIZE);
+    let universes = if target == "e131" {
+        let universes = generate(output_count, first, size, &address)?;
+        let check = vixen_output::modules::e131::E131Config { universes: Some(universes.clone()), ..Default::default() };
+        let errors = check.validate(output_count);
+        if !errors.is_empty() {
+            return Err(errors.join("; "));
+        }
+        Some(universes)
+    } else {
+        None
+    };
+
+    let size_given = a.get("universeSize").is_some_and(|v| !v.is_null()) || preset.is_some();
+    let mut switched = None;
+    if target != current {
+        let type_id = if target == "e131" { ids::E131 } else { ids::DDP };
+        if output_count as u64 > u64::from(output_limit(&type_id)) {
+            return Err(format!("{} supports at most {} outputs", target.to_uppercase(), output_limit(&type_id)));
+        }
+        slot = switch_protocol(s, slot, type_id) as usize;
+        switched = Some(s.controllers[slot].id);
+    }
+    let controller_id = s.controllers[slot].id;
+    if target == "e131" && (size_given || switched.is_some()) {
+        remember_size(controller_id, size);
+    }
+    if let Some(n) = outputs {
+        s.set_output_count(controller_id, n as u32);
+    }
+    let c = &mut s.controllers[slot];
+    match c.config.as_mut().ok_or("No controller configuration")? {
+        ControllerConfig::Ddp(config) => {
+            config.address = Some(address);
+            config.host_name = None;
+        }
+        ControllerConfig::E131(config) => {
+            config.unicast = Some(address);
+            config.multicast = None;
+            config.universes = universes;
+            config.output_count = c.outputs.len() as i32;
+            config.auto_populate = false;
+        }
+        _ => unreachable!("checked above"),
+    }
+    c.config_changed = true;
+    s.controllers_changed();
+    let mut result = json!({"configured":true,"outputStarted":false,"controller":info(&s.controllers[slot])});
+    if let Some(new_id) = switched {
+        result["previousId"] = json!(id.to_string());
+        result["newId"] = json!(new_id.to_string());
+        result["newSlot"] = json!(slot);
+        result["note"] = json!("Changing protocol replaces the controller: same name, outputs and patches, new id.");
+    }
+    Ok(result)
+}
+
+/// When each controller's packet count last moved, as seen by `status` calls. The engine counts packets but keeps no
+/// clock, so "last packet" is as fresh as the caller's polling (the inspector polls once a second).
+static LAST_SEEN: Mutex<Option<HashMap<Uuid, (u64, Instant)>>> = Mutex::new(None);
+
+/// The status line: whether output is running and how long ago it last sent a packet.
+pub fn status(core: &AppCore, id: Uuid) -> Value {
+    let muted = !core.playback.hardware_allowed();
+    let open = core.execution().is_open();
+    let found = core.playback.with_output(|_, runner| {
+        runner.controller_index(&id).map(|i| {
+            let shared = runner.shared(i);
+            (
+                runner.is_running(i),
+                shared.map_or(0, |s| s.packets_sent()),
+                shared.map_or(0, |s| s.error_count()),
+                shared.and_then(|s| s.last_error()),
+            )
+        })
+    });
+    let (running, packets, errors, last_error) = found.unwrap_or((false, 0, 0, None));
+    let now = Instant::now();
+    let ago = {
+        let mut guard = LAST_SEEN.lock();
+        let seen = guard.get_or_insert_with(HashMap::new);
+        match seen.get(&id) {
+            Some((count, _)) if packets > *count => {
+                seen.insert(id, (packets, now));
+                Some(Duration::ZERO)
+            }
+            Some((count, at)) if packets == *count && packets > 0 => Some(now - *at),
+            _ => {
+                // First look, or the counter restarted with the controller.
+                seen.insert(id, (packets, now));
+                None
+            }
+        }
+    };
+    let text = if muted {
+        "Muted: nothing is sent to controllers".to_string()
+    } else if !open {
+        "Live output is off".to_string()
+    } else if !running {
+        "Stopped: not sending".to_string()
+    } else {
+        match ago {
+            Some(d) if d < Duration::from_secs(2) => format!("Sending: {} packets so far", group_digits(packets as usize)),
+            Some(d) => format!("Last packet {} s ago", d.as_secs()),
+            None if packets > 0 => format!("{} packets sent", group_digits(packets as usize)),
+            None => "Running, no packets sent yet".to_string(),
+        }
+    };
+    json!({"running":running,"liveOutput":open && !muted,"muted":muted,"packetsSent":packets,"lastPacketMsAgo":ago.map(|d|d.as_millis() as u64),"errors":errors,"lastError":last_error,"text":text})
+}
+
+/// Whether anything answers at `address`: a TCP connection to port 80, where WLED and most pixel controllers serve
+/// their web page. A refusal also counts, since only a running host refuses. Sends no lighting data.
+pub fn probe(address: &str) -> Value {
+    let Ok(ip) = address.trim().parse::<std::net::Ipv4Addr>() else {
+        return json!({"reachable":false,"text":"Not an IPv4 address"});
+    };
+    let started = Instant::now();
+    let result = std::net::TcpStream::connect_timeout(&(ip, 80).into(), Duration::from_millis(800));
+    let ms = started.elapsed().as_millis() as u64;
+    match result {
+        Ok(_) => json!({"reachable":true,"ms":ms,"text":format!("{ip} answered in {ms} ms (web page on port 80)")}),
+        Err(e) if e.kind() == std::io::ErrorKind::ConnectionRefused => {
+            json!({"reachable":true,"ms":ms,"text":format!("{ip} answered in {ms} ms (no web page)")})
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            json!({"reachable":false,"text":format!("No answer from {ip} within 0.8 s: check the address and that it's powered and on this network")})
+        }
+        Err(e) => json!({"reachable":false,"text":format!("Can't reach {ip}: {e}")}),
+    }
+}
+
+/// The MCP `controller_network` tool: settings, presets and status for one controller; `check:true` adds a
+/// reachability check, refused while muted (headless sessions always are).
+pub fn tool() -> Value {
+    json!({"name":"controller_network","description":"One E1.31/DDP controller's network settings as the controller inspector shows them: protocol, address, destination, first universe, channels per universe, generated universe layout, pixel counts, WLED presets, and status (running, packets sent, last packet). check:true also tests whether the address answers (a TCP connection to port 80; no lighting data), refused while muted. Change settings with controller_configure.","inputSchema":{"type":"object","properties":{"id":{"type":"string","minLength":1,"maxLength":64},"check":{"type":"boolean"}},"required":["id"],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":true}})
+}
+
+pub fn execute(s: &SetupSession, core: Option<&AppCore>, a: &Value) -> Result<Value, String> {
+    let obj = a.as_object().ok_or("arguments must be an object")?;
+    if let Some(extra) = obj.keys().find(|k| !["id", "check"].contains(&k.as_str())) {
+        return Err(format!("Unknown argument {extra}"));
+    }
+    let id = a["id"].as_str().and_then(|t| Uuid::parse_str(t).ok()).ok_or("id must be a controller UUID")?;
+    let slot = s.slot_of(id).ok_or("Controller not found")?;
+    let c = &s.controllers[slot as usize];
+    let mut v = info(c);
+    v["presets"] = presets();
+    v["status"] = match core {
+        Some(core) => status(core, id),
+        None => json!({"running":false,"liveOutput":false,"muted":true,"text":"Muted: nothing is sent to controllers"}),
+    };
+    if a.get("check").and_then(Value::as_bool) == Some(true) {
+        let muted = core.is_none_or(|core| !core.playback.hardware_allowed());
+        v["check"] = match (muted, v["address"].as_str()) {
+            (true, _) => json!({"reachable":null,"text":"Muted: reachability checks are off"}),
+            (false, None) => json!({"reachable":false,"text":"No address set"}),
+            (false, Some(address)) => probe(address),
+        };
+    }
+    Ok(v)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::setup::SetupSession;
+
+    fn session() -> (SetupSession, Uuid) {
+        let mut s = SetupSession::from_system(vixen_io::SystemData::default(), &Default::default(), false);
+        let slot = s.add_controller(ids::E131, "WLED", 10).unwrap();
+        let id = s.controllers[slot as usize].id;
+        (s, id)
+    }
+
+    #[test]
+    fn wled_rgbw_tree_generates_seven_full_universes_without_the_table() {
+        let (mut s, id) = session();
+        let r = configure(&mut s, &json!({"id":id.to_string(),"address":"192.168.1.60","outputs":3584,"preset":"wledRgbw"})).unwrap();
+        let c = &r["controller"];
+        assert_eq!(c["outputs"], 3584);
+        assert_eq!(c["universeCount"], 7);
+        assert_eq!(c["universeSize"], 512);
+        assert_eq!(c["firstUniverse"], 1);
+        assert_eq!(c["destination"], "unicast");
+        assert_eq!(c["generated"], true);
+        assert_eq!(c["pixels"]["rgbw"], 896);
+        assert_eq!(c["layout"], "universes 1–7, 512 channels each");
+        let ControllerConfig::E131(config) = s.controllers[0].config.as_ref().unwrap() else { panic!() };
+        assert!(config.multicast.is_none());
+        let u = config.universes.as_ref().unwrap();
+        assert_eq!(u.iter().map(|u| (u.universe, u.start, u.size)).collect::<Vec<_>>(), (0..7).map(|i| (i + 1, i * 512, 512)).collect::<Vec<_>>());
+        assert!(config.validate(3584).is_empty());
+    }
+
+    #[test]
+    fn later_edits_keep_unspecified_fields_and_regenerate_universes() {
+        let (mut s, id) = session();
+        let id = id.to_string();
+        configure(&mut s, &json!({"id":id,"address":"10.0.0.5","firstUniverse":20,"universeSize":512,"outputs":1024})).unwrap();
+        // Only the output count changes: same address, first universe and size.
+        let r = configure(&mut s, &json!({"id":id,"outputs":1100})).unwrap();
+        assert_eq!(r["controller"]["address"], "10.0.0.5");
+        assert_eq!(r["controller"]["layout"], "universes 20–22, 512 channels each");
+        // The default size for a fresh controller is still 510.
+        let (mut fresh, other) = session();
+        let r = configure(&mut fresh, &json!({"id":other.to_string(),"address":"10.0.0.6"})).unwrap();
+        assert_eq!(r["controller"]["universeSize"], 510);
+    }
+
+    #[test]
+    fn a_size_chosen_for_one_universe_is_shown_back() {
+        let (mut s, id) = session();
+        let r = configure(&mut s, &json!({"id":id.to_string(),"address":"10.0.0.5","preset":"wledRgbw"})).unwrap();
+        assert_eq!(r["controller"]["universeSize"], 512);
+        assert_eq!(r["controller"]["universeCount"], 1);
+        // And growing past one universe keeps it.
+        let r = configure(&mut s, &json!({"id":id.to_string(),"outputs":600})).unwrap();
+        assert_eq!(r["controller"]["layout"], "universes 1–2, 512 channels each");
+    }
+
+    #[test]
+    fn refusals_change_nothing() {
+        let (mut s, id) = session();
+        let id = id.to_string();
+        assert!(configure(&mut s, &json!({"id":id})).unwrap_err().contains("address is required"));
+        assert!(configure(&mut s, &json!({"id":id,"address":"wled.local"})).is_err());
+        assert!(configure(&mut s, &json!({"id":id,"address":"10.0.0.5","preset":"wledRgbw","protocol":"ddp"})).is_err());
+        assert!(configure(&mut s, &json!({"id":id,"address":"10.0.0.5","firstUniverse":63999,"outputs":1100})).unwrap_err().contains("63999"));
+        assert_eq!(s.controllers[0].outputs.len(), 10);
+        assert!(!s.controllers[0].config_changed);
+    }
+
+    #[test]
+    fn switching_protocol_keeps_name_place_and_outputs() {
+        let (mut s, id) = session();
+        let other = s.add_controller(ids::DDP, "Other", 3).unwrap();
+        let output_ids: Vec<Uuid> = s.controllers[0].outputs.iter().map(|o| o.id).collect();
+        let r = configure(&mut s, &json!({"id":id.to_string(),"protocol":"ddp","address":"10.0.0.7"})).unwrap();
+        let new_id = Uuid::parse_str(r["newId"].as_str().unwrap()).unwrap();
+        assert_ne!(new_id, id);
+        assert!(s.slot_of(id).is_none());
+        let slot = s.slot_of(new_id).unwrap() as usize;
+        assert_eq!(s.controller_order, vec![slot as u32, other]);
+        let c = &s.controllers[slot];
+        assert_eq!((c.name.as_str(), c.type_id), ("WLED", ids::DDP));
+        assert_eq!(c.outputs.iter().map(|o| o.id).collect::<Vec<_>>(), output_ids);
+        assert_eq!(r["controller"]["protocol"], "ddp");
+        assert_eq!(r["controller"]["address"], "10.0.0.7");
+        // And back, keeping the address.
+        let r = configure(&mut s, &json!({"id":new_id.to_string(),"preset":"wledRgb"})).unwrap();
+        assert_eq!(r["controller"]["protocol"], "e131");
+        assert_eq!(r["controller"]["address"], "10.0.0.7");
+        assert_eq!(r["controller"]["universeSize"], 510);
+    }
+
+    #[test]
+    fn agent_sets_up_the_tree_controller_in_one_call_and_undo_reverts_it() {
+        let root = std::env::temp_dir().join(format!("studio-network-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, true);
+        let created = run("controller_create", json!({"name":"Tree","typeId":ids::E131.to_string(),"outputs":1})).unwrap();
+        let id = created["result"]["id"].as_str().unwrap().to_string();
+        let r = run("controller_configure", json!({"id":id,"address":"192.168.1.60","outputs":3584,"preset":"wledRgbw"})).unwrap();
+        assert_eq!(r["result"]["controller"]["layout"], "universes 1–7, 512 channels each");
+        let read = |core: &AppCore| {
+            let s = SetupSession::from_system(core.system.read().clone(), &Default::default(), false);
+            execute(&s, Some(core), &json!({"id":id})).unwrap()
+        };
+        let v = read(&core);
+        assert_eq!((v["outputs"].as_u64(), v["universeCount"].as_u64(), v["address"].as_str()), (Some(3584), Some(7), Some("192.168.1.60")));
+        assert_eq!(v["status"]["text"], "Muted: nothing is sent to controllers");
+        assert_eq!(execute(&SetupSession::from_system(core.system.read().clone(), &Default::default(), false), Some(&core), &json!({"id":id,"check":true})).unwrap()["check"]["reachable"], Value::Null);
+        run("display_undo", json!({})).unwrap();
+        let v = read(&core);
+        assert_eq!(v["outputs"], 1);
+        assert_eq!(v["destination"], "none");
+        drop(core);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn probe_counts_a_refusal_as_reachable() {
+        // A loopback port nobody listens on refuses at once; nothing leaves the machine.
+        let v = probe("127.0.0.1");
+        assert_eq!(v["reachable"], true, "{v}");
+        assert_eq!(probe("not an address")["reachable"], false);
+    }
+}

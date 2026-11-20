@@ -560,7 +560,7 @@ impl SetupSession {
 
     // ---- Editing --------------------------------------------------------------------------------------------------------
 
-    fn controllers_changed(&mut self) {
+    pub(crate) fn controllers_changed(&mut self) { // STUDIO: the controller inspector's network edits (studio_controller_network.rs)
         self.dirty.controllers = true;
         self.bump_graph();
     }

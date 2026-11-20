@@ -587,7 +587,7 @@ pub fn command_tools() -> Vec<Value> {
         ("element_template","Create a bounded arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows; pixels=pixels per string/columns.",json!({"name":string,"kind":{"type":"string","enum":["arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean}),vec!["name","kind","count"],false),
         ("element_color","Set RGB or single-color handling on an element/group's leaves.",json!({"id":string,"mode":{"type":"string","enum":["rgb","single"]},"color":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["id","mode"],false),
         ("element_wire_order","Reverse the selected element/group row order using the native setup command.",json!({"id":string}),vec!["id"],false),
-        ("controller_configure","Configure DDP or E1.31 unicast using an IPv4 literal. Does not connect or start output. E1.31 requires firstUniverse; universeSize defaults 510.",json!({"id":string,"address":string,"firstUniverse":{"type":"integer","minimum":1,"maximum":63999},"universeSize":{"type":"integer","minimum":1,"maximum":512}}),vec!["id","address"],false),
+        ("controller_configure","Set up a DDP or E1.31 controller's network in one step, as the controller inspector does: protocol (changing it replaces the controller, keeping name, outputs and patches, and returns newId), an IPv4 unicast address, output count, and for E1.31 the first universe and channels per universe (510 or 512; or preset wledRgb=510 / wledRgbw=512), with universes generated from the output count. Fields left out keep their current values (new controllers: universe 1, 510 channels). Does not connect or start output. Read back with controller_network.",json!({"id":string,"protocol":{"type":"string","enum":["e131","ddp"]},"address":string,"outputs":{"type":"integer","minimum":1,"maximum":65536},"firstUniverse":{"type":"integer","minimum":1,"maximum":63999},"universeSize":{"type":"integer","minimum":1,"maximum":512},"preset":{"type":"string","enum":["wledRgb","wledRgbw"]}}),vec!["id"],false),
 
         ("element_create","Create an element, optionally under a parent UUID.",json!({"name":string,"parentId":string}),vec!["name"],false),
         ("element_rename","Rename an element by stable UUID.",json!({"id":string,"name":string}),vec!["id","name"],false),
@@ -709,66 +709,7 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             s.reverse_rows(&[p]);
             Ok(json!({}))
         }
-        "controller_configure" => {
-            use vixen_output::ControllerConfig;
-            let slot = s.slot_of(id(a, "id")?).ok_or("Controller not found")? as usize;
-            let address = text(a, "address")?
-                .parse::<std::net::Ipv4Addr>()
-                .map_err(|_| "address must be an IPv4 literal; DNS is not used")?
-                .to_string();
-            let c = &mut s.controllers[slot];
-            match c.config.as_mut().ok_or("No controller configuration")? {
-                ControllerConfig::Ddp(config) => {
-                    config.address = Some(address);
-                    config.host_name = None;
-                }
-                ControllerConfig::E131(config) => {
-                    let first = a["firstUniverse"]
-                        .as_u64()
-                        .filter(|n| *n > 0 && *n <= 63999)
-                        .ok_or("firstUniverse must be 1..63999")?;
-                    let size = a
-                        .get("universeSize")
-                        .map(|n| n.as_u64().ok_or("universeSize must be integer"))
-                        .transpose()?
-                        .unwrap_or(510);
-                    if !(1..=512).contains(&size) {
-                        return Err("universeSize must be 1..512".into());
-                    }
-                    let mut universes = Vec::new();
-                    let mut offset = 0usize;
-                    while offset < c.outputs.len() {
-                        let universe = first + universes.len() as u64;
-                        if universe > 63999 {
-                            return Err("Universe range exceeds 63999".into());
-                        }
-                        let count = (c.outputs.len() - offset).min(size as usize);
-                        let mut entry = vixen_output::modules::e131::UniverseEntry::new(
-                            true,
-                            universe as i32,
-                            offset as i32,
-                            count as i32,
-                        );
-                        entry.unicast = Some(address.clone());
-                        universes.push(entry);
-                        offset += count;
-                    }
-                    config.unicast = Some(address);
-                    config.multicast = None;
-                    config.universes = Some(universes);
-                    config.output_count = c.outputs.len() as i32;
-                    config.auto_populate = false;
-                    let errors = config.validate(c.outputs.len());
-                    if !errors.is_empty() {
-                        return Err(errors.join("; "));
-                    }
-                }
-                _ => return Err("Network configuration supports DDP and E1.31 only".into()),
-            }
-            c.config_changed = true;
-            s.dirty.controllers = true;
-            Ok(json!({"configured":true,"outputStarted":false}))
-        }
+        "controller_configure" => crate::studio_controller_network::configure(s, a),
         _ => {
             if command.starts_with("preview_prop_") {
                 crate::studio_props::edit(s, command, a)

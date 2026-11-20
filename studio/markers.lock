@@ -479,6 +479,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "ee1d8a6cdc0b17c0"
  },
+ "line:crates/vixen-session/src/lib.rs:eff3dd08e455f635": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "eff3dd08e455f635"
+ },
  "line:crates/vixen-session/src/preview.rs:bc77178e83943822": {
   "file": "crates/vixen-session/src/preview.rs",
   "hash": "bc77178e83943822"
@@ -490,6 +494,10 @@
  "line:crates/vixen-session/src/sequence.rs:278a68c0b8de1c3d": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "278a68c0b8de1c3d"
+ },
+ "line:crates/vixen-session/src/setup/controllers.rs:88bcc4063efca1e8": {
+  "file": "crates/vixen-session/src/setup/controllers.rs",
+  "hash": "88bcc4063efca1e8"
  },
  "line:crates/vixen-session/src/setup/mod.rs:d93a5857a9a30d37": {
   "file": "crates/vixen-session/src/setup/mod.rs",

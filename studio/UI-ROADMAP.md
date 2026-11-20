@@ -35,7 +35,9 @@ command, edits are live with Undo, and each change is verified with harness runs
 
 1. **Controller inspector rebuilt.** Protocol (E1.31 / DDP), unicast IP field up front, "channels per universe"
    (510 / 512) and start universe, with universes generated from the output count. A WLED preset ("Multiple RGBW" → 512)
-   and a status line (IP reachable, last packet sent). MCP: extend `controller_configure`.
+   and a status line (IP reachable, last packet sent). MCP: extend `controller_configure`. *Done:* in Display ▸ Controllers'
+   inspector (`StudioControllerInspector.swift`, `studio_controller_network.rs`); MCP `controller_configure` and
+   `controller_network`. The universe table and multicast stay under Advanced….
 2. **RGBW colour handling** in the element templates (Colour: RGB / RGBW / Single) and in `element_color`, with a
    one-line explanation of what each does to the channel count.
 3. **Megatree and matrix templates explain themselves.** A live wiring diagram (start corner, zig-zag shown as arrows),

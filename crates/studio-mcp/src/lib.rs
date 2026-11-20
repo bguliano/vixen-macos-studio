@@ -121,6 +121,7 @@ impl Server {
                 tools.extend(vixen_session::studio_sequence::tools());
                 tools.extend(vixen_session::studio_live::tools());
                 tools.push(geometry::tool());
+                tools.push(vixen_session::studio_controller_network::tool());
                 json!({"tools":tools})
             }
             "tools/call" => {
@@ -133,6 +134,7 @@ impl Server {
                         .any(|t| t["name"] == name)
                     && !TOOLS.iter().any(|(n, _)| *n == name)
                     && name != "display_geometry"
+                    && name != "controller_network"
                     && !vixen_session::studio_display::command_tools()
                         .iter()
                         .any(|t| t["name"] == name)
@@ -237,6 +239,9 @@ impl Server {
         if let Some(core) = &self.core {
             self.setup =
                 SetupSession::from_system(core.system.read().clone(), &Default::default(), false);
+        }
+        if name == "controller_network" {
+            return vixen_session::studio_controller_network::execute(&self.setup, self.core.as_deref(), args);
         }
         let obj = args.as_object().ok_or("arguments must be an object")?;
         if obj.keys().any(|k| k != "offset" && k != "limit") {

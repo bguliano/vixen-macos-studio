@@ -176,6 +176,8 @@ struct StudioElementsPanel: View {
 struct StudioControllersPanel: View {
     @Bindable var model: SetupModel
     var inline = false
+    /// The single selected controller is E1.31 or DDP, so the network inspector edits it.
+    @State private var networkController = false
 
     var body: some View {
         let panel = model.controllerPanel
@@ -207,17 +209,24 @@ struct StudioControllersPanel: View {
             .foregroundStyle(.secondary)
             if panel.anyController {
                 VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
-                    Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingS, verticalSpacing: 2) {
-                        GridRow {
-                            Text("Type").foregroundStyle(.secondary)
-                            Text(panel.typeLabel).lineLimit(1).truncationMode(.tail)
-                        }
-                        GridRow {
-                            Text("Outputs").foregroundStyle(.secondary)
-                            Text(panel.outputsLabel).monospacedDigit()
-                        }
+                    if panel.oneController && networkController {
+                        StudioControllerNetworkInspector(model: model)
+                        Divider()
                     }
-                    .font(.callout)
+                    // The network inspector already shows the protocol and outputs.
+                    if !(panel.oneController && networkController) {
+                        Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingS, verticalSpacing: 2) {
+                            GridRow {
+                                Text("Type").foregroundStyle(.secondary)
+                                Text(panel.typeLabel).lineLimit(1).truncationMode(.tail)
+                            }
+                            GridRow {
+                                Text("Outputs").foregroundStyle(.secondary)
+                                Text(panel.outputsLabel).monospacedDigit()
+                            }
+                        }
+                        .font(.callout)
+                    }
                     StudioActionRow {
                         if panel.canStart {
                             StudioActionButton(title: "Start", symbol: "play.fill", help: "Start sending data to this controller") { Task { await model.startControllers() } }
@@ -225,10 +234,15 @@ struct StudioControllersPanel: View {
                         if panel.canStop {
                             StudioActionButton(title: "Stop", symbol: "stop.fill", help: "Stop sending data to this controller") { Task { await model.stopControllers() } }
                         }
-                        StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
-                                           help: "Network address, universes and other settings") { Task { await model.configureController() } }
-                        StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
-                                           help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
+                        if networkController {
+                            StudioActionButton(title: "Advanced…", symbol: "gearshape", enabled: panel.oneController,
+                                               help: "Multicast, a universe table set by hand, priority and other settings") { Task { await model.configureController() } }
+                        } else {
+                            StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
+                                               help: "Network address, universes and other settings") { Task { await model.configureController() } }
+                            StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
+                                               help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
+                        }
                         StudioActionButton(title: "Rename…", symbol: "pencil", enabled: panel.oneController) { Task { await model.renameController() } }
                         StudioActionButton(title: "Find Elements", symbol: "text.magnifyingglass", enabled: panel.canFindElements,
                                            help: "Select the elements patched to the selected outputs") { Task { await model.findElements() } }
@@ -269,6 +283,9 @@ struct StudioControllersPanel: View {
             }
         }
         .padding(StudioMetrics.spacingM)
+        .task(id: model.controllerPanel) {
+            networkController = await model.studioSelectedNetworkController()
+        }
     }
 
     private func legend(_ color: Color, _ text: String) -> some View {
