@@ -19,14 +19,18 @@ pub enum Note {
 }
 
 /// A line for both the MCP client's stderr and the Vixen logs, so a headless start or stop is never silent. Logging starts on the
-/// first line, so a bridge that has nothing to report creates no log folder. Unit tests write stderr only, never the real logs.
+/// first line, so a bridge that has nothing to report creates no log folder. Unit tests write stderr only, never the real logs. Without
+/// `HOME` there is no log folder, so the line goes to stderr only rather than into the working directory.
 pub fn note(kind: Note, message: &str) {
     use vixen_session::logging;
     eprintln!("Vixen Studio MCP: {message}");
     if cfg!(test) {
         return;
     }
-    logging::init(&vixen_io::DataPaths::shared_logs_dir());
+    let Some(logs) = vixen_io::DataPaths::shared_logs_dir() else {
+        return;
+    };
+    logging::init(&logs);
     match kind {
         Note::Info => logging::info(LOGGER, message),
         Note::Warn => logging::warn(LOGGER, message),
