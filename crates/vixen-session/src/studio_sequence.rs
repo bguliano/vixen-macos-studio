@@ -348,19 +348,21 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "sequence_effects" => {
             json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>()})).collect::<Vec<_>>(),"total":s.effect_count()})
         }
-        "effect_add" => {
-            let new = plan_add(core, &s, a)?;
-            let id = apply_add(&mut s, new);
+        "effect_add" | "effect_band" => {
+            let planned = if name == "effect_band" { plan_band(core, &s, a)? } else { plan_add(core, &s, a)? };
+            let ids: Vec<EffectId> = planned.into_iter().map(|new| apply_add(&mut s, new)).collect();
+            let first = ids[0].0;
+            let all: Vec<u64> = ids.iter().map(|id| id.0).collect();
             record(
                 &mut s,
-                "Add effect",
+                if ids.len() == 1 { "Add effect" } else { "Add effects" },
                 UndoAction::EffectsAdded {
                     kind: AddRemoveKind::AddedOrRemoved,
-                    ids: vec![id],
+                    ids,
                 },
                 agent,
             );
-            json!({"effectId":id.0})
+            json!({"effectId":first,"effectIds":all})
         }
         "effects_batch" => return effects_batch(core, &mut s, a, agent),
         "sequence_clear" => {
@@ -623,13 +625,66 @@ fn parameter_values(
         .map(|(name, value)| parameter_value(descriptor, name, value))
         .collect()
 }
-fn target_name(core: &AppCore, target: Uuid) -> Result<String, String> {
+const TARGET_LIMIT: usize = 4096;
+/// The targets of an add, with their names: targetId, targetIds, or targetSlice (a group's children picked by position).
+fn targets(core: &AppCore, a: &Value) -> Result<Vec<(Uuid, String)>, String> {
+    if ["targetId", "targetIds", "targetSlice"].iter().filter(|k| a.get(**k).is_some()).count() != 1 {
+        return Err("Give exactly one of targetId, targetIds or targetSlice".into());
+    }
     let system = core.system.read();
-    system
-        .tree
-        .find(&target)
-        .map(|n| system.tree.node(n).name.clone())
-        .ok_or("Target not found".into())
+    let tree = &system.tree;
+    let named = |id: Uuid| tree.find(&id).map(|n| (id, tree.node(n).name.clone())).ok_or(format!("Target {id} not found"));
+    if a.get("targetId").is_some() {
+        return Ok(vec![named(uuid(a, "targetId")?)?]);
+    }
+    if let Some(list) = a.get("targetIds") {
+        let list = list
+            .as_array()
+            .filter(|l| (1..=TARGET_LIMIT).contains(&l.len()))
+            .ok_or(format!("targetIds must list 1..{TARGET_LIMIT} target UUIDs"))?;
+        let mut seen = std::collections::HashSet::new();
+        return list
+            .iter()
+            .map(|v| {
+                let id = v.as_str().and_then(|s| Uuid::parse_str(s).ok()).ok_or("targetIds must be UUIDs")?;
+                if !seen.insert(id) {
+                    return Err(format!("Target {id} is listed twice"));
+                }
+                named(id)
+            })
+            .collect();
+    }
+    let slice = &a["targetSlice"];
+    let fields = slice.as_object().ok_or("targetSlice must be an object: {groupId, strings?:[from,to], every?, offset?}")?;
+    if let Some(extra) = fields.keys().find(|k| !["groupId", "strings", "every", "offset"].contains(&k.as_str())) {
+        return Err(format!("{extra} does not apply to targetSlice"));
+    }
+    let group = tree.find(&uuid(slice, "groupId")?).ok_or("targetSlice group not found")?;
+    let children = &tree.node(group).children;
+    if children.is_empty() {
+        return Err("targetSlice group has no children to pick from".into());
+    }
+    let count = children.len() as u64;
+    let (from, to) = match slice.get("strings") {
+        None => (1, count),
+        Some(range) => match range.as_array().map(|r| r.iter().map(Value::as_u64).collect::<Vec<_>>()).as_deref() {
+            Some([Some(from), Some(to)]) if 1 <= *from && from <= to && *to <= count => (*from, *to),
+            _ => return Err(format!("targetSlice strings must be [from, to], counting the group's children from 1 (it has {count})")),
+        },
+    };
+    let every = slice.get("every").map_or(Some(1), Value::as_u64).filter(|n| *n >= 1).ok_or("targetSlice every must be a whole number of at least 1")?;
+    let offset = slice.get("offset").map_or(Some(0), Value::as_u64).filter(|n| *n < every).ok_or("targetSlice offset must be a whole number below every")?;
+    let picked: Vec<(Uuid, String)> = (from - 1 + offset..to)
+        .step_by(every as usize)
+        .map(|i| {
+            let child = tree.node(children[i as usize]);
+            (child.id, child.name.clone())
+        })
+        .collect();
+    if picked.is_empty() {
+        return Err("targetSlice picks no children".into());
+    }
+    Ok(picked)
 }
 /// A validated effect_add, ready to apply without failing.
 struct NewEffect {
@@ -641,8 +696,9 @@ struct NewEffect {
     params: Vec<(&'static str, ParamValue)>,
     layer: Option<Uuid>,
 }
-fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<NewEffect, String> {
-    let target = uuid(a, "targetId")?;
+/// One planned effect per target, each with the same type, time, parameters and layer.
+fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEffect>, String> {
+    let targets = targets(core, a)?;
     let type_id = uuid(a, "typeId")?;
     let start = ms(a, "startMs")?;
     let duration = ms(a, "durationMs")?;
@@ -664,15 +720,52 @@ fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<NewEffect,
         }
         None => None,
     };
-    Ok(NewEffect {
-        type_id,
-        target,
-        target_name: target_name(core, target)?,
-        start: TimeSpan::from_ms(start),
-        duration: TimeSpan::from_ms(duration),
-        params,
-        layer,
+    Ok(targets
+        .into_iter()
+        .map(|(target, target_name)| NewEffect {
+            type_id,
+            target,
+            target_name,
+            start: TimeSpan::from_ms(start),
+            duration: TimeSpan::from_ms(duration),
+            params: params.clone(),
+            layer,
+        })
+        .collect())
+}
+const BAND_FIELDS: &[&str] = &["fromPct", "toPct", "color", "level"];
+/// Wipe parameters that hold a still horizontal band from `from` to `to` percent of the targets' height, counted from the
+/// bottom: Vertical, Movement mode, a flat MovementCurve and a pulse as wide as the band.
+fn band_params(from: f64, to: f64, color: &str, level: f64) -> Value {
+    // Movement mode spreads the curve over the height plus one band width, and lights the band below that point.
+    let position = 100.0 * to / (100.0 + (to - from));
+    json!({
+        "Direction": "Vertical",
+        "WipeMovement": "Movement",
+        "TargetNodeHandling": "Group",
+        "MovementCurve": [[0, position], [100, position]],
+        "PulsePercent": to - from,
+        "ColorGradient": [color],
+        "Curve": [[0, level], [100, level]],
     })
+}
+/// effect_band and the batch band op: a native Wipe set up as a still band, so the show stays readable everywhere.
+fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEffect>, String> {
+    let pct = |k: &str, default: Option<f64>| {
+        a.get(k).map_or(default, Value::as_f64).filter(|n| (0.0..=100.0).contains(n)).ok_or(format!("{k} must be a percentage in 0..100"))
+    };
+    let (from, to) = (pct("fromPct", None)?, pct("toPct", None)?);
+    if to - from < 1.0 {
+        return Err("toPct must be at least 1 above fromPct".into());
+    }
+    let level = pct("level", Some(100.0))?;
+    let color = a.get("color").map_or(Some("#ffffff"), Value::as_str).ok_or("color must be #RRGGBB")?;
+    let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").ok_or("Wipe effect not available")?;
+    let mut add = a.as_object().cloned().unwrap_or_default();
+    add.retain(|k, _| !BAND_FIELDS.contains(&k.as_str()) && k != "op");
+    add.insert("typeId".into(), json!(wipe.type_id.to_string()));
+    add.insert("params".into(), band_params(from, to, color, level));
+    plan_add(core, s, &Value::Object(add))
 }
 /// Adds a planned effect with its parameters and layer, with no undo record. The added effect's undo keeps both.
 fn apply_add(s: &mut SequenceSession, new: NewEffect) -> EffectId {
@@ -726,10 +819,18 @@ fn ops_file(core: &AppCore, relative: &str) -> Result<Vec<Value>, String> {
 fn op_schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
-    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","delete","timing","params"]},"typeId":string,"targetId":string,"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0}},"required":["op"],"additionalProperties":false})
+    let percent = json!({"type":"number","minimum":0,"maximum":100});
+    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","band","delete","timing","params"]},"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0},"fromPct":percent,"toPct":percent,"color":string,"level":percent},"required":["op"],"additionalProperties":false})
+}
+fn target_ids_schema() -> Value {
+    json!({"type":"array","items":{"type":"string","minLength":1,"maxLength":256},"minItems":1,"maxItems":TARGET_LIMIT})
+}
+fn target_slice_schema() -> Value {
+    let whole = json!({"type":"integer","minimum":0});
+    json!({"type":"object","properties":{"groupId":{"type":"string","minLength":1,"maxLength":256},"strings":{"type":"array","items":whole,"minItems":2,"maxItems":2},"every":whole,"offset":whole},"required":["groupId"],"additionalProperties":false})
 }
 enum BatchOp {
-    Add(NewEffect),
+    Add(Vec<NewEffect>),
     Delete(EffectId),
     Timing(EffectId, TimeSpan, TimeSpan),
     Params(EffectId, Vec<(&'static str, ParamValue)>),
@@ -751,12 +852,14 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
     let schema = op_schema();
     let mut deleted = std::collections::HashSet::new();
     let mut planned = Vec::with_capacity(ops.len());
+    let mut adds = 0usize;
     for (index, op) in ops.iter().enumerate() {
         let step = (|| -> Result<BatchOp, String> {
             crate::studio_schema::arguments(&schema, op)?;
             let kind = op["op"].as_str().unwrap();
             let allowed: &[&str] = match kind {
-                "add" => &["op", "typeId", "targetId", "startMs", "durationMs", "params", "layerId"],
+                "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "params", "layerId"],
+                "band" => &["op", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level"],
                 "delete" => &["op", "effectId"],
                 "timing" => &["op", "effectId", "startMs", "durationMs"],
                 _ => &["op", "effectId", "params"],
@@ -766,6 +869,9 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
             }
             if kind == "add" {
                 return Ok(BatchOp::Add(plan_add(core, s, op)?));
+            }
+            if kind == "band" {
+                return Ok(BatchOp::Add(plan_band(core, s, op)?));
             }
             let id = effect_id(s, op)?;
             if deleted.contains(&id) {
@@ -792,6 +898,12 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
             })
         })()
         .map_err(|e| format!("ops[{index}]: {e}"))?;
+        if let BatchOp::Add(new) = &step {
+            adds += new.len();
+            if adds > BATCH_LIMIT {
+                return Err(format!("ops[{index}]: a batch adds at most {BATCH_LIMIT} effects, counting one per target"));
+            }
+        }
         planned.push(step);
     }
     // Runs of adds and of deletes become one undo action each, so undo and redo stay one pass over the schedule.
@@ -807,10 +919,12 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
             actions.push(UndoAction::EffectsRemoved { kind: AddRemoveKind::AddedOrRemoved, effects });
         }
         match op {
-            BatchOp::Add(new) => {
-                let id = apply_add(s, new);
-                added.push(id.0);
-                adding.push(id);
+            BatchOp::Add(planned) => {
+                for new in planned {
+                    let id = apply_add(s, new);
+                    added.push(id.0);
+                    adding.push(id);
+                }
             }
             BatchOp::Delete(id) => {
                 deleting.push(id);
@@ -945,8 +1059,9 @@ pub fn tools() -> Vec<Value> {
         ("sequence_open","Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":string}),vec!["file"],false),
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times.",json!({"sequenceId":string}),vec!["sequenceId"],true),
-        ("effect_add","Add an undoable effect to a target UUID. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step.",json!({"sequenceId":string,"typeId":string,"targetId":string,"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","targetId","startMs","durationMs"],false),
-        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId,startMs,durationMs,params?,layerId?}, {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request. Deletes need confirm:true. Returns effectIds of the adds in order.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
+        ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
+        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark. Returns effectId and effectIds.",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
+        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,layerId?} (as effect_band), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
         ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
         ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),
@@ -1201,5 +1316,128 @@ mod tests {
         drop(core);
         let _ = std::fs::remove_file(outside);
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn several_targets_and_slices_add_one_effect_each_in_one_undo_step() {
+        let root = std::env::temp_dir().join(format!("studio-targets-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let tree = core.studio_display
+            .execute(&core, "element_template", &json!({"kind":"megatree","name":"Tree","count":8,"pixels":10}), false)
+            .unwrap()["result"]["id"]
+            .clone();
+        let strings: Vec<String> = {
+            let system = core.system.read();
+            let node = system.tree.find(&Uuid::parse_str(tree.as_str().unwrap()).unwrap()).unwrap();
+            system.tree.node(node).children.iter().map(|c| system.tree.node(*c).id.to_string()).collect()
+        };
+        assert_eq!(strings.len(), 8);
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let id = run("sequence_create", json!({"lengthMs":10_000}))["sequenceId"].clone();
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().type_id.to_string();
+        let targets_of = |ids: &Value| -> Vec<String> {
+            let effects = run("sequence_effects", json!({"sequenceId":id}))["effects"].as_array().unwrap().clone();
+            ids.as_array().unwrap().iter().map(|e| effects.iter().find(|x| x["id"] == *e).unwrap()["targets"][0].as_str().unwrap().to_string()).collect()
+        };
+
+        // targetIds: one effect per target, one undo step.
+        let added = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetIds":&strings[..4],"startMs":0,"durationMs":200,"params":{"LevelCurve":[[0,100],[100,0]]}}));
+        assert_eq!(targets_of(&added["effectIds"]), strings[..4].to_vec());
+        assert_eq!(added["effectId"], added["effectIds"][0]);
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["undo"][0], "Add effects (Agent)");
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 0, "one undo removes every target's effect");
+
+        // targetSlice: alternating halves, and a range, without touching the display.
+        let revision = core.studio_display.snapshot(&core)["revision"].clone();
+        let even = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetSlice":{"groupId":tree,"every":2},"startMs":0,"durationMs":200}));
+        assert_eq!(targets_of(&even["effectIds"]), vec![strings[0].clone(), strings[2].clone(), strings[4].clone(), strings[6].clone()]);
+        let odd = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetSlice":{"groupId":tree,"every":2,"offset":1},"startMs":200,"durationMs":200}));
+        assert_eq!(targets_of(&odd["effectIds"]), vec![strings[1].clone(), strings[3].clone(), strings[5].clone(), strings[7].clone()]);
+        let range = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetSlice":{"groupId":tree,"strings":[3,5]},"startMs":400,"durationMs":200}));
+        assert_eq!(targets_of(&range["effectIds"]), strings[2..5].to_vec());
+        assert_eq!(core.studio_display.snapshot(&core)["revision"].clone(), revision, "slicing leaves the display alone");
+
+        // Bad targets add nothing.
+        let before = run("sequence_status", json!({"sequenceId":id}))["effects"].clone();
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":strings[0],"targetIds":[strings[1]],"startMs":0,"durationMs":200})).contains("exactly one"));
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"startMs":0,"durationMs":200})).contains("exactly one"));
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetIds":[strings[1],strings[1]],"startMs":0,"durationMs":200})).contains("twice"));
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetIds":[strings[1],Uuid::new_v4().to_string()],"startMs":0,"durationMs":200})).contains("not found"));
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetSlice":{"groupId":tree,"strings":[5,9]},"startMs":0,"durationMs":200})).contains("has 8"));
+        assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetSlice":{"groupId":tree,"every":2,"offset":2},"startMs":0,"durationMs":200})).contains("offset"));
+        assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], before);
+
+        // Batch adds and bands take the same targets; effectIds follow op order, then target order.
+        let batch = run("effects_batch", json!({"sequenceId":id,"ops":[
+            {"op":"add","typeId":pulse,"targetSlice":{"groupId":tree,"strings":[1,2]},"startMs":1000,"durationMs":100},
+            {"op":"band","targetId":tree,"startMs":1000,"durationMs":500,"fromPct":40,"toPct":60,"color":"#00ff00"},
+            {"op":"band","targetIds":[strings[0],strings[1]],"startMs":2000,"durationMs":500,"fromPct":0,"toPct":25}]}));
+        let ids = batch["effectIds"].as_array().unwrap();
+        assert_eq!(ids.len(), 5);
+        assert_eq!(targets_of(&batch["effectIds"]), vec![strings[0].clone(), strings[1].clone(), tree.as_str().unwrap().to_string(), strings[0].clone(), strings[1].clone()]);
+        let band = run("effect_parameters", json!({"sequenceId":id,"effectId":ids[2]}))["parameters"].as_array().unwrap().clone();
+        let param = |n: &str| band.iter().find(|p| p["name"] == n).unwrap()["value"].clone();
+        assert_eq!(param("WipeMovement"), "Movement");
+        assert_eq!(param("Direction"), "Vertical");
+        assert!(fail("effects_batch", json!({"sequenceId":id,"ops":[{"op":"band","targetId":tree,"startMs":0,"durationMs":100,"fromPct":50,"toPct":50}]})).contains("ops[0]"));
+        assert!(fail("effects_batch", json!({"sequenceId":id,"ops":[{"op":"band","typeId":pulse,"targetId":tree,"startMs":0,"durationMs":100,"fromPct":0,"toPct":50}]})).contains("typeId does not apply"));
+        let single = run("effect_band", json!({"sequenceId":id,"targetId":tree,"startMs":3000,"durationMs":500,"fromPct":10,"toPct":30,"level":50}));
+        assert_eq!(single["effectIds"].as_array().unwrap().len(), 1);
+        run("sequence_render", json!({"sequenceId":id}));
+
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    /// Renders band_params on a megatree-like grid and checks that exactly the requested height range lights.
+    #[test]
+    fn band_lights_the_requested_rows_and_holds_still() {
+        use vixen_core::element::{property_ids, PropertyData, PropertyInstance};
+        let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").unwrap();
+        assert_eq!(vixen_effect_registry::all().iter().filter(|d| d.name == "Wipe").count(), 1);
+        for (pixels, spacing) in [(50usize, 2i32), (37, 3), (100, 1), (24, 5)] {
+            let mut tree = vixen_core::ElementTree::new();
+            let group = vixen_effects::testing::grid(&mut tree, "T", 6, pixels);
+            let mut located = Vec::new();
+            for (s, string) in tree.node(group).children.clone().into_iter().enumerate() {
+                for (p, leaf) in tree.node(string).children.clone().into_iter().enumerate() {
+                    // Pixel 0 at the top, as preview coordinates grow downward.
+                    let (x, y) = (10 + s as i32 * 4, 20 + p as i32 * spacing);
+                    tree.node_mut(leaf).properties.push(PropertyInstance { type_id: property_ids::LOCATION, instance_id: Uuid::new_v4(), data: PropertyData::Location { x, y, z: 0 } });
+                    located.push((tree.node(leaf).element_id.unwrap(), y));
+                }
+            }
+            let max_y = located.iter().map(|l| l.1).max().unwrap();
+            let height = (max_y - 20) as f64;
+            for (from, to) in [(40.0, 60.0), (0.0, 20.0), (80.0, 100.0), (10.0, 90.0), (0.0, 100.0), (45.0, 50.0)] {
+                let values = parameter_values(wipe, &band_params(from, to, "#ff0000", 100.0)).unwrap();
+                let out = vixen_effects::testing::render_with(wipe, &tree, &[group], 1000, |p| {
+                    for (name, value) in values {
+                        p.set(name, value);
+                    }
+                });
+                let lit_at = |ms: f64| -> Vec<f64> {
+                    let mut rows: Vec<f64> = located
+                        .iter()
+                        .filter(|(e, _)| out.nodes_for(e).is_some_and(|n| n.iter().any(|i| i.contains(TimeSpan::from_ms(ms)))))
+                        .map(|(_, y)| (max_y - y) as f64 / height * 100.0)
+                        .collect();
+                    rows.sort_by(f64::total_cmp);
+                    rows.dedup();
+                    rows
+                };
+                let rows = lit_at(500.0);
+                assert!(!rows.is_empty(), "{pixels}px {from}-{to}: nothing lit");
+                // Edges land on the nearest preview row: within one coordinate unit plus one row spacing.
+                let slack = (1.0 + spacing as f64) / height * 100.0 + 1e-9;
+                assert!(rows[0] >= from - slack && rows[0] <= from + slack, "{pixels}px {from}-{to}: bottom {rows:?}");
+                assert!(*rows.last().unwrap() <= to + slack && *rows.last().unwrap() >= to - slack, "{pixels}px {from}-{to}: top {rows:?}");
+                assert_eq!(lit_at(10.0), rows, "{pixels}px {from}-{to}: the band holds still");
+                assert_eq!(lit_at(990.0), rows, "{pixels}px {from}-{to}: the band holds still");
+            }
+        }
     }
 }
