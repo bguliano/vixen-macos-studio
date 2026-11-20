@@ -133,6 +133,22 @@ fn real_music_thirty_second_show_via_stdio_only() {
         rendered["scheduleEntries"].as_u64().unwrap() > 0,
         "{rendered}"
     );
+    // Onsets as editable marks, then a Pulse on every strong low hit, snapped to the 16th grid, in one undo step.
+    let onsets = call("sequence_onset_marks", json!({"sequenceId":sequence}));
+    let low = onsets["collections"][0].clone();
+    assert!(low["name"] == "Onsets - low" && low["marks"].as_u64().unwrap() > 4, "{onsets}");
+    call("sequence_music_marks", json!({"sequenceId":sequence,"media":song}));
+    let placed = call(
+        "effects_on_marks",
+        json!({"sequenceId":sequence,"markCollection":low["id"],"minStrength":0.3,"snap":"16th","template":{"typeId":effect,"targetId":element},"levelFromStrength":true,"maxMs":400}),
+    );
+    let placed_count = placed["effectIds"].as_array().unwrap().len() as u64;
+    assert!(placed_count > 4, "{placed}");
+    let rendered_hits = call("sequence_render", json!({"sequenceId":sequence}));
+    assert_eq!(rendered_hits["effects"].as_u64().unwrap(), selected.len() as u64 + placed_count);
+    call("sequence_undo", json!({"sequenceId":sequence}));
+    let status = call("sequence_status", json!({"sequenceId":sequence}));
+    assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64, "{status}");
     call(
         "sequence_save",
         json!({"sequenceId":sequence,"file":"MCP-music-test.tim","confirm":true}),

@@ -34,7 +34,7 @@ Definitions live under mcp.servers; tool-profile/session policy still applies. A
 1. studio_status, display_elements, controller_list, preview_list, diagnostics_report.
 2. music_analyze on a filename in the profile's Media folder.
 3. sequence_create with lengthMs and media; retain sequenceId.
-4. effect_catalog, then effect_add at detected beats; marks_create or sequence_music_marks.
+4. effect_catalog, then effect_add at detected beats; marks_create or sequence_music_marks. For rhythm that shows on the timeline: sequence_onset_marks, then effects_on_marks on a band's collection (snapped to the beat grid, level from strength, colours cycling).
 5. sequence_render, preview_frame, preview_sheet or preview_video, diagnostics_report; correct using shared undo/redo.
 6. Confirm sequence_save/profile_save/sequence_export_fseq only when wanted.
 

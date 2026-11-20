@@ -16,6 +16,8 @@ use vixen_effects::framework::{EffectDescriptor, ParamDesc, ParamValue};
 
 #[path = "studio_onsets.rs"]
 mod onsets;
+#[path = "studio_mark_effects.rs"]
+mod mark_effects;
 
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
@@ -109,17 +111,22 @@ fn record(s: &mut SequenceSession, label: &str, action: UndoAction, agent: bool)
 fn collections_json(collections: &[MarkCollection]) -> Value {
     json!(collections.iter().map(|c|json!({"id":c.id.to_string(),"name":c.name,"marks":c.marks.iter().map(|m|json!({"timeMs":m.start_time.total_ms(),"durationMs":m.duration.total_ms(),"text":m.text})).collect::<Vec<_>>()})).collect::<Vec<_>>())
 }
-fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), String> {
-    let name = filename(a, "media")?;
-    let path = core.paths.media_dir().join(&name);
+/// Loads a profile Media file for analysis, within the input-size and length limits.
+fn analysis_audio(core: &AppCore, name: &str) -> Result<vixen_audio::AudioClip, String> {
+    let path = core.paths.media_dir().join(name);
     if std::fs::metadata(&path).map_err(|e| e.to_string())?.len() > 100 * 1024 * 1024 {
         return Err("Audio analysis input limit is 100 MiB".into());
     }
     let audio = vixen_audio::AudioClip::load(&path).map_err(|e| e.to_string())?;
-    let duration = audio.duration().total_ms();
-    if duration > 900_000.0 {
+    if audio.duration().total_ms() > 900_000.0 {
         return Err("Analysis is limited to 15 minutes".into());
     }
+    Ok(audio)
+}
+fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), String> {
+    let name = filename(a, "media")?;
+    let audio = analysis_audio(core, &name)?;
+    let duration = audio.duration().total_ms();
     let tracker = vixen_analysis::BeatsAndBars::from_samples(
         audio.mono().to_vec(),
         audio.sample_rate() as f32,
@@ -311,6 +318,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "preview_video" || name == "preview_sheet" {
         return preview_range(core, &shared, name, a);
     }
+    if name == "sequence_onset_marks" {
+        return mark_effects::onset_marks(core, &shared, a, agent);
+    }
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
         let mut s = shared.lock();
@@ -365,6 +375,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             json!({"effectId":first,"effectIds":all})
         }
         "effects_batch" => return effects_batch(core, &mut s, a, agent),
+        "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
         "sequence_clear" => {
             confirm(a)?;
             let ids: Vec<EffectId> = s.effects().map(|e| e.id).collect();
@@ -687,6 +698,7 @@ fn targets(core: &AppCore, a: &Value) -> Result<Vec<(Uuid, String)>, String> {
     Ok(picked)
 }
 /// A validated effect_add, ready to apply without failing.
+#[derive(Clone)]
 struct NewEffect {
     type_id: Uuid,
     target: Uuid,
@@ -695,6 +707,8 @@ struct NewEffect {
     duration: TimeSpan,
     params: Vec<(&'static str, ParamValue)>,
     layer: Option<Uuid>,
+    /// A level parameter to scale by this factor after params are set (effects_on_marks levelFromStrength).
+    level: Option<(&'static str, f64)>,
 }
 /// One planned effect per target, each with the same type, time, parameters and layer.
 fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEffect>, String> {
@@ -730,6 +744,7 @@ fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEff
             duration: TimeSpan::from_ms(duration),
             params: params.clone(),
             layer,
+            level: None,
         })
         .collect())
 }
@@ -774,6 +789,10 @@ fn apply_add(s: &mut SequenceSession, new: NewEffect) -> EffectId {
         .expect("type checked by plan_add");
     for (name, value) in new.params {
         s.set_param(id, name, value);
+    }
+    if let Some((name, factor)) = new.level {
+        let scaled = mark_effects::scale_level(s.effect(id).unwrap().node.params.get(name), factor);
+        s.set_param(id, name, scaled);
     }
     if let Some(layer) = new.layer {
         s.set_layer(&[id], layer);
@@ -1069,6 +1088,8 @@ pub fn tools() -> Vec<Value> {
         ("sequence_marks","List mark collections and timestamps.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("marks_create","Create undoable timestamp marks, optionally authored phrase/word/phoneme text. No automatic speech recognition.",json!({"sequenceId":string,"name":string,"timesMs":{"type":"array","items":number,"maxItems":10000},"texts":{"type":"array","items":string,"maxItems":10000},"collectionType":{"type":"string","enum":["generic","phrase","word","phoneme","state"]}}),vec!["sequenceId","name","timesMs"],false),
         ("sequence_music_marks","Analyze profile media and append beat/bar collections to the sequence in one undo step.",json!({"sequenceId":string,"media":string}),vec!["sequenceId","media"],false),
+        ("sequence_onset_marks","Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named \"<prefix> - low\", \"- mid\" and \"- high\" (prefix default \"Onsets\"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count.",json!({"sequenceId":string,"media":string,"bands":{"type":"array","items":{"type":"string","enum":["low","mid","high"]},"minItems":1,"maxItems":3},"minStrength":{"type":"number","minimum":0,"maximum":1},"prefix":string}),vec!["sequenceId"],false),
+        ("effects_on_marks",mark_effects::DESCRIPTION,mark_effects::schema(),vec!["sequenceId","markCollection","template"],false),
         ("sequence_undo","Undo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_redo","Redo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_render","Render dirty effects and wait for the real sequence schedule; no playback/output.",json!({"sequenceId":string}),vec!["sequenceId"],false),
@@ -1439,5 +1460,120 @@ mod tests {
                 assert_eq!(lit_at(990.0), rows, "{pixels}px {from}-{to}: the band holds still");
             }
         }
+    }
+
+    /// A 16-bit mono WAV of decaying sine bursts: 60 Hz kicks and 6 kHz hats.
+    fn click_track(path: &std::path::Path, seconds: f64, kicks: &[f64], hats: &[f64]) {
+        let sr = 44_100u32;
+        let mut samples = vec![0.0f64; (f64::from(sr) * seconds) as usize];
+        for (times, freq) in [(kicks, 60.0), (hats, 6000.0)] {
+            for t in times {
+                let start = (t / 1000.0 * f64::from(sr)) as usize;
+                for i in 0..(f64::from(sr) * 0.08) as usize {
+                    let Some(sample) = samples.get_mut(start + i) else { break };
+                    let env = (-(i as f64) / (f64::from(sr) * 0.015)).exp();
+                    *sample += 0.4 * env * (2.0 * std::f64::consts::PI * freq * i as f64 / f64::from(sr)).sin();
+                }
+            }
+        }
+        let data: Vec<u8> = samples.iter().flat_map(|v| ((v.clamp(-1.0, 1.0) * 32767.0) as i16).to_le_bytes()).collect();
+        let mut wav = Vec::new();
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&sr.to_le_bytes());
+        wav.extend_from_slice(&(sr * 2).to_le_bytes());
+        wav.extend_from_slice(&2u16.to_le_bytes());
+        wav.extend_from_slice(&16u16.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        wav.extend_from_slice(&data);
+        std::fs::write(path, wav).unwrap();
+    }
+
+    #[test]
+    fn onset_marks_then_effects_on_marks() {
+        let root = std::env::temp_dir().join(format!("studio-onset-marks-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        std::fs::create_dir_all(core.paths.media_dir()).unwrap();
+        let kicks = [500.0, 1500.0, 2500.0, 3500.0];
+        let hats = [1000.0, 2000.0, 3000.0];
+        click_track(&core.paths.media_dir().join("clicks.wav"), 4.5, &kicks, &hats);
+        let element = |name: &str| {
+            let id = core.studio_display.execute(&core, "element_create", &json!({"name":name}), false).unwrap()["result"]["ids"][0].clone();
+            core.studio_display.execute(&core, "element_color", &json!({"id":id,"mode":"rgb"}), false).unwrap();
+            id
+        };
+        let (a, b) = (element("A"), element("B"));
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let id = run("sequence_create", json!({"lengthMs":4500,"media":"clicks.wav"}))["sequenceId"].clone();
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap();
+        let effects = || run("sequence_effects", json!({"sequenceId":id}))["effects"].as_array().unwrap().clone();
+
+        // Onsets become one collection per band, from the sequence's own audio, each mark's text its strength.
+        let made = run("sequence_onset_marks", json!({"sequenceId":id}));
+        assert_eq!(made["collections"].as_array().unwrap().len(), 3, "{made}");
+        let marks = run("sequence_marks", json!({"sequenceId":id}));
+        let low = marks.as_array().unwrap().iter().find(|c| c["name"] == "Onsets - low").unwrap()["marks"].as_array().unwrap().clone();
+        let near = |t: f64| low.iter().any(|m| (m["timeMs"].as_f64().unwrap() - t).abs() <= 12.0);
+        assert!(kicks.iter().all(|t| near(*t)) && !hats.iter().any(|t| near(*t)), "{low:?}");
+        assert!(low.iter().all(|m| m["text"].as_str().unwrap().parse::<f64>().is_ok_and(|s| s > 0.0 && s <= 1.0)));
+        run("sequence_undo", json!({"sequenceId":id}));
+        // Undo never removes a collection (as with the native panel), so it empties the new ones in one step.
+        let undone = run("sequence_marks", json!({"sequenceId":id}));
+        assert!(undone.as_array().unwrap().iter().all(|c| c["marks"].as_array().unwrap().is_empty()), "{undone}");
+        run("sequence_redo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_marks", json!({"sequenceId":id})), marks, "redo puts every mark back");
+
+        // Snapping needs a beat grid; the error says how to get one.
+        let template = json!({"typeId":pulse.type_id.to_string(),"targetId":a});
+        assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Onsets - low","snap":"8th","template":template})).contains("sequence_music_marks"));
+        assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Nope","template":template})).contains("\"Onsets - mid\""));
+        run("marks_create", json!({"sequenceId":id,"name":"Music - All","timesMs":[500,1000,1500,2000,2500,3000,3500,4000]}));
+
+        // One Pulse per kick, snapped onto the 8th grid, lasting 80% of the gap, level scaled by strength.
+        let placed = run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Onsets - low","snap":"8th","template":template,"levelFromStrength":true}));
+        assert_eq!(placed["effectIds"].as_array().unwrap().len(), 4, "{placed}");
+        let list = effects();
+        let starts: Vec<f64> = list.iter().map(|e| e["startMs"].as_f64().unwrap()).collect();
+        assert_eq!(starts, kicks);
+        assert!(list.iter().all(|e| (e["durationMs"].as_f64().unwrap() - 800.0).abs() < 0.01), "{list:?}");
+        let default_peak = match (pulse.params.iter().find(|p| p.name == "LevelCurve").unwrap().default)() {
+            ParamValue::Curve(c) => c.points.iter().map(|p| p.1).fold(0.0, f64::max),
+            _ => unreachable!(),
+        };
+        for (effect, mark) in list.iter().zip(low.iter().filter(|m| kicks.iter().any(|k| (m["timeMs"].as_f64().unwrap() - k).abs() <= 12.0))) {
+            let curve = run("effect_parameters", json!({"sequenceId":id,"effectId":effect["id"]}))["parameters"].as_array().unwrap().iter().find(|p| p["name"] == "LevelCurve").unwrap()["value"].clone();
+            let peak = curve.as_array().unwrap().iter().map(|p| p[1].as_f64().unwrap()).fold(0.0, f64::max);
+            let strength: f64 = mark["text"].as_str().unwrap().parse().unwrap();
+            assert!((peak - default_peak * strength).abs() < 0.01, "peak {peak} for strength {strength}");
+        }
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert!(effects().is_empty(), "one undo step removes every placed effect");
+
+        // range and minStrength limit the marks (a faint ghost trails one kick); hand-made marks: minStrength, non-numeric text counts as 1, targets and colours rotate.
+        let ranged = run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Onsets - low","range":[1000,4500],"minStrength":0.2,"template":template}));
+        assert_eq!(ranged["effectIds"].as_array().unwrap().len(), 3, "{low:?}");
+        run("sequence_undo", json!({"sequenceId":id}));
+        run("marks_create", json!({"sequenceId":id,"name":"Hits","timesMs":[100,200,260,1200],"texts":["0.9","0.2","accent","0.5"]}));
+        let rotating = json!({"typeId":pulse.type_id.to_string(),"targetIds":[a,b],"rotateTargets":true});
+        let cycle = json!({"param":"ColorGradient","values":[["#ff0000"],["#0000ff"]]});
+        let hits = run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","minStrength":0.3,"duration":50,"template":rotating,"cycle":cycle}));
+        assert_eq!(hits["skipped"]["belowMinStrength"], 1, "{hits}");
+        let list = effects();
+        let summary: Vec<(f64, f64, String)> = list.iter().map(|e| (e["startMs"].as_f64().unwrap(), e["durationMs"].as_f64().unwrap(), e["targets"][0].as_str().unwrap().to_string())).collect();
+        let (a, b) = (a.as_str().unwrap().to_string(), b.as_str().unwrap().to_string());
+        assert_eq!(summary, vec![(100.0, 50.0, a.clone()), (260.0, 50.0, b), (1200.0, 50.0, a)]);
+        let color = |e: &Value| run("effect_parameters", json!({"sequenceId":id,"effectId":e["id"]}))["parameters"].as_array().unwrap().iter().find(|p| p["name"] == "ColorGradient").unwrap()["value"].clone();
+        assert_ne!(color(&list[0]), color(&list[1]));
+        assert_eq!(color(&list[0]), color(&list[2]));
+        assert!(fail("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":template,"cycle":{"param":"Nope","values":[1]}})).starts_with("cycle[0]"));
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
     }
 }

@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-77 tools, generated from the tested bridge tools/list result. No placeholder tools.
+79 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -73,6 +73,8 @@
 | sequence_marks | true | List mark collections and timestamps. |
 | marks_create | false | Create undoable timestamp marks, optionally authored phrase/word/phoneme text. No automatic speech recognition. |
 | sequence_music_marks | false | Analyze profile media and append beat/bar collections to the sequence in one undo step. |
+| sequence_onset_marks | false | Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named "<prefix> - low", "- mid" and "- high" (prefix default "Onsets"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count. |
+| effects_on_marks | false | Place one template effect on every mark of a mark collection, in one undo step with one render pass: the GUI-visible way to put effects on the rhythm (see sequence_onset_marks). markCollection is the collection's id or exact name. range [startMs,endMs] limits which marks are used (default the whole sequence). A mark's strength is its text read as a number 0..1 (as sequence_onset_marks writes it); a mark whose text is not a number counts as 1, so hand-added marks always fire. minStrength skips weaker marks. snap moves each mark to the nearest beat, 8th or 16th of gridCollection, a beat collection (default "Music - All" from sequence_music_marks; 8th halves each beat, 16th quarters it); marks that land on the same point merge, keeping the strongest. template is effect_add's own fields: {typeId, targetId|targetIds|targetSlice, params?, layerId?, rotateTargets?}; every target gets an effect on every mark, or with rotateTargets:true one target per mark in turn. duration is "untilNext" (default: each effect lasts until the next mark times gapFraction, default 0.8, so staccato passages keep gaps; the last runs to the range end) or a number of milliseconds; maxMs caps it. levelFromStrength:true scales the effect's level (LevelCurve, Curve, PulseCurve or IntensityLevel, whichever it has) by levelRange[0] + (levelRange[1]-levelRange[0]) * strength percent, default [0,100]. cycle {param, values} (or a list of them) sets that parameter to values[i % n] on the i-th mark, e.g. rotating ColorGradient colours per hit. Returns effectIds, marks used and why others were skipped. |
 | sequence_undo | false | Undo one shared sequence edit. |
 | sequence_redo | false | Redo one shared sequence edit. |
 | sequence_render | false | Render dirty effects and wait for the real sequence schedule; no playback/output. |
