@@ -679,6 +679,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "00ac71821b008fa4"
  },
+ "line:crates/vixen-session/src/lib.rs:13f0eb6349ec7795": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "13f0eb6349ec7795"
+ },
  "line:crates/vixen-session/src/lib.rs:1f45af25574701ee": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "1f45af25574701ee"

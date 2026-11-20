@@ -4,6 +4,7 @@ pub mod app;
 pub mod studio_display; // STUDIO: shared live display commands and undo
 pub mod studio_controller_network; // STUDIO: the controller inspector's network settings and status
 pub mod studio_color; // STUDIO: RGB / RGBW / Single colour handling for templates, the Display pane and MCP
+pub mod studio_locations; // STUDIO: the Location property from preview geometry, for Wipe and MCP element_location
 pub mod studio_wiring; // STUDIO: megatree and grid wiring (start corner, reversing, hidden pixels) for templates and MCP
 pub mod studio_patch; // STUDIO: patching by intent (reverse, swap, move to output) for the Display pane and MCP
 pub mod studio_commission; // STUDIO: commissioning tests (moving pixel, color bars, all on) per element, group or controller
