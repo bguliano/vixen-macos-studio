@@ -83,11 +83,12 @@ struct ElementOutline: View { // STUDIO: shared with StudioElementsPanel
                 OutlineView(
                     provider: provider,
                     handle: model.elementTree,
-                    allowsDragging: true,
+                    allowsDragging: !model.studioEditingPaused, // STUDIO: no drag edits while Live Output pauses editing
                     accessibilityLabel: "Elements",
                     rangeOrder: { selected, anchor, endpoint in setupOrderedRows(selected: selected, anchor: anchor, endpoint: endpoint) },
                     onSelectionChange: { model.elementSelectionChanged($0) },
                     onCommand: { command in
+                        guard !model.studioEditingPaused || command == .copy else { return } // STUDIO: only Copy while Live Output pauses editing
                         Task {
                             switch command {
                             case .copy: await model.copyElements()
@@ -97,12 +98,15 @@ struct ElementOutline: View { // STUDIO: shared with StudioElementsPanel
                             }
                         }
                     },
+                    // STUDIO-BEGIN paused-element-commands: only Copy while Live Output pauses editing
                     canPerform: { command in
-                        switch command {
+                        if model.studioEditingPaused, command != .copy { return false }
+                        return switch command {
                         case .copy, .delete: model.elementCount > 0
                         case .paste, .pasteAsNew: true
                         }
                     },
+                    // STUDIO-END paused-element-commands
                     menu: { model.elementMenu() }
                 )
             } else {
@@ -249,7 +253,7 @@ struct ControllerOutline: View { // STUDIO: shared with StudioControllersPanel
                 OutlineView(
                     provider: provider,
                     handle: model.controllerTree,
-                    allowsDragging: true,
+                    allowsDragging: !model.studioEditingPaused, // STUDIO: no drag edits while Live Output pauses editing
                     syncChildLimit: Int(setupOutputPageSize()),
                     keepsHiddenSelection: true,
                     accessibilityLabel: "Controllers",
@@ -257,15 +261,16 @@ struct ControllerOutline: View { // STUDIO: shared with StudioControllersPanel
                     onSelectionChange: { model.controllerSelectionChanged($0) },
                     // F82: on any row with a controller selected, and it doesn't expand or collapse.
                     onDoubleClick: { _ in
+                        guard !model.studioEditingPaused else { return } // STUDIO: no settings while Live Output pauses editing
                         Task { await model.configureController() }
                     },
                     onCommand: { command in
                         // F83: Delete only. No copy or paste here.
-                        if command == .delete {
+                        if command == .delete, !model.studioEditingPaused { // STUDIO: not while Live Output pauses editing
                             Task { await model.deleteControllers() }
                         }
                     },
-                    canPerform: { $0 == .delete },
+                    canPerform: { $0 == .delete && !model.studioEditingPaused }, // STUDIO: not while Live Output pauses editing
                     menu: { model.controllerMenu() }
                 )
             } else {
@@ -549,6 +554,9 @@ extension SetupModel {
     /// F32, F33, F54, in `Items.AddRange` order.
     func elementMenu() -> NSMenu? {
         guard let (state, tags) = elementMenuState() else { return nil }
+        // STUDIO-BEGIN paused-element-menu: while Live Output pauses editing, only where it's patched and Test
+        if studioEditingPaused { return studioPausedElementMenu() }
+        // STUDIO-END paused-element-menu
         let run: (@escaping (SetupModel) async -> Void) -> (() -> Void) = { work in
             { [weak self] in
                 guard let self else { return }
@@ -594,6 +602,12 @@ extension SetupModel {
             menu.addItem(.separator())
         }
         // STUDIO-END patch-by-intent
+        // STUDIO-BEGIN commissioning-tests: a Test submenu (moving pixel, color bars, all on) on one element or group, in the live Display pane
+        if let test = studioElementTestMenuItem() {
+            menu.addItem(test)
+            menu.addItem(.separator())
+        }
+        // STUDIO-END commissioning-tests
 
         let tagMenu = NSMenu()
         tagMenu.autoenablesItems = false
@@ -630,6 +644,9 @@ extension SetupModel {
         guard let session, !controllerHighlighted.isEmpty else { return nil }
         let state = session.controllerMenuState(rows: controllerSelection)
         guard state.show else { return nil }
+        // STUDIO-BEGIN paused-controller-menu: while Live Output pauses editing, only Test
+        if studioEditingPaused { return studioPausedControllerMenu() }
+        // STUDIO-END paused-controller-menu
         let run: (@escaping (SetupModel) async -> Void) -> (() -> Void) = { work in
             { [weak self] in
                 guard let self else { return }
@@ -645,6 +662,12 @@ extension SetupModel {
             menu.addItem(SetupMenuItem("Delete", enabled: state.delete, handler: run { await $0.deleteControllers() }))
             menu.addItem(SetupMenuItem("Start / Enable", enabled: state.start, handler: run { await $0.startControllers() }))
             menu.addItem(SetupMenuItem("Stop / Disable", enabled: state.stop, handler: run { await $0.stopControllers() }))
+            // STUDIO-BEGIN controller-commissioning-tests: a Test submenu on one controller, for everything patched to it, in the live Display pane
+            if let test = studioControllerTestMenuItem() {
+                menu.addItem(.separator())
+                menu.addItem(test)
+            }
+            // STUDIO-END controller-commissioning-tests
             menu.addItem(.separator())
             menu.addItem(SetupMenuItem(state.unpatchControllersTitle, enabled: state.unpatchControllers, handler: run { await $0.unpatchControllers() }))
         } else {

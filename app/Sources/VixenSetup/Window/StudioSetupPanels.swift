@@ -106,12 +106,14 @@ struct StudioElementsPanel: View {
                 }
                 .fixedSize()
                 .help("Add a single item, a group, or a prop from a template such as a mega tree or arch")
+                .disabled(model.studioEditingPaused)
             }
             ElementOutline(model: model)
                 .frame(minHeight: 160)
                 .background(.background.secondary, in: RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
                 .clipShape(RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
             selection
+                .disabled(model.studioEditingPaused)
         }
         .padding(StudioMetrics.spacingM)
     }
@@ -196,6 +198,7 @@ struct StudioControllersPanel: View {
                 }
                 .fixedSize()
                 .help("Add a controller such as E1.31 (sACN), DDP or a serial device")
+                .disabled(model.studioEditingPaused)
             }
             ControllerOutline(model: model)
                 .frame(minHeight: 160)
@@ -262,6 +265,7 @@ struct StudioControllersPanel: View {
                     }
                 }
                 .studioCard(padding: StudioMetrics.spacingS)
+                .disabled(model.studioEditingPaused)
             } else {
                 Text("Select a controller to start, stop or configure it. Double-click to open its settings.")
                     .font(.caption)

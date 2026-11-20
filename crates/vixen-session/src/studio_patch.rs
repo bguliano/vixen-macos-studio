@@ -52,6 +52,17 @@ fn patched_outputs(s: &SetupSession) -> Vec<(Position, Nid, SourceRef)> {
     out
 }
 
+/// Each patched light once, in the order of its first output (controllers in order, then outputs), optionally on one
+/// controller slot only. Commissioning tests walk lights in this order, so a moving pixel follows the wiring.
+pub(crate) fn lights_in_output_order(s: &SetupSession, slot: Option<u32>) -> Vec<Nid> {
+    let mut seen = HashSet::new();
+    patched_outputs(s)
+        .into_iter()
+        .filter(|(p, _, _)| slot.is_none_or(|slot| p.slot == slot))
+        .filter_map(|(_, leaf, _)| seen.insert(leaf).then_some(leaf))
+        .collect()
+}
+
 fn patched(s: &SetupSession, node: Nid, all: &[(Position, Nid, SourceRef)]) -> Patched {
     let leaves: HashSet<Nid> = s.tree.distinct_leaves([node]).into_iter().collect();
     let mut positions = Vec::new();

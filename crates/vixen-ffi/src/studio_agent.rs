@@ -136,6 +136,61 @@ impl VixenCore {
 
 #[uniffi::export]
 impl VixenCore {
+    /// The Test submenu for one element row or one controller of the Display pane's working copy, as JSON
+    /// (`studio_commission::menu`): {name, lights, problem?, block?, running?, defaultBrightnessPct}, with the element's or
+    /// controller's id added as targetId or controllerId.
+    pub fn studio_commission_menu(
+        &self,
+        session: Arc<crate::setup::DisplaySetupSession>,
+        element_row: Option<String>,
+        controller_id: Option<String>,
+    ) -> String {
+        let working = session.inner.read();
+        let target = element_row
+            .and_then(|row| working.tree.resolve(&row).and_then(|path| path.last().copied()))
+            .map(|node| working.tree.node(node).id);
+        let controller = controller_id.and_then(|id| uuid::Uuid::parse_str(&id).ok());
+        let mut menu = vixen_session::studio_commission::menu(&self.inner, &working, target, controller);
+        if let Some(id) = target {
+            menu["targetId"] = serde_json::json!(id.to_string());
+        }
+        if let Some(id) = controller {
+            menu["controllerId"] = serde_json::json!(id.to_string());
+        }
+        menu.to_string()
+    }
+    /// Starts the user's commissioning test from {targetId | controllerId, pattern, brightnessPct}: the code the MCP
+    /// `output_test_pattern` tool runs, gated by Live Output instead of the agent switch. Returns what's running as JSON.
+    pub fn studio_commission_start(&self, arguments_json: String) -> Result<String, FfiError> {
+        let args: serde_json::Value =
+            serde_json::from_str(&arguments_json).map_err(|e| FfiError::new(e.to_string()))?;
+        if let Some(block) = vixen_session::studio_commission::local_block(&self.inner) {
+            return Err(FfiError::new(block.to_string()));
+        }
+        let result = vixen_session::studio_commission::start(
+            &self.inner,
+            vixen_session::studio_commission::Origin::Local,
+            &args,
+        )
+        .map_err(FfiError::new)?;
+        self.inner.studio_display.activity("outputChanged", "commission_start");
+        Ok(result.to_string())
+    }
+    /// Stops the running commissioning test, whoever started it. False when nothing was running.
+    pub fn studio_commission_stop(&self) -> bool {
+        let stopped = vixen_session::studio_commission::stop(&self.inner);
+        self.inner.studio_display.activity("outputChanged", "commission_stop");
+        stopped
+    }
+    /// The running commissioning test as JSON {pattern, title, name, kind, lights, brightnessPct, remainingMs, agent, ...},
+    /// or nil.
+    pub fn studio_commission_status(&self) -> Option<String> {
+        vixen_session::studio_commission::status(&self.inner).map(|v| v.to_string())
+    }
+}
+
+#[uniffi::export]
+impl VixenCore {
     pub fn studio_agent_snapshot(&self) -> String {
         self.inner.studio_display.activity_snapshot().to_string()
     }

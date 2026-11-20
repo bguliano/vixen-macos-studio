@@ -50,6 +50,7 @@ struct SetupRootView: View {
                 .background(SplitViewStart())
             PatchingPanel(model: model)
                 .frame(minWidth: inline ? 360 : 480, idealWidth: 640, maxHeight: .infinity)
+                .disabled(model.studioEditingPaused) // Live Output pauses editing; the side columns keep their trees browsable
             StudioControllersPanel(model: model, inline: inline)
                 .frame(minWidth: inline ? 240 : 300, idealWidth: 340, maxHeight: .infinity)
             // STUDIO-END setup-columns

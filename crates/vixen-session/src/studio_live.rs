@@ -7,7 +7,8 @@ pub fn tools() -> Vec<Value> {
     [
         ("output_start","Start one E1.31/DDP controller only after execution is opened locally and the local Allow agents to control live output setting is enabled.",json!({"controllerId":{"type":"string"},"confirm":{"type":"boolean"}}),vec!["controllerId","confirm"]),
         ("output_stop","Stop one controller. Requires explicit confirmation. Can stop even if agent output permission has been revoked.",json!({"controllerId":{"type":"string"},"confirm":{"type":"boolean"}}),vec!["controllerId","confirm"]),
-        ("output_test_pattern","Render a temporary Pulse on one target for 25..5000ms. Requires local agent-output permission, already-open execution and explicit confirmation.",json!({"targetId":{"type":"string"},"durationMs":{"type":"integer","minimum":25,"maximum":5000},"confirm":{"type":"boolean"}}),vec!["targetId","durationMs","confirm"]),
+        ("output_test_pattern","Run a commissioning test without a sequence, the Display pane's Test submenu: pattern movingPixel (one light at a time in wire order, stepMs per light, default 100), colorBars (every light red, green, blue, then white, stepMs per color, default 1500) or allOn, at brightnessPct (default 25), on one element/group (targetId) or everything patched to one running controller (controllerId), for durationMs (default 60000, at most 600000) or until output_test_stop. pattern pulse (the default, needs targetId) renders a Pulse for durationMs 25..5000. One test runs at a time; a new one replaces it. Requires local agent-output permission, Live Output already on (execution open) and explicit confirmation.",json!({"targetId":{"type":"string"},"controllerId":{"type":"string"},"pattern":{"type":"string","enum":["pulse","movingPixel","colorBars","allOn"]},"brightnessPct":{"type":"integer","minimum":1,"maximum":100},"stepMs":{"type":"integer","minimum":crate::studio_commission::STEP_RANGE_MS.0,"maximum":crate::studio_commission::STEP_RANGE_MS.1},"durationMs":{"type":"integer","minimum":25,"maximum":crate::studio_commission::MAX_DURATION_MS},"confirm":{"type":"boolean"}}),vec!["confirm"]),
+        ("output_test_stop","Stop the running commissioning test or test Pulse, whoever started it. Always allowed, even after agent output permission has been revoked. Returns stopped:false when nothing was running.",json!({}),vec![]),
     ].into_iter().map(|(name,description,properties,required)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":true,"openWorldHint":true}})).collect()
 }
 pub fn execute(core: &AppCore, name: &str, a: &Value) -> Result<Value, String> {
@@ -27,6 +28,12 @@ pub fn execute(core: &AppCore, name: &str, a: &Value) -> Result<Value, String> {
     if core.studio_display.is_stopped() {
         return Err("Profile is closing".into());
     }
+    if name == "output_test_stop" {
+        drop(_guard);
+        let stopped = crate::studio_commission::stop(core);
+        core.studio_display.activity("outputChanged", name);
+        return Ok(json!({ "stopped": stopped }));
+    }
     if a["confirm"] != true {
         return Err("Explicit confirm:true is required".into());
     }
@@ -45,22 +52,27 @@ pub fn execute(core: &AppCore, name: &str, a: &Value) -> Result<Value, String> {
             );
         }
     }
-    let result = if name == "output_test_pattern" {
+    let result = if name == "output_test_pattern" && a["pattern"].as_str().is_some_and(|p| p != "pulse") {
+        crate::studio_commission::start(core, crate::studio_commission::Origin::Agent, a)?
+    } else if name == "output_test_pattern" {
+        if a.get("controllerId").is_some() || a.get("brightnessPct").is_some() || a.get("stepMs").is_some() {
+            return Err("pulse takes targetId and durationMs only; controllerId, brightnessPct and stepMs need a commissioning pattern".into());
+        }
         let target = a["targetId"]
             .as_str()
             .and_then(|s| Uuid::parse_str(s).ok())
             .ok_or("Invalid targetId")?;
-        let duration = a["durationMs"]
-            .as_u64()
+        let duration = a.get("durationMs").map_or(Some(1000), |d| d.as_u64())
             .filter(|n| (25..=5000).contains(n))
-            .ok_or("durationMs must be 25..5000")?;
+            .ok_or("durationMs must be 25..5000 for a pulse")?;
         let effect = vixen_effect_registry::all()
             .iter()
             .find(|d| d.name == "Pulse")
             .ok_or("Pulse unavailable")?;
+        crate::studio_commission::stop(core);
         core.live.render(
             core,
-            "studio-agent-test",
+            crate::studio_commission::AGENT_CONTEXT,
             target,
             effect,
             effect.new_params(),
@@ -93,7 +105,8 @@ pub fn execute(core: &AppCore, name: &str, a: &Value) -> Result<Value, String> {
             core.studio_display.agent_started.lock().remove(&id);
         }
         if name == "output_stop" {
-            core.live.release("studio-agent-test");
+            core.live.release(crate::studio_commission::AGENT_CONTEXT);
+            crate::studio_commission::agent_revoked(core);
         }
         json!({"controllerId":id.to_string(),"running":core.playback.running_controllers().is_some_and(|ids|ids.contains(&id))})
     };
@@ -114,7 +127,8 @@ pub fn set_allowed_locally(core: &AppCore, allowed: bool) {
         for id in core.studio_display.agent_started.lock().drain() {
             core.playback.set_controller_running(&id, false);
         }
-        core.live.release("studio-agent-test");
+        core.live.release(crate::studio_commission::AGENT_CONTEXT);
+        crate::studio_commission::agent_revoked(core);
     }
 }
 
@@ -130,10 +144,15 @@ mod tests {
         assert!(execute(&core, "output_start", &args)
             .unwrap_err()
             .contains("OFF"));
+        let test = json!({"controllerId":Uuid::new_v4().to_string(),"pattern":"movingPixel","confirm":true});
+        assert!(execute(&core, "output_test_pattern", &test).unwrap_err().contains("OFF"));
+        // Stopping a test is always allowed, and needs no confirmation.
+        assert_eq!(execute(&core, "output_test_stop", &json!({})).unwrap(), json!({"stopped":false}));
         set_allowed_locally(&core, true);
         assert!(execute(&core, "output_start", &args)
             .unwrap_err()
             .contains("muted"));
+        assert!(execute(&core, "output_test_pattern", &test).unwrap_err().contains("muted"));
         set_allowed_locally(&core, false);
         drop(core);
         std::fs::remove_dir_all(root).unwrap();

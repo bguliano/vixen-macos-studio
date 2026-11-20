@@ -11,6 +11,14 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "eb0cf2722f73d5b1"
  },
+ "block:commissioning-tests": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "425c58abd46174b4"
+ },
+ "block:controller-commissioning-tests": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "15db2d94630c0373"
+ },
  "block:copyright": {
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
@@ -79,6 +87,18 @@
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
   "hash": "601aaf96b1858243"
  },
+ "block:paused-controller-menu": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "6be90a79cc53a29a"
+ },
+ "block:paused-element-commands": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "4bc335da54bbd412"
+ },
+ "block:paused-element-menu": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "482b121d0c8c7132"
+ },
  "block:preview-switch": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "3783f94619bccede"
@@ -117,7 +137,7 @@
  },
  "block:setup-columns": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
-  "hash": "b44fcb6ab79727bc"
+  "hash": "d91fb2dae5170b85"
  },
  "block:setup-inline": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
@@ -447,6 +467,18 @@
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
   "hash": "be7219624c22a2ee"
  },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:1612ccef16b7dbde": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "1612ccef16b7dbde"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:613be86f016d5902": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "613be86f016d5902"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:8f605b5add4c0344": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "8f605b5add4c0344"
+ },
  "line:app/Sources/VixenSetup/Window/SetupPanels.swift:a6322db6ab16ebf2": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "a6322db6ab16ebf2"
@@ -454,6 +486,14 @@
  "line:app/Sources/VixenSetup/Window/SetupPanels.swift:c5ec24a2a8e547ad": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "c5ec24a2a8e547ad"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:e9f70da2328b84df": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "e9f70da2328b84df"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:faf7af0daeaf19b6": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "faf7af0daeaf19b6"
  },
  "line:app/Sources/VixenSetup/Window/SetupRootView.swift:0acd5178f9087bb3": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
@@ -574,6 +614,10 @@
  "line:crates/vixen-session/src/lib.rs:20a024e2a12b4f4a": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "20a024e2a12b4f4a"
+ },
+ "line:crates/vixen-session/src/lib.rs:2cbae59633d3a4b1": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "2cbae59633d3a4b1"
  },
  "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
   "file": "crates/vixen-session/src/lib.rs",

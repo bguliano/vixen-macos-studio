@@ -36,6 +36,8 @@ pub struct StudioDisplay {
     state: Mutex<State>,
     pub(crate) allow_live: std::sync::atomic::AtomicBool,
     pub(crate) agent_started: Mutex<std::collections::HashSet<Uuid>>,
+    /// The commissioning test running now (`studio_commission`).
+    pub(crate) commission: Mutex<Option<crate::studio_commission::Running>>,
     pub(crate) sequence_gate: Mutex<()>,
     pub(crate) owned_sequences:
         Mutex<std::collections::HashMap<Uuid, Arc<Mutex<crate::sequence::SequenceSession>>>>,

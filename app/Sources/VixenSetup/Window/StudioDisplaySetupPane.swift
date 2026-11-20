@@ -23,8 +23,12 @@ struct StudioDisplaySetupPane: View {
                     StudioLiveOutputNotice(reason: blocked)
                     Divider()
                 }
+                if let test = live.commission, let core = app.core {
+                    StudioCommissionBanner(status: test) { live.stopTest(core: core) }
+                    Divider()
+                }
+                // The trees stay browsable while editing is paused, for selecting and the Test menu; each panel disables its editing controls.
                 SetupRootView(model: model, inline: true)
-                    .disabled(live.blocked != nil)
                 Divider()
                 statusBar
             }
@@ -128,9 +132,13 @@ final class StudioDisplayLive {
     private(set) var redoLabel: String?
     private(set) var working = false
     private(set) var saveText = "Edits apply as you make them"
+    /// The commissioning test running now (`StudioTestMenu.swift`), read every tick.
+    private(set) var commission: StudioCommissionStatus?
     @ObservationIgnored var paneVisible = false
     /// Scripts run muted, where Live Output never truly comes on; `displayTestBlock` stands in for it to show the pause.
     @ObservationIgnored var testBlock: String?
+    /// Scripts can't run a test while muted; `displayTestCommission` stands in for one to show the banner.
+    @ObservationIgnored var testCommission: StudioCommissionStatus?
     @ObservationIgnored private var history = ""
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var unsaved = false
@@ -150,8 +158,9 @@ final class StudioDisplayLive {
     /// Every half second while the pane shows.
     func tick(model: SetupModel, app: AppModel) async {
         guard paneVisible, let core = app.core else { return }
-        let real = await offMain { core.studioDisplayEditBlock() }
+        let (real, test) = await offMain { (core.studioDisplayEditBlock(), core.studioCommissionStatus()) }
         blocked = testBlock ?? real
+        commission = testCommission ?? test.flatMap { try? JSONDecoder().decode(StudioCommissionStatus.self, from: Data($0.utf8)) }
         // A template's elements, colour handling and preview shape publish together, as one undo step.
         guard !working, !model.addingFromTemplate else { return }
         await publish(model: model, core: core, cleanup: false)
@@ -356,6 +365,31 @@ final class StudioDisplayLive {
         }
     }
 
+    /// Starts a commissioning test from the Test submenu. Tests change nothing in the show, so there's no undo step; a
+    /// refusal (Live Output off, nothing patched, the controller stopped) shows in the status bar.
+    func startTest(arguments: [String: Any], core: VixenCore) {
+        guard let data = try? JSONSerialization.data(withJSONObject: arguments),
+              let json = String(data: data, encoding: .utf8) else { return }
+        Task {
+            let outcome: Result<String, StudioTestFailure> = await offMain {
+                do { return .success(try core.studioCommissionStart(argumentsJson: json)) } catch { return .failure(StudioTestFailure(text: studioErrorText(error))) }
+            }
+            switch outcome {
+            case .success(let reply):
+                notice = nil
+                commission = try? JSONDecoder().decode(StudioCommissionStatus.self, from: Data(reply.utf8))
+            case .failure(let failure):
+                notice = "Couldn't start the test: \(failure.text)"
+            }
+        }
+    }
+
+    func stopTest(core: VixenCore) {
+        testCommission = nil
+        commission = nil
+        Task { _ = await offMain { core.studioCommissionStop() } }
+    }
+
     /// Which pane the window's undo steps act on. Set when the pane is registered.
     static weak var model: SetupModel?
     static weak var app: AppModel?
@@ -411,6 +445,32 @@ final class StudioDisplayLive {
 }
 
 extension SetupModel {
+    /// Live Output has paused editing in the live pane: the trees still select, expand and offer their read-only menu (where an
+    /// element is patched, and Test), and every control that edits is disabled. Never true for the legacy Display Setup window.
+    var studioEditingPaused: Bool {
+        StudioDisplayLive.model === self && StudioDisplayLive.shared.blocked != nil
+    }
+
+    /// The element menu while editing is paused: only what doesn't edit.
+    func studioPausedElementMenu() -> NSMenu {
+        studioPausedMenu([studioPatchMenuItem(), studioElementTestMenuItem()])
+    }
+
+    /// The controller menu while editing is paused: only Test.
+    func studioPausedControllerMenu() -> NSMenu {
+        studioPausedMenu([studioControllerTestMenuItem()])
+    }
+
+    private func studioPausedMenu(_ items: [NSMenuItem?]) -> NSMenu {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.addItem(SetupMenuItem("Editing is paused while Live Output is on", enabled: false))
+        let available = items.compactMap { $0 }
+        if !available.isEmpty { menu.addItem(.separator()) }
+        available.forEach(menu.addItem)
+        return menu
+    }
+
     private static var studioInstance: SetupModel?
 
     /// The one model. SwiftUI may build `SetupScene` again, and a second model would open a second working copy.
@@ -446,6 +506,10 @@ extension SetupModel {
                 StudioDisplayLive.shared.testBlock = step.text
                 return (true, nil)
             }
+            UITestHarness.customActions["displayTestCommission"] = { step in
+                StudioDisplayLive.shared.testCommission = step.text.flatMap { try? JSONDecoder().decode(StudioCommissionStatus.self, from: Data($0.utf8)) }
+                return (true, nil)
+            }
             // What Edit ▸ Undo does with the show window key: `undo:` up the responder chain to the window, which asks its undo manager.
             UITestHarness.customActions["displayMenuUndoRedo"] = { step in
                 guard let window = StudioDisplayPane.hostWindow else { return (false, "no host window") }
@@ -465,6 +529,10 @@ extension SetupModel {
             }
         }
     }
+}
+
+private struct StudioTestFailure: Error, Sendable {
+    let text: String
 }
 
 /// An FFI error's message off the main thread, where `userMessage` isn't available.

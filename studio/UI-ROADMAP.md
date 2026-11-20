@@ -59,7 +59,11 @@ command, edits are live with Undo, and each change is verified with harness runs
    (`StudioTemplatePreview.swift`, `studio_props::add_linked`) adds the matching Mega Tree, Pixel Grid or Arch, linked
    light for light in the prop's order; MCP `element_template` `previewId` and `preview_prop_create` `elementId`.
 6. **Commissioning tests** per controller and per group: moving pixel, R/G/B/W bars, at a chosen brightness (default 25%),
-   gated by the live-output switch. Mirrors the build manual's Part J checks.
+   gated by the live-output switch. Mirrors the build manual's Part J checks. *Done:* a Test submenu on one element, group or
+   controller in the Display pane (`StudioTestMenu.swift`, `studio_commission.rs`): Moving Pixel (wire order), Color Bars
+   (R, G, B, W) and All On at a Brightness from 10 to 100%, with a banner and Stop Test while one runs; it needs Live
+   Output on, so the trees stay browsable while editing is paused. MCP `output_test_pattern` patterns and
+   `output_test_stop`.
 7. **Command palette (⌘K)** over every menu command and MCP-backed action, so nothing is unreachable again.
 
 ## Phase 2: finish the show window
