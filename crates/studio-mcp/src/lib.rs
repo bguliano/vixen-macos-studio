@@ -14,8 +14,8 @@ const TOOLS: &[(&str, &str)] = &[
     ("studio_status", "Profile identity, safety state and implementation capabilities."),
     ("recent_logs", "Read up to limit lines from the newest profile log, bounded to 64 KiB; never follows a log symlink."),
     ("controller_monitor", "Actual execution/frame/controller run statistics; no startup or polling side effects."),
-    ("show_list", "List shows and sequential items without running them."),
-    ("schedule_list", "List saved schedules, activation state and display revision."),
+    ("show_list", "List shows with their steps by section (startup, sequential, background, shutdown) in run order, and how many schedules run each. Never runs anything."),
+    ("schedule_list", "List schedules: show, first and last day, start and end time, days (Sunday first), enabled, state (off, upcoming, due, playing, ended, never) and nextRun; schedulerOn is the user's Scheduler > Enabled switch. index plus revision address schedule edits."),
     ("preview_props", "List native prop IDs and property metadata for every preview. Use returned revision for edits."),
     ("preview_list", "List configured preview IDs, names and whether each is on (shown whenever Live Output is on)."),
     ("controller_types", "Available controller types with stable UUIDs."),
@@ -43,6 +43,14 @@ impl Server {
             Some(core) => f(&core.system.read(), core.display.revision()),
             None => f(&self.setup.system, 0),
         }
+    }
+    /// Shows and schedules as the Schedule pane lists them, with the running scheduler's state when serving the app.
+    fn schedules(&self) -> Value {
+        let sequences = vixen_io::DataPaths::new(self.root.clone()).sequence_dir();
+        let running = self.core.as_ref().and_then(|c| c.studio_display.scheduler());
+        self.with_system(|system, revision| {
+            vixen_session::studio_schedule::describe(system, revision, &sequences, running.as_deref())
+        })
     }
     pub fn open(root: &Path) -> Result<Self, String> {
         let root = root.canonicalize().map_err(|e| e.to_string())?;
@@ -184,7 +192,7 @@ impl Server {
                 json!({"prompts":[{"name":"build_show","description":"Safe music-synchronized show workflow and current capability limits"}]})
             }
             "prompts/get" if p["name"] == "build_show" => {
-                json!({"messages":[{"role":"user","content":{"type":"text","text":"Inspect studio_status, display_elements, controller_list, preview_list and diagnostics_report, and read display://summary (or display_geometry) for which way each prop runs: Px1 end, S1 position and numbering direction. Analyze real profile audio with music_analyze. Create a sequence with media, place effects on detected beats, add marks (sequence_onset_marks writes the hits as editable mark collections; effects_on_marks places an effect on every mark in one undo step; effect_step turns staccato stabs into discrete segment walks, alternations, stacks or jumps), then sequence_render and preview_frame; review whole passages with preview_sheet (one tiled PNG) or preview_video (MP4 with the song) instead of many preview_frame calls. Validate diagnostics and render results before confirmed sequence_save, profile_save and sequence_export_fseq. Use shared undo to correct edits. Never enable hardware merely to author a show. Scheduling tools create disabled drafts for local review. Unsupported parameter codecs and heuristic onset/section estimates must not be misrepresented as exact."}}]})
+                json!({"messages":[{"role":"user","content":{"type":"text","text":"Inspect studio_status, display_elements, controller_list, preview_list and diagnostics_report, and read display://summary (or display_geometry) for which way each prop runs: Px1 end, S1 position and numbering direction. Analyze real profile audio with music_analyze. Create a sequence with media, place effects on detected beats, add marks (sequence_onset_marks writes the hits as editable mark collections; effects_on_marks places an effect on every mark in one undo step; effect_step turns staccato stabs into discrete segment walks, alternations, stacks or jumps), then sequence_render and preview_frame; review whole passages with preview_sheet (one tiled PNG) or preview_video (MP4 with the song) instead of many preview_frame calls. Validate diagnostics and render results before confirmed sequence_save, profile_save and sequence_export_fseq. Use shared undo to correct edits. Never enable hardware merely to author a show. New schedules start turned off; schedules run only while the user has the scheduler on (Scheduler > Enabled). Unsupported parameter codecs and heuristic onset/section estimates must not be misrepresented as exact."}}]})
             }
             _ => return Some(error(id, -32601, "Method not found")),
         };
@@ -275,8 +283,8 @@ impl Server {
         let items:Vec<Value> = match name {
             "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.shared {"liveSession"} else {"headlessSnapshot"},"sharedWithApp":self.shared,"liveOutputAllowed":self.core.as_ref().is_some_and(|c|vixen_session::studio_live::allowed(c)),"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
             "display_elements" => s.tree.live_nodes().map(|(_,n)|json!({"id":n.id.to_string(),"name":n.name,"elementId":n.element_id.map(|i|i.to_string()),"children":n.children.iter().map(|id|s.tree.node(*id).id.to_string()).collect::<Vec<_>>()})).collect(),
-            "show_list" => vixen_session::shows::load_shows(&s.system.module_store).iter().map(|show|json!({"id":show.id.to_string(),"name":show.name_text(),"items":show.items.iter().map(|item|json!({"name":item.name_text(),"type":item.item_type.text(),"action":item.action.text(),"sequence":item.sequence_file()})).collect::<Vec<_>>()})).collect(),
-            "schedule_list" => {let data=vixen_session::scheduler::load_scheduler(&s.system.module_store);return Ok(json!({"enabled":data.is_enabled,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"items":data.items.iter().enumerate().map(|(index,item)|json!({"index":index,"showId":item.show_id.to_string(),"enabled":item.enabled,"schedule":item.schedule_string(),"days":item.days})).collect::<Vec<_>>()}));},
+            "show_list" => self.schedules()["shows"].as_array().cloned().unwrap_or_default(),
+            "schedule_list" => {let mut all=self.schedules();return Ok(json!({"schedulerOn":all["schedulerOn"].take(),"status":all["status"].take(),"revision":all["revision"].take(),"now":all["now"].take(),"items":all["schedules"].take()}));},
             "preview_props" => {let mut props=Vec::new();for entry in vixen_session::preview::preview_entries(&s.system){if let Ok(data)=vixen_session::preview::load_preview_data(&s.system.module_store,&entry){let design=vixen_session::render_support::design::DesignSession::new(data,Some(Arc::new(s.system.tree.clone())));for item in &design.data().display_items{props.push(json!({"previewId":entry.id.to_string(),"propId":item.id.0,"name":item.shape.name(),"kind":item.shape.type_name(),"properties":design.shape_properties(item.id).iter().map(|p|json!({"id":p.id,"name":p.name,"kind":format!("{:?}",p.kind),"value":format!("{:?}",p.value),"readOnly":p.read_only})).collect::<Vec<_>>()}));}}}props},
             "preview_list" => vixen_session::preview::preview_entries(&s.system).iter().map(|p|{let links=vixen_session::preview::load_preview_data(&s.system.module_store,p).ok().map(|data|vixen_session::render_support::Scene::build(&data,Some(&s.system.tree)).nodes().iter().take(500).map(|id|id.to_string()).collect::<Vec<_>>()).unwrap_or_default();json!({"id":p.id.to_string(),"name":p.name,"enabled":!s.system.disabled_devices.contains(&p.id),"linkedNodeIds":links})}).collect(),
             "controller_types" => vixen_session::setup::controllers::controller_types().iter().map(|(id,name)|json!({"id":id.to_string(),"name":name})).collect(),

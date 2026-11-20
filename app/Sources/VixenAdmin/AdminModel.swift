@@ -342,6 +342,7 @@ final class AdminModel {
         await savePendingOptions()
         await StudioDisplayPane.flush?() // STUDIO: the live Display pane publishes and saves its last edit
         await StudioPreviewsModel.shared.flush() // STUDIO: the Previews pane's last save finishes
+        await StudioScheduleModel.shared.flush() // STUDIO: the Schedule pane's last save finishes
         while core.isSaving() {
             logWarn(logger: "VixenApplication.VixenApplication", message: "Waiting for save to finish before closing.")
             try? await Task.sleep(for: .milliseconds(250))

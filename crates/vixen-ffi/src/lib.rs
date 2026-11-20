@@ -8,6 +8,7 @@ uniffi::setup_scaffolding!();
 pub mod core;
 pub mod studio_agent; // STUDIO: shared agent/UI display commands and change observer
 pub mod studio_previews; // STUDIO: the Previews pane's list, thumbnails and window titles
+pub mod studio_schedule; // STUDIO: the Schedule pane's list
 mod naming;
 mod wire_diagram;
 pub mod kit;

@@ -1116,6 +1116,7 @@ impl VixenCore {
         );
         let scheduler = Scheduler::new(data, deps);
         self.inner.add_service(Arc::new(SchedulerService(scheduler.clone())));
+        self.inner.studio_display.attach_scheduler(&scheduler); // STUDIO: the Schedule pane's edits reach the running scheduler
         let session = Arc::new(SchedulerSession { core: Arc::downgrade(&self.inner), scheduler, changed: AtomicBool::new(false) });
         sessions.push(session.clone());
         session

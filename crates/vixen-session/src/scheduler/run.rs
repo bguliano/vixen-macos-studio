@@ -661,6 +661,30 @@ impl Scheduler {
         self.inner.lock().data.status_position = (x, y);
     }
 
+    // STUDIO-BEGIN schedule-replace-items: the Schedule pane's live edits (and their Undo) replace the whole list at once
+    /// The schedules as the Schedule pane or an agent left them. A schedule that didn't change keeps its run; one that was
+    /// deleted or changed while its show plays stops it, as Delete does.
+    pub fn studio_replace_items(&self, items: Vec<ScheduleItem>) {
+        let now = self.shared.deps.clock.now();
+        {
+            let mut inner = self.inner.lock();
+            let Inner { data, slots, .. } = &mut *inner;
+            let mut old: Vec<Option<(ScheduleItem, Slot)>> =
+                data.items.drain(..).zip(slots.drain(..)).map(Some).collect();
+            for item in &items {
+                let kept = old.iter().position(|o| o.as_ref().is_some_and(|(i, _)| i == item));
+                slots.push(kept.and_then(|k| old[k].take()).map(|(_, slot)| slot).unwrap_or_default());
+            }
+            for (_, mut slot) in old.into_iter().flatten() {
+                stop_slot(&self.shared, &mut slot, false, now);
+            }
+            data.items = items;
+            self.refresh_status(&mut inner, now);
+        }
+        self.poll(now);
+    }
+    // STUDIO-END schedule-replace-items
+
     /// The thread behind the timer. It ends at `quit`.
     pub fn run(self: &Arc<Self>) {
         let scheduler = self.clone();

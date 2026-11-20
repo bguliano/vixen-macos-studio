@@ -151,6 +151,18 @@
   "file": "crates/vixen-ffi/src/sequence.rs",
   "hash": "0781cc897fd86b91"
  },
+ "block:schedule-pane": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "c05acb1b5e58276f"
+ },
+ "block:schedule-pane-reveal": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "9beba9582e7d1555"
+ },
+ "block:schedule-replace-items": {
+  "file": "crates/vixen-session/src/scheduler/run.rs",
+  "hash": "2761ec86f185e10e"
+ },
  "block:sequence-settings-inverse": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "0c305a2618fe618e"
@@ -282,6 +294,10 @@
  "line:app/Package.swift:d507a04f598d91f8": {
   "file": "app/Package.swift",
   "hash": "d507a04f598d91f8"
+ },
+ "line:app/Sources/VixenAdmin/AdminModel.swift:3b18a4694e435f8d": {
+  "file": "app/Sources/VixenAdmin/AdminModel.swift",
+  "hash": "3b18a4694e435f8d"
  },
  "line:app/Sources/VixenAdmin/AdminModel.swift:4be54dbaa4dcf5c9": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
@@ -615,9 +631,17 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "640b020f8a51ccab"
  },
+ "line:crates/vixen-ffi/src/lib.rs:bb7099cad7b0e281": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "bb7099cad7b0e281"
+ },
  "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "d1100fa74313d8ae"
+ },
+ "line:crates/vixen-ffi/src/scheduler.rs:51a6beb21bb227be": {
+  "file": "crates/vixen-ffi/src/scheduler.rs",
+  "hash": "51a6beb21bb227be"
  },
  "line:crates/vixen-ffi/src/setup.rs:1e848310a321fa63": {
   "file": "crates/vixen-ffi/src/setup.rs",
@@ -655,10 +679,6 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "00ac71821b008fa4"
  },
- "line:crates/vixen-session/src/lib.rs:03fcbfc65a5465c6": {
-  "file": "crates/vixen-session/src/lib.rs",
-  "hash": "03fcbfc65a5465c6"
- },
  "line:crates/vixen-session/src/lib.rs:1f45af25574701ee": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "1f45af25574701ee"
@@ -670,6 +690,10 @@
  "line:crates/vixen-session/src/lib.rs:2cbae59633d3a4b1": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "2cbae59633d3a4b1"
+ },
+ "line:crates/vixen-session/src/lib.rs:3d99fb8e8da6eb30": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "3d99fb8e8da6eb30"
  },
  "line:crates/vixen-session/src/lib.rs:3f8cc9b14ed9d558": {
   "file": "crates/vixen-session/src/lib.rs",

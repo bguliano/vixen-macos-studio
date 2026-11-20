@@ -89,6 +89,19 @@ command, edits are live with Undo, and each change is verified with harness runs
    `scripts/check_studio_previews.py`.
 2. **Schedule section becomes a real pane.** Shows and schedules inline, next-run time, enable toggles, live edits with
    Undo. The Scheduler window is retired; copy fixed.
+   *Done:* the show window's Schedule section (`StudioSchedulePane.swift`, `studio_schedule.rs`): the scheduler's switch
+   (Scheduler ▸ Enabled, local only) with its status, every schedule with its show, days, times, dates, next run
+   ("Tonight at 5:30 PM", Ended, No days ticked) and an On switch, opening in place to edit its show, first and last day,
+   start and end time and days; every show with its steps by section (Before the show, Show, Alongside, After the show),
+   double-click rename, Add ▸ sequence or pause, change, move and remove per step, Duplicate and Delete (a show's
+   schedules go with it). Each edit is one step on the shared undo history and saved at once, published without
+   rebuilding the output graph, and handed to the running scheduler, so a change applies at once and a playing show
+   keeps playing unless its schedule changed. Scheduler ▸ Shows and Schedules show the section; both windows are gone.
+   Launch steps (running a program) are listed but not created (#59). MCP `show_create`, `show_rename`,
+   `show_duplicate`, `show_delete`, `show_item_add`, `show_item_update`, `show_item_move`, `show_item_delete`,
+   `schedule_create`, `schedule_update`, `schedule_enable`, `schedule_duplicate`, `schedule_delete`; `show_list` and
+   `schedule_list` report what the pane shows. Harness: `scripts/ui/studio-schedule.json` with
+   `scripts/check_studio_schedule.py`.
 3. **Controllers section** in the sidebar, with run state, IP, universes and output health, sharing the Phase 1
    inspector.
 4. **Sequences library**: real modified times, rendered/unsaved/missing-audio badges, "New Sequence from Audio…" by

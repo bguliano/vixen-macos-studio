@@ -60,6 +60,7 @@ struct StudioShowWindow: View {
             StudioDisplayPane.stopLiveOutput = { admin.stopExecution() }
             StudioPreviewsCore.admin = admin
             StudioPreviewsCore.reveal = { choose(.previews) }
+            StudioScheduleCore.reveal = { choose(.schedule) }
             admin.app.previewDesignerDidClose = { id in
                 guard let core = admin.app.core else { return }
                 StudioPreviewsModel.shared.designerClosed(id: id, core: core)
@@ -164,12 +165,7 @@ struct StudioShowWindow: View {
         case .previews:
             StudioPreviewsPane(revision: agents.revision)
         case .schedule:
-            StudioAreaPane(
-                section: .schedule,
-                summary: "Shows bundle sequences, actions and pauses. Schedule them to run on their own at set times and days.",
-                stats: [],
-                primary: ("Open Scheduler", { openWindow(id: WindowID.schedules) })
-            )
+            StudioSchedulePane(revision: agents.revision)
         }
     }
 

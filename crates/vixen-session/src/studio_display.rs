@@ -18,8 +18,28 @@ pub struct StudioEvent {
 struct Entry {
     label: String,
     system: SystemData,
-    /// Only previews changed (`studio_previews`), so undoing it republishes without rebuilding the output.
-    preview_only: bool,
+    kind: Kind,
+}
+/// What a step changed, which decides how undoing it publishes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    /// The display: undoing it rebuilds the output graph (`apply_display`), so it waits for Live Output to be off.
+    Display,
+    /// Only previews (`studio_previews`): republished without rebuilding the output.
+    Preview,
+    /// Only shows and schedules (`studio_schedule`): republished without rebuilding the output.
+    Schedule,
+}
+impl Kind {
+    fn of(command: &str) -> Kind {
+        if crate::studio_previews::is_command(command) {
+            Kind::Preview
+        } else if crate::studio_schedule::is_command(command) {
+            Kind::Schedule
+        } else {
+            Kind::Display
+        }
+    }
 }
 #[derive(Default)]
 struct State {
@@ -47,10 +67,19 @@ pub struct StudioDisplay {
     event_revision: std::sync::atomic::AtomicU64,
     stopped: std::sync::atomic::AtomicBool,
     pub runtime: Mutex<Option<Box<dyn Send + Sync>>>,
+    /// The profile's running scheduler, which keeps its own copy of the schedules (`studio_schedule::publish` updates it).
+    scheduler: Mutex<Option<std::sync::Weak<crate::scheduler::run::Scheduler>>>,
     events: Mutex<VecDeque<StudioEvent>>,
     listeners: Mutex<Option<Arc<dyn Fn(StudioEvent) + Send + Sync>>>,
 }
 impl StudioDisplay {
+    /// The running scheduler made for this profile, so schedule edits reach it at once.
+    pub fn attach_scheduler(&self, scheduler: &Arc<crate::scheduler::run::Scheduler>) {
+        *self.scheduler.lock() = Some(Arc::downgrade(scheduler));
+    }
+    pub fn scheduler(&self) -> Option<Arc<crate::scheduler::run::Scheduler>> {
+        self.scheduler.lock().as_ref().and_then(std::sync::Weak::upgrade)
+    }
     pub(crate) fn is_stopped(&self) -> bool {
         self.stopped.load(std::sync::atomic::Ordering::Acquire)
     }
@@ -134,7 +163,7 @@ impl StudioDisplay {
     }
     pub fn history(&self) -> Value {
         let s = self.state.lock();
-        json!({"revision":s.revision,"undo":s.undo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"redo":s.redo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"undoPreviewOnly":s.undo.last().is_some_and(|e|e.preview_only),"redoPreviewOnly":s.redo.last().is_some_and(|e|e.preview_only)})
+        json!({"revision":s.revision,"undo":s.undo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"redo":s.redo.iter().rev().map(|e|&e.label).collect::<Vec<_>>(),"undoPreviewOnly":s.undo.last().is_some_and(|e|e.kind!=Kind::Display),"redoPreviewOnly":s.redo.last().is_some_and(|e|e.kind!=Kind::Display)})
     }
     /// One validated, undoable transaction; no filesystem writes or controller starts.
     /// expected_revision prevents stale inspectors from overwriting newer agent/UI work.
@@ -171,11 +200,11 @@ impl StudioDisplay {
             }
         }
         // apply_display can rebuild a running graph: do not let even an ordinary agent edit send output.
-        // Preview list edits never touch the graph (studio_previews::publish), so they stay open to agents.
+        // Preview list, show and schedule edits never touch the graph (their own publish), so they stay open to agents.
         if agent
             && core.playback.hardware_allowed()
             && core.execution().is_open()
-            && !crate::studio_previews::is_command(command)
+            && Kind::of(command) == Kind::Display
         {
             return Err("Stop live output locally before agent display edits".into());
         }
@@ -216,19 +245,19 @@ impl StudioDisplay {
             return Ok(json!({"saved":true,"revision":actual}));
         }
         let before = core.system.read().clone();
-        let name = if crate::studio_previews::is_command(command) {
-            crate::studio_previews::label(command, args)
-        } else {
-            command
+        let name = match Kind::of(command) {
+            Kind::Preview => crate::studio_previews::label(command, args),
+            Kind::Schedule => crate::studio_schedule::label(command, args),
+            Kind::Display => command,
         };
         let label = format!("{}{}", name, if agent { " (Agent)" } else { "" });
         let result;
         match command {
             "display_undo" | "display_redo" => {
                 let stack = if command == "display_undo" { &state.undo } else { &state.redo };
-                let preview_only = stack.last().ok_or("Nothing to undo/redo")?.preview_only;
-                // Undoing a display edit rebuilds the graph, which Live Output must not see; a preview step never does.
-                if !preview_only && !agent && self.ui_edit_block(core).is_some() {
+                let kind = stack.last().ok_or("Nothing to undo/redo")?.kind;
+                // Undoing a display edit rebuilds the graph, which Live Output must not see; a preview or schedule step never does.
+                if kind == Kind::Display && !agent && self.ui_edit_block(core).is_some() {
                     return Err(LIVE_OUTPUT_BLOCK.into());
                 }
                 let entry = if command == "display_undo" {
@@ -240,12 +269,12 @@ impl StudioDisplay {
                 let inverse = Entry {
                     label: entry.label.clone(),
                     system: before,
-                    preview_only,
+                    kind,
                 };
-                if preview_only {
-                    crate::studio_previews::publish(core, entry.system);
-                } else {
-                    core.apply_display(entry.system);
+                match kind {
+                    Kind::Preview => crate::studio_previews::publish(core, entry.system),
+                    Kind::Schedule => crate::studio_schedule::publish(core, entry.system),
+                    Kind::Display => core.apply_display(entry.system),
                 }
                 if command == "display_undo" {
                     state.redo.push(inverse)
@@ -265,7 +294,26 @@ impl StudioDisplay {
                 state.undo.push(Entry {
                     label,
                     system: before,
-                    preview_only: true,
+                    kind: Kind::Preview,
+                });
+                if state.undo.len() > HISTORY_LIMIT {
+                    state.undo.remove(0);
+                }
+                state.redo.clear();
+            }
+            _ if crate::studio_schedule::is_command(command) => {
+                let mut system = before.clone();
+                let (value, changed) =
+                    crate::studio_schedule::edit(&mut system, &core.paths.sequence_dir(), command, args)?;
+                result = value;
+                if !changed {
+                    return Ok(json!({"changed":false,"revision":actual,"result":result}));
+                }
+                crate::studio_schedule::publish(core, system);
+                state.undo.push(Entry {
+                    label,
+                    system: before,
+                    kind: Kind::Schedule,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -290,7 +338,7 @@ impl StudioDisplay {
                 state.undo.push(Entry {
                     label,
                     system: before,
-                    preview_only: false,
+                    kind: Kind::Display,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -384,7 +432,7 @@ impl StudioDisplay {
         state.undo.push(Entry {
             label: label.into(),
             system: before,
-            preview_only: false,
+            kind: Kind::Display,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -425,7 +473,7 @@ impl StudioDisplay {
         state.undo.push(Entry {
             label: label.into(),
             system: before,
-            preview_only: true,
+            kind: Kind::Preview,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -707,7 +755,7 @@ pub fn command_tools() -> Vec<Value> {
         props["expectedRevision"]=json!({"type":"integer","minimum":0});
         json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":props,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":destructive,"openWorldHint":false}})
     }).collect();
-    tools.extend(crate::studio_show::tools());
+    tools.extend(crate::studio_schedule::tools());
     tools.extend(crate::studio_props::tools());
     tools.extend(crate::studio_previews::tools());
     tools
@@ -836,7 +884,7 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             if command.starts_with("preview_prop_") {
                 crate::studio_props::edit(s, command, a)
             } else {
-                crate::studio_show::edit(s, command, a)
+                Err("Unknown display command".into())
             }
         }
     }

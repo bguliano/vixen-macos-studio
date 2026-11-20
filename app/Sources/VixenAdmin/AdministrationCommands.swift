@@ -149,8 +149,10 @@ private struct SchedulerMenuItems: View {
 
     var body: some View {
         Group {
-            Button("Shows") { openWindow(id: WindowID.shows) }
-            Button("Schedules") { openWindow(id: WindowID.schedules) }
+            // STUDIO-BEGIN schedule-pane: Shows and Schedules are the show window's Schedule section, editing live with Undo
+            Button("Shows") { revealSchedule(else: WindowID.shows) }
+            Button("Schedules") { revealSchedule(else: WindowID.schedules) }
+            // STUDIO-END schedule-pane
             Divider()
             // The toggle and the status window it opens belong to the scheduler area, which fills in `AppModel.schedulerEnabledToggle`.
             if let toggle = admin.app.schedulerEnabledToggle {
@@ -162,6 +164,17 @@ private struct SchedulerMenuItems: View {
         }
         .disabled(state.isBusy)
     }
+
+    // STUDIO-BEGIN schedule-pane-reveal: the section replaces the Shows and Scheduler windows
+    private func revealSchedule(else window: String) {
+        if let reveal = StudioScheduleCore.reveal {
+            admin.window?.makeKeyAndOrderFront(nil)
+            reveal()
+        } else {
+            openWindow(id: window)
+        }
+    }
+    // STUDIO-END schedule-pane-reveal
 }
 
 private struct HelpMenuItems: View {

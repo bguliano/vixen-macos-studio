@@ -195,14 +195,14 @@ fn real_music_thirty_second_show_via_stdio_only() {
     );
     call(
         "schedule_create",
-        json!({"id":show["result"]["id"],"start":"2026-12-01T18:00:00","end":"2026-12-31T21:00:00","days":[true,true,true,true,true,true,true]}),
+        json!({"showId":show["result"]["showId"],"startDate":"2026-12-01","endDate":"2026-12-31","startTime":"18:00","endTime":"21:00"}),
     );
     let schedules = call("schedule_list", json!({}));
     assert!(schedules["items"]
         .as_array()
         .unwrap()
         .iter()
-        .any(|item| item["showId"] == show["result"]["id"] && item["enabled"] == false));
+        .any(|item| item["showId"] == show["result"]["showId"] && item["enabled"] == false && item["startTime"] == "18:00"));
     if let Some(preview) = previews["items"].as_array().unwrap().first() {
         let prop = call(
             "preview_prop_create",

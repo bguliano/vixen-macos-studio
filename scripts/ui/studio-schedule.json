@@ -1,0 +1,256 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioSection",
+   "name": "schedule"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "initial"
+  },
+  {
+   "action": "snapshot",
+   "name": "schedule-initial"
+  },
+  {
+   "action": "dump",
+   "name": "schedule-initial"
+  },
+  {
+   "action": "click",
+   "label": "Add Show"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "added"
+  },
+  {
+   "action": "type",
+   "text": "Front Yard"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "renamed"
+  },
+  {
+   "action": "studioScheduleSelectShow",
+   "name": "Front Yard"
+  },
+  {
+   "action": "studioScheduleAddStep",
+   "name": "sequential:Wizards in Winter.tim"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleAddStep",
+   "name": "sequential:pause"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleAddStep",
+   "name": "startup:Cameron-Zoom.tim"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleMoveStep",
+   "name": "sequential:1:0"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "steps"
+  },
+  {
+   "action": "click",
+   "label": "Add Schedule"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "scheduled"
+  },
+  {
+   "action": "studioScheduleSetField",
+   "name": "endTime=23:15"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleSetField",
+   "name": "days=0000011"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "edited"
+  },
+  {
+   "action": "snapshot",
+   "name": "schedule-edited"
+  },
+  {
+   "action": "mouse",
+   "x": 270,
+   "y": 282
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "toggled"
+  },
+  {
+   "action": "studioScheduleMenuUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "undo-menu"
+  },
+  {
+   "action": "click",
+   "label": "Undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "undo-button"
+  },
+  {
+   "action": "studioScheduleMenuRedo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "redo"
+  },
+  {
+   "action": "studioScheduleSelectShow",
+   "name": "Front Yard"
+  },
+  {
+   "action": "click",
+   "label": "Delete"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "deleted"
+  },
+  {
+   "action": "studioScheduleMenuUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioScheduleState",
+   "name": "restored"
+  },
+  {
+   "action": "snapshot",
+   "name": "schedule-final"
+  },
+  {
+   "action": "studioSection",
+   "name": "sequences"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Scheduler",
+    "Schedules"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioSectionNow",
+   "name": "after-menu"
+  },
+  {
+   "action": "windows",
+   "name": "windows"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}
