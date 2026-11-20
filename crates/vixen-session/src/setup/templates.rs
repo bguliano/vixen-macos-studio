@@ -253,11 +253,12 @@ pub fn generate_template(tree: &mut SetupTree, params: &TemplateParams) -> Resul
                 });
             }
             let every = zig_zag_every(params);
+            // Upstream numbers horizontal Bottom Right the same as Top Right (PixelGrid.cs:151); here it starts at R1's right end.
             let order: Option<Vec<Nid>> = match (start, *horizontal) {
                 (StartLocation::BottomLeft, _) => zig_zag.then(|| g.leaves(head)),
-                (StartLocation::BottomRight, true) | (StartLocation::TopRight, _) => Some(g.all_leaves_reversed(head)),
+                (StartLocation::TopRight, _) => Some(g.all_leaves_reversed(head)),
                 (StartLocation::BottomRight, false) | (StartLocation::TopLeft, true) => Some(g.strings_reversed(head)),
-                (StartLocation::TopLeft, false) => Some(g.strings_each_reversed(head)),
+                (StartLocation::BottomRight, true) | (StartLocation::TopLeft, false) => Some(g.strings_each_reversed(head)),
             };
             g.apply_order(order, zig_zag.then_some(every));
         }
@@ -573,7 +574,7 @@ mod tests {
         use StartLocation::*;
         // Leaves in tree order: S1L1, S1L2, S2L1, S2L2.
         let cases = [
-            (true, BottomRight, [4, 3, 2, 1]),
+            (true, BottomRight, [2, 1, 4, 3]),
             (true, TopLeft, [3, 4, 1, 2]),
             (true, TopRight, [4, 3, 2, 1]),
             (false, BottomRight, [3, 4, 1, 2]),

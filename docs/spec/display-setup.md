@@ -464,9 +464,11 @@ Items, in `Items.AddRange` order (ControllerTree.Designer.cs:67-80): Configure, 
   | Start | Horizontal | Vertical |
   |---|---|---|
   | Bottom Left | no Order unless Zig Zag: all leaves in tree order with `every` | same |
-  | Bottom Right | all leaves reversed as one list | `S` reversed, `L(s)` in order |
+  | Bottom Right | `S` in order, each `L(s)` reversed (see below) | `S` reversed, `L(s)` in order |
   | Top Left | `S` reversed, `L(s)` in order | `S` in order, each `L(s)` reversed |
   | Top Right | all leaves reversed | all leaves reversed |
+
+  **Upstream bug, fixed in the port:** upstream numbers horizontal Bottom Right as all leaves reversed (:151), the same as Top Right, so the wire starts at the top-right corner. Every other corner puts R1 at the bottom and C1 on the left, so the Mac starts Bottom Right at R1's right end: each row reversed, rows in order.
 
   For every row but the Bottom Left one: Zig Zag off gives `AddPatchingOrder(list)`, on gives `AddPatchingOrder(list, every)`.
 
