@@ -11,6 +11,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "eb0cf2722f73d5b1"
  },
+ "block:command-palette": {
+  "file": "app/Sources/VixenApp/VixenApp.swift",
+  "hash": "4068e4b09abec6a6"
+ },
  "block:commissioning-tests": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "425c58abd46174b4"
@@ -634,6 +638,10 @@
  "line:crates/vixen-session/src/lib.rs:968e890add5b20b4": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "968e890add5b20b4"
+ },
+ "line:crates/vixen-session/src/lib.rs:b5cf9bb677ab0a30": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "b5cf9bb677ab0a30"
  },
  "line:crates/vixen-session/src/lib.rs:d3d3b6fe675b0574": {
   "file": "crates/vixen-session/src/lib.rs",

@@ -1,0 +1,153 @@
+{
+  "steps": [
+    {
+      "action": "window",
+      "id": "administration"
+    },
+    {
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "action": "menus",
+      "name": "menus-show"
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "open",
+        "Vixen Studio"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "query",
+        "setup display"
+      ]
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "snapshot",
+      "name": "palette-show"
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "check"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "run",
+        "schedules"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "windows"
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "key",
+      "key": "k",
+      "modifiers": [
+        "cmd"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "windows"
+    },
+    {
+      "action": "type",
+      "text": "shows"
+    },
+    {
+      "action": "key",
+      "key": "return"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "windows"
+    },
+    {
+      "action": "window",
+      "id": "sequencer"
+    },
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "open",
+        "Untitled"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "query",
+        "beat"
+      ]
+    },
+    {
+      "action": "focus",
+      "window": "Untitled"
+    },
+    {
+      "action": "snapshot",
+      "name": "palette-sequencer"
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "check"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.palette",
+      "path": [
+        "run",
+        "loop"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "menus",
+      "name": "menus-after-run"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

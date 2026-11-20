@@ -64,7 +64,13 @@ command, edits are live with Undo, and each change is verified with harness runs
    (R, G, B, W) and All On at a Brightness from 10 to 100%, with a banner and Stop Test while one runs; it needs Live
    Output on, so the trees stay browsable while editing is paused. MCP `output_test_pattern` patterns and
    `output_test_stop`.
-7. **Command palette (⌘K)** over every menu command and MCP-backed action, so nothing is unreachable again.
+7. **Command palette (⌘K)** over every menu command and MCP-backed action, so nothing is unreachable again. *Done:* View ▸
+   Command Palette… (⌘K) in every window (`StudioCommandPalette.swift`, `studio_palette.rs`): reads the live menu bar of the
+   front window each time it opens (hidden menus left out), ranks by title words, initials, menu names and keywords, shows
+   each shortcut, why a disabled command is off, and the MCP tool that does the same; Return runs the command in its window.
+   MCP `command_palette` searches the same list. Harness: `scripts/ui/studio-command-palette.json` with
+   `scripts/check_studio_command_palette.py` proves every menu item in the show window and the sequencer is found by its
+   own title.
 
 ## Phase 2: finish the show window
 

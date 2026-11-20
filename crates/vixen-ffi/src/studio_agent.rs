@@ -371,3 +371,23 @@ impl VixenCore {
         vixen_session::studio_controller_network::probe(&address).to_string()
     }
 }
+
+/// The command palette's menu list for one kind of front window ("show" or "sequencer"), as JSON
+/// `[{path:[..], shortcut, enabled, checked}]`: kept for `studio_palette_search` and the MCP `command_palette` tool.
+#[uniffi::export]
+pub fn studio_palette_publish(window: String, entries_json: String) -> Result<u32, FfiError> {
+    let value: serde_json::Value = serde_json::from_str(&entries_json).map_err(|e| FfiError::new(e.to_string()))?;
+    let entries = vixen_session::studio_palette::parse_entries(&value).map_err(FfiError::new)?;
+    let count = entries.len() as u32;
+    vixen_session::studio_palette::publish(&window, entries);
+    Ok(count)
+}
+
+/// Ranked palette matches for `query` among what was last published for `window`, as the MCP tool returns them:
+/// JSON {window,total,disabled,matches:[{index,title,path,shortcut,enabled,checked,reason?,agentTool?}]}.
+#[uniffi::export]
+pub fn studio_palette_search(window: String, query: String, limit: u32) -> Result<String, FfiError> {
+    vixen_session::studio_palette::execute(&serde_json::json!({"window":window,"query":query,"limit":limit.clamp(1, 500)}))
+        .map(|v| v.to_string())
+        .map_err(FfiError::new)
+}

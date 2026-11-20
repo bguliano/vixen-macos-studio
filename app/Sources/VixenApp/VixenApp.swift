@@ -66,7 +66,10 @@ struct VixenMacApp: App {
 
     var body: some Scene {
         #if canImport(VixenAdmin)
+        // STUDIO-BEGIN command-palette: View ▸ Command Palette… (⌘K) over every menu command, in every window
         AdministrationScene(model: model)
+            .commands { StudioCommandPaletteCommands() }
+        // STUDIO-END command-palette
         #endif
         #if canImport(VixenSetup)
         SetupScene(model: model)

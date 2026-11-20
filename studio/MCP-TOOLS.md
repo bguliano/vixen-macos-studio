@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-85 tools, generated from the tested bridge tools/list result. No placeholder tools.
+86 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -88,4 +88,5 @@
 | output_start | false | Start one E1.31/DDP controller only after execution is opened locally and the local Allow agents to control live output setting is enabled. |
 | output_stop | false | Stop one controller. Requires explicit confirmation. Can stop even if agent output permission has been revoked. |
 | output_test_pattern | false | Run a commissioning test without a sequence, the Display pane's Test submenu: pattern movingPixel (one light at a time in wire order, stepMs per light, default 100), colorBars (every light red, green, blue, then white, stepMs per color, default 1500) or allOn, at brightnessPct (default 25), on one element/group (targetId) or everything patched to one running controller (controllerId), for durationMs (default 60000, at most 600000) or until output_test_stop. pattern pulse (the default, needs targetId) renders a Pulse for durationMs 25..5000. One test runs at a time; a new one replaces it. Requires local agent-output permission, Live Output already on (execution open) and explicit confirmation. |
+| command_palette | true | Search the running app's menu commands as the ⌘K command palette does: menu path, shortcut, enabled (and why not) and agentTool, the MCP tool that does the same thing. window: show or sequencer (the front window the menus were read with). Needs the running app; read-only, never runs a command. |
 | output_test_stop | false | Stop the running commissioning test or test Pulse, whoever started it. Always allowed, even after agent output permission has been revoked. Returns stopped:false when nothing was running. |

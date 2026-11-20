@@ -123,6 +123,7 @@ impl Server {
                 tools.push(geometry::tool());
                 tools.push(vixen_session::studio_controller_network::tool());
                 tools.push(vixen_session::studio_patch::ranges_tool());
+                tools.push(vixen_session::studio_palette::tool());
                 json!({"tools":tools})
             }
             "tools/call" => {
@@ -137,6 +138,7 @@ impl Server {
                     && name != "display_geometry"
                     && name != "controller_network"
                     && name != "patch_ranges"
+                    && name != "command_palette"
                     && !vixen_session::studio_display::command_tools()
                         .iter()
                         .any(|t| t["name"] == name)
@@ -234,6 +236,9 @@ impl Server {
             }
             let core = self.core.as_ref().unwrap();
             return core.studio_display.execute(core, name, args, true);
+        }
+        if name == "command_palette" {
+            return vixen_session::studio_palette::execute(args);
         }
         if name == "display_geometry" {
             return self.with_system(|system, revision| geometry::execute(system, revision, args));
