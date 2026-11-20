@@ -7,7 +7,7 @@ use crate::{
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::{
-    path::PathBuf,
+    path::{Component, Path, PathBuf},
     sync::{atomic::AtomicBool, Arc},
 };
 use uuid::Uuid;
@@ -57,7 +57,7 @@ fn output(core: &AppCore, folder: &str, name: &str) -> Result<PathBuf, String> {
         .map_err(|e| e.to_string())?;
     let candidate = root.join(folder);
     if !candidate.exists() {
-        std::fs::create_dir(&candidate).map_err(|e| e.to_string())?;
+        std::fs::create_dir_all(&candidate).map_err(|e| e.to_string())?;
     }
     let directory = candidate.canonicalize().map_err(|e| e.to_string())?;
     if !directory.starts_with(&root) {
@@ -71,6 +71,58 @@ fn output(core: &AppCore, folder: &str, name: &str) -> Result<PathBuf, String> {
         }
     }
     Ok(out)
+}
+/// Scratch sequences live here: under Sequence, so writes stay in the profile, but hidden from the sequence list, which
+/// only reads Sequence itself.
+const SCRATCH_FOLDER: &str = "Sequence/.scratch";
+/// The file sequence_open reads: a profile Sequence filename (Sequence/.scratch with scratch:true), or an absolute path to
+/// an ordinary .tim file anywhere, opened in place. Saving still writes only into the profile.
+fn sequence_source(core: &AppCore, a: &Value) -> Result<PathBuf, String> {
+    let file = a["file"]
+        .as_str()
+        .filter(|s| !s.is_empty() && s.len() <= 1024)
+        .ok_or("file must be a nonempty string (max 1024 bytes)")?;
+    if !file.to_lowercase().ends_with(".tim") {
+        return Err("Sequence must be a .tim file".into());
+    }
+    if !file.starts_with('/') {
+        let name = filename(a, "file")?;
+        return output(core, if a["scratch"] == true { SCRATCH_FOLDER } else { "Sequence" }, &name);
+    }
+    if a["scratch"] == true {
+        return Err("scratch takes a filename, not a path".into());
+    }
+    let path = Path::new(file);
+    if path.components().any(|c| matches!(c, Component::ParentDir | Component::CurDir)) {
+        return Err("Use an absolute path without . or .. components".into());
+    }
+    let meta = std::fs::symlink_metadata(path).map_err(|e| format!("{file}: {e}"))?;
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return Err("The sequence must be an ordinary file, not a symlink or folder".into());
+    }
+    let path = path.canonicalize().map_err(|e| e.to_string())?;
+    if path.components().any(|c| c.as_os_str() == "vixen-show-original") {
+        return Err("Use a show copy, not the original archive".into());
+    }
+    Ok(path)
+}
+/// Frees a document this Studio session opened so its file can be read again. Refuses one an app window holds, and
+/// unsaved changes without confirm:true.
+fn release_for_reload(core: &AppCore, shared: Arc<Mutex<SequenceSession>>, a: &Value) -> Result<(), String> {
+    let session_id = shared.lock().playback_id();
+    let mut owned = core.studio_display.owned_sequences.lock();
+    let held = owned.get(&session_id).is_some_and(|o| Arc::ptr_eq(o, &shared));
+    if Arc::strong_count(&shared) - 1 - usize::from(held) > 0 {
+        return Err("The app has this sequence open in a window; close it there (or revert it in the app) before reloading".into());
+    }
+    if shared.lock().is_modified() && a["confirm"] != true {
+        return Err("Unsaved changes would be lost: sequence_save first, or pass confirm:true to discard them".into());
+    }
+    core.playback.stop_session(session_id);
+    if held {
+        owned.remove(&session_id);
+    }
+    Ok(())
 }
 fn canonical(path: &std::path::Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
@@ -248,12 +300,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         return Ok(analyze(core, a)?.0);
     }
     if name == "sequence_open" || name == "sequence_create" {
+        let mut reloaded = false;
         let mut session = if name == "sequence_open" {
-            let file = filename(a, "file")?;
-            if !file.to_lowercase().ends_with(".tim") {
-                return Err("Sequence must be a .tim file".into());
-            }
-            let path = output(core, "Sequence", &file)?;
+            let path = sequence_source(core, a)?;
             // Compare canonical paths, as the app's own open does, so a file the app opened by another spelling is reused.
             let wanted = canonical(&path);
             if let Some(existing) = core
@@ -261,7 +310,11 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
                 .into_iter()
                 .find(|s| s.lock().path().is_some_and(|p| canonical(p) == wanted))
             {
-                return Ok(document_json(&existing.lock(), true));
+                if a["reload"] != true {
+                    return Ok(document_json(&existing.lock(), true));
+                }
+                release_for_reload(core, existing, a)?;
+                reloaded = true;
             }
             SequenceSession::open(&path, &core.session_environment()).map_err(|e| e.to_string())?
         } else {
@@ -288,7 +341,10 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             s
         };
         let id = session.playback_id();
-        let result = document_json(&session, false);
+        let mut result = document_json(&session, false);
+        if reloaded {
+            result["reloaded"] = json!(true);
+        }
         session.render_all_dirty();
         let shared = Arc::new(Mutex::new(session));
         core.register_sequence_session(&shared);
@@ -555,8 +611,19 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             if !file.to_lowercase().ends_with(".tim") {
                 return Err("Use .tim extension".into());
             }
-            let path = output(core, "Sequence", &file)?;
-            s.save(Some(&path)).map_err(|e| e.to_string())?;
+            let folder = if a["scratch"] == true { SCRATCH_FOLDER } else { "Sequence" };
+            let path = output(core, folder, &file)?;
+            if a["backup"] == false {
+                // The same atomic write, without moving the old file to auto_backup or keeping an old-version copy.
+                let document = s.begin_save();
+                let written = vixen_io::sequence::sequence_to_document(&document)
+                    .and_then(|text| vixen_io::file::write_atomic(&path, text.as_bytes()))
+                    .map_err(|e| e.to_string());
+                s.finish_save(Some(path.clone()), written.is_ok());
+                written?;
+            } else {
+                s.save(Some(&path)).map_err(|e| e.to_string())?;
+            }
             // The document now has a file, so its ID is the file's; the previous ID keeps working while it stays open.
             json!({"path":path,"sequenceId":document_id(&s).to_string()})
         }
@@ -1082,7 +1149,7 @@ pub fn tools() -> Vec<Value> {
         ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
-        ("sequence_open","Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":string}),vec!["file"],false),
+        ("sequence_open","Open a profile Sequence filename, a Sequence/.scratch filename with scratch:true, or an absolute path to a .tim file anywhere (opened in place; sequence_save still writes only into the profile). sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack; reload:true instead discards that copy and reads the file again (same sequenceId; unsaved changes need confirm:true; refused while an app window has it open). sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":{"type":"string","minLength":1,"maxLength":1024},"scratch":boolean,"reload":boolean,"confirm":boolean}),vec!["file"],false),
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
@@ -1101,7 +1168,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_undo","Undo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_redo","Redo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_render","Render dirty effects and wait for the real sequence schedule; no playback/output.",json!({"sequenceId":string}),vec!["sequenceId"],false),
-        ("sequence_save","Save/overwrite a .tim filename under profile Sequence. Requires confirmation.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
+        ("sequence_save","Save/overwrite a .tim filename under profile Sequence. scratch:true saves under Sequence/.scratch instead, hidden from the app's sequence list, for throwaway builds and previews (sequence_open with scratch:true reads it back). backup:false overwrites without copying the old file into auto_backup. Requires confirmation.",json!({"sequenceId":string,"file":string,"scratch":boolean,"backup":boolean,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
         ("sequence_export_fseq","Render and export uncompressed FSEQ v2 at 50 ms under profile Export. Requires confirmation; no network transfer.",json!({"sequenceId":string,"file":string,"confirm":boolean}),vec!["sequenceId","file","confirm"],false),
     ];
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
@@ -1344,6 +1411,69 @@ mod tests {
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_file(outside);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn scratch_saves_skip_backups_and_open_reads_paths_and_reloads() {
+        let root = std::env::temp_dir().join(format!("studio-scratch-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let sequence_dir = core.paths.sequence_dir();
+        let scratch_dir = sequence_dir.join(".scratch");
+        let id = run("sequence_create", json!({"lengthMs":1000}))["sequenceId"].clone();
+
+        // Scratch saves land in Sequence/.scratch, never beside the user's sequences, and backup:false keeps no copies.
+        let saved = run("sequence_save", json!({"sequenceId":id,"file":"_preview.tim","scratch":true,"backup":false,"confirm":true}));
+        assert_eq!(PathBuf::from(saved["path"].as_str().unwrap()), scratch_dir.canonicalize().unwrap().join("_preview.tim"));
+        assert!(!sequence_dir.join("_preview.tim").exists());
+        let scratch_id = saved["sequenceId"].clone();
+        run("sequence_length", json!({"sequenceId":scratch_id,"lengthMs":2000}));
+        run("sequence_save", json!({"sequenceId":scratch_id,"file":"_preview.tim","scratch":true,"backup":false,"confirm":true}));
+        assert!(!scratch_dir.join("auto_backup").exists(), "backup:false copies nothing into auto_backup");
+        assert!(std::fs::read_dir(sequence_dir.join("auto_backup")).map_or(true, |mut d| d.next().is_none()));
+        assert_eq!(run("sequence_status", json!({"sequenceId":scratch_id}))["modified"], false);
+        // The default still keeps Vixen's backup, inside the hidden folder.
+        run("sequence_length", json!({"sequenceId":scratch_id,"lengthMs":3000}));
+        run("sequence_save", json!({"sequenceId":scratch_id,"file":"_preview.tim","scratch":true,"confirm":true}));
+        assert_eq!(std::fs::read_dir(scratch_dir.join("auto_backup")).unwrap().count(), 1);
+        assert!(fail("sequence_save", json!({"sequenceId":id,"file":"../x.tim","scratch":true,"confirm":true})).contains("filename"));
+
+        // Reopening by scratch name attaches; reload reads the file again under the same ID, and guards unsaved edits.
+        let opened = run("sequence_open", json!({"file":"_preview.tim","scratch":true}));
+        assert_eq!((opened["sequenceId"].clone(), opened["alreadyOpen"].clone()), (scratch_id.clone(), json!(true)));
+        run("sequence_length", json!({"sequenceId":scratch_id,"lengthMs":9000}));
+        assert!(fail("sequence_open", json!({"file":"_preview.tim","scratch":true,"reload":true})).contains("Unsaved"));
+        let reloaded = run("sequence_open", json!({"file":"_preview.tim","scratch":true,"reload":true,"confirm":true}));
+        assert_eq!((reloaded["sequenceId"].clone(), reloaded["alreadyOpen"].clone(), reloaded["reloaded"].clone()), (scratch_id.clone(), json!(false), json!(true)));
+        assert_eq!(run("sequence_status", json!({"sequenceId":scratch_id}))["lengthMs"], 3000.0);
+        // A window's hold keeps the document; reload refuses rather than swapping it under the app.
+        let window = find(&core, Uuid::parse_str(scratch_id.as_str().unwrap()).unwrap()).unwrap();
+        assert!(fail("sequence_open", json!({"file":"_preview.tim","scratch":true,"reload":true})).contains("window"));
+        drop(window);
+
+        // An absolute path outside the profile opens in place; links, relative paths and the original archive are refused.
+        let outside = root.with_extension("builds");
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::copy(scratch_dir.join("_preview.tim"), outside.join("Build.tim")).unwrap();
+        let build = outside.join("Build.tim").canonicalize().unwrap();
+        let external = run("sequence_open", json!({"file":build.to_string_lossy()}));
+        assert_eq!(PathBuf::from(external["path"].as_str().unwrap()), build);
+        assert_eq!(external["alreadyOpen"], false);
+        std::os::unix::fs::symlink(&build, outside.join("Link.tim")).unwrap();
+        assert!(fail("sequence_open", json!({"file":outside.join("Link.tim").to_string_lossy()})).contains("symlink"));
+        assert!(fail("sequence_open", json!({"file":format!("{}/../Build.tim", outside.display())})).contains(".."));
+        assert!(fail("sequence_open", json!({"file":build.to_string_lossy(),"scratch":true})).contains("filename"));
+        let original = outside.join("vixen-show-original");
+        std::fs::create_dir_all(&original).unwrap();
+        std::fs::copy(&build, original.join("Show.tim")).unwrap();
+        assert!(fail("sequence_open", json!({"file":original.join("Show.tim").to_string_lossy()})).contains("original"));
+        assert!(!sequence_dir.join("Build.tim").exists(), "opening by path copies nothing into the profile");
+
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(outside);
         let _ = std::fs::remove_dir_all(root);
     }
 
