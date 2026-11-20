@@ -67,11 +67,37 @@ fn output(core: &AppCore, folder: &str, name: &str) -> Result<PathBuf, String> {
     }
     Ok(out)
 }
+fn canonical(path: &std::path::Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+/// The agent-facing ID of a document: derived from its canonical file path once it has one, so every connection to this
+/// core, and a reopen after the app closed and reopened the file, get the same ID. An unsaved document uses its session ID.
+pub fn document_id(s: &SequenceSession) -> Uuid {
+    let Some(path) = s.path() else {
+        return s.playback_id();
+    };
+    // FNV-1a over the canonical path: stable across processes and builds, unlike std's hasher.
+    let mut hash: u128 = 0x6c62272e07bb014262b821756295c58d;
+    for byte in b"vixen-studio-sequence:"
+        .iter()
+        .chain(canonical(path).to_string_lossy().as_bytes())
+    {
+        hash = (hash ^ u128::from(*byte)).wrapping_mul(0x0000000001000000000000000000013b);
+    }
+    uuid::Builder::from_custom_bytes(hash.to_be_bytes()).into_uuid()
+}
+/// Accepts the document ID or the session ID. Several sessions on one file resolve to the oldest, the one the app reuses.
 pub fn find(core: &AppCore, id: Uuid) -> Result<Arc<Mutex<SequenceSession>>, String> {
     core.open_sequence_sessions()
         .into_iter()
-        .find(|s| s.lock().playback_id() == id)
-        .ok_or("Sequence is not open".into())
+        .find(|s| {
+            let s = s.lock();
+            s.playback_id() == id || document_id(&s) == id
+        })
+        .ok_or("Sequence is not open in this Studio session; sequence_open its file again (an unsaved document closed in the app, or made by another headless connection, is gone)".into())
+}
+fn document_json(s: &SequenceSession, already_open: bool) -> Value {
+    json!({"sequenceId":document_id(s).to_string(),"sessionId":s.playback_id().to_string(),"alreadyOpen":already_open,"name":s.name(),"file":s.path().and_then(|p|p.file_name()).map(|n|n.to_string_lossy().into_owned()),"path":s.path(),"modified":s.is_modified()})
 }
 fn record(s: &mut SequenceSession, label: &str, action: UndoAction, agent: bool) {
     s.record_undo(UndoAction::Group {
@@ -218,14 +244,14 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
                 return Err("Sequence must be a .tim file".into());
             }
             let path = output(core, "Sequence", &file)?;
+            // Compare canonical paths, as the app's own open does, so a file the app opened by another spelling is reused.
+            let wanted = canonical(&path);
             if let Some(existing) = core
                 .open_sequence_sessions()
                 .into_iter()
-                .find(|s| s.lock().path() == Some(path.as_path()))
+                .find(|s| s.lock().path().is_some_and(|p| canonical(p) == wanted))
             {
-                return Ok(
-                    json!({"sequenceId":existing.lock().playback_id().to_string(),"alreadyOpen":true}),
-                );
+                return Ok(document_json(&existing.lock(), true));
             }
             SequenceSession::open(&path, &core.session_environment()).map_err(|e| e.to_string())?
         } else {
@@ -252,6 +278,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             s
         };
         let id = session.playback_id();
+        let result = document_json(&session, false);
         session.render_all_dirty();
         let shared = Arc::new(Mutex::new(session));
         core.register_sequence_session(&shared);
@@ -260,9 +287,10 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             .lock()
             .insert(id, shared);
 
-        return Ok(json!({"sequenceId":id.to_string()}));
+        return Ok(result);
     }
     let shared = find(core, uuid(a, "sequenceId")?)?;
+    let session_id = shared.lock().playback_id();
     if agent
         && tool["annotations"]["readOnlyHint"] == false
         && !matches!(
@@ -270,8 +298,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             "sequence_pause" | "sequence_stop" | "sequence_play" | "sequence_seek"
         )
         && core.playback.hardware_allowed()
-        && core.playback.session_transport(uuid(a, "sequenceId")?)
-            != crate::playback::Transport::Stopped
+        && core.playback.session_transport(session_id) != crate::playback::Transport::Stopped
     {
         return Err(
             "Stop this sequence locally before agent edits that may alter live output".into(),
@@ -301,7 +328,15 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     let result = match name {
         "sequence_status" => {
             s.apply_finished_renders();
-            json!({"sequenceId":s.playback_id().to_string(),"name":s.name(),"lengthMs":s.length().total_ms(),"modified":s.is_modified(),"effects":s.effect_count(),"rendered":s.effects().filter(|e|e.is_rendered()).count(),"undo":s.undo_stack().undo_descriptions(),"redo":s.undo_stack().redo_descriptions()})
+            let mut status = document_json(&s, true);
+            let fields = status.as_object_mut().unwrap();
+            fields.remove("alreadyOpen");
+            fields.insert("lengthMs".into(), json!(s.length().total_ms()));
+            fields.insert("effects".into(), json!(s.effect_count()));
+            fields.insert("rendered".into(), json!(s.effects().filter(|e| e.is_rendered()).count()));
+            fields.insert("undo".into(), json!(s.undo_stack().undo_descriptions()));
+            fields.insert("redo".into(), json!(s.undo_stack().redo_descriptions()));
+            status
         }
         "sequence_effects" => {
             json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>()})).collect::<Vec<_>>(),"total":s.effect_count()})
@@ -525,7 +560,8 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             }
             let path = output(core, "Sequence", &file)?;
             s.save(Some(&path)).map_err(|e| e.to_string())?;
-            json!({"path":path})
+            // The document now has a file, so its ID is the file's; the previous ID keeps working while it stays open.
+            json!({"path":path,"sequenceId":document_id(&s).to_string()})
         }
         "sequence_export_fseq" => {
             confirm(a)?;
@@ -594,9 +630,9 @@ pub fn tools() -> Vec<Value> {
         ("effect_set_parameter","Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"parameter":string,"value":{}}),vec!["sequenceId","effectId","parameter","value"],false),
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
-        ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound.",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
-        ("sequence_open","Open a profile Sequence filename, reusing an already open shared session.",json!({"file":string}),vec!["file"],false),
-        ("sequence_status","Shared document dirty/render/undo status.",json!({"sequenceId":string}),vec!["sequenceId"],true),
+        ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
+        ("sequence_open","Open a profile Sequence filename. sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack. sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":string}),vec!["file"],false),
+        ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect to a target UUID.",json!({"sequenceId":string,"typeId":string,"targetId":string,"startMs":number,"durationMs":number}),vec!["sequenceId","typeId","targetId","startMs","durationMs"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),

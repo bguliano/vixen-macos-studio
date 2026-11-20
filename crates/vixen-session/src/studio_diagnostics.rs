@@ -38,12 +38,12 @@ pub fn report(setup: &SetupSession, core: Option<&AppCore>) -> Value {
             let session = shared.lock();
             for item in &session.document().media {
                 if !core.paths.media_dir().join(&item.file_name).is_file() {
-                    media.push(json!({"sequenceId":session.playback_id().to_string(),"media":item.file_name}));
+                    media.push(json!({"sequenceId":crate::studio_sequence::document_id(&session).to_string(),"media":item.file_name}));
                 }
             }
             for effect in session.effects() {
                 if effect.targets.is_empty() {
-                    missing_targets.push(json!({"sequenceId":session.playback_id().to_string(),"effectId":effect.id.0}));
+                    missing_targets.push(json!({"sequenceId":crate::studio_sequence::document_id(&session).to_string(),"effectId":effect.id.0}));
                 }
                 if let Some(validate) = effect.descriptor.and_then(|d| d.validate) {
                     let valid = session.tree().valid_colors_for(&effect.targets);
@@ -51,7 +51,7 @@ pub fn report(setup: &SetupSession, core: Option<&AppCore>) -> Value {
                         let mut corrected = effect.node.params.clone();
                         validate(&mut corrected, &valid);
                         if corrected.values != effect.node.params.values {
-                            colors.push(json!({"sequenceId":session.playback_id().to_string(),"effectId":effect.id.0,"message":"Effect's native validator suggests a color correction for these targets"}));
+                            colors.push(json!({"sequenceId":crate::studio_sequence::document_id(&session).to_string(),"effectId":effect.id.0,"message":"Effect's native validator suggests a color correction for these targets"}));
                         }
                     }
                 }

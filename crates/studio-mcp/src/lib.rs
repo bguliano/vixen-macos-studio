@@ -32,6 +32,8 @@ pub struct Server {
     initialized: bool,
     client_id: Option<String>,
     core: Option<Arc<AppCore>>,
+    /// Serving the running app's core. A headless bridge opens its own muted core on demand, which the app never sees.
+    shared: bool,
 }
 impl Server {
     pub fn open(root: &Path) -> Result<Self, String> {
@@ -45,6 +47,7 @@ impl Server {
             initialized: false,
             client_id: None,
             core: None,
+            shared: false,
         })
     }
     pub fn from_core(core: Arc<AppCore>) -> Self {
@@ -62,6 +65,7 @@ impl Server {
             initialized: false,
             client_id: Some(client),
             core: Some(core),
+            shared: true,
         }
     }
     pub fn dispatch(&mut self, request: Value) -> Option<Value> {
@@ -181,12 +185,19 @@ impl Server {
                     AppCore::open(self.root.clone(), true).map_err(|e| e.to_string())?,
                 ));
             }
-            return vixen_session::studio_sequence::execute(
+            let mut result = vixen_session::studio_sequence::execute(
                 self.core.as_ref().unwrap(),
                 name,
                 args,
                 true,
-            );
+            )?;
+            if matches!(
+                name,
+                "sequence_open" | "sequence_create" | "sequence_status"
+            ) {
+                result["sharedWithApp"] = json!(self.shared);
+            }
+            return Ok(result);
         }
 
         if vixen_session::studio_display::command_tools()
@@ -225,7 +236,7 @@ impl Server {
         }
         let s = &self.setup;
         let items:Vec<Value> = match name {
-            "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.core.is_some(){"liveSession"}else{"headlessSnapshot"},"liveOutputAllowed":self.core.as_ref().is_some_and(|c|vixen_session::studio_live::allowed(c)),"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
+            "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.shared {"liveSession"} else {"headlessSnapshot"},"sharedWithApp":self.shared,"liveOutputAllowed":self.core.as_ref().is_some_and(|c|vixen_session::studio_live::allowed(c)),"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
             "display_elements" => s.tree.live_nodes().map(|(_,n)|json!({"id":n.id.to_string(),"name":n.name,"elementId":n.element_id.map(|i|i.to_string()),"children":n.children.iter().map(|id|s.tree.node(*id).id.to_string()).collect::<Vec<_>>()})).collect(),
             "show_list" => vixen_session::shows::load_shows(&s.system.module_store).iter().map(|show|json!({"id":show.id.to_string(),"name":show.name_text(),"items":show.items.iter().map(|item|json!({"name":item.name_text(),"type":item.item_type.text(),"action":item.action.text(),"sequence":item.sequence_file()})).collect::<Vec<_>>()})).collect(),
             "schedule_list" => {let data=vixen_session::scheduler::load_scheduler(&s.system.module_store);return Ok(json!({"enabled":data.is_enabled,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"items":data.items.iter().enumerate().map(|(index,item)|json!({"index":index,"showId":item.show_id.to_string(),"enabled":item.enabled,"schedule":item.schedule_string(),"days":item.days})).collect::<Vec<_>>()}));},
