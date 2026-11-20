@@ -8,7 +8,7 @@ vixen-video = { path = "../vixen-video" }
 vixen-core = { path = "../vixen-core" }
 vixen-effects = { path = "../vixen-effects" }
 uuid.workspace = true
-resvg = { version = "0.45", default-features = false }
+resvg = { version = "0.50", default-features = false }
 roxmltree.workspace = true
 tiny-skia.workspace = true
 svgtypes = "0.15"
