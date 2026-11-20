@@ -130,6 +130,13 @@ command, edits are live with Undo, and each change is verified with harness runs
 ## Phase 3: sequencer clarity
 
 1. Title shows the song and an unsaved dot; the toolbar gains Save and a render-progress ring.
+   *Done:* the sequencer window's title is the sequence and its subtitle the song (Windows paths stripped; "(audio
+   missing)" when Media lacks it; "No audio"), with the close button's edited dot until saved
+   (`StudioWindowChromeSync.swift`, `studio_window_chrome.rs`), refreshed on every poll so renders and agent edits
+   show without a UI change. Save is in the default toolbar, and the clock carries a render ring (rendered of all
+   effects, as the Sequences badge counts) that becomes a checkmark when every effect is rendered, its tooltip the
+   counts. MCP `sequence_status` reports the same title, subtitle, song, songMissing, rendering and renderingPercent.
+   Harness: `scripts/ui/studio-window-chrome.json` (hook `sequencer.chrome`).
 2. Inspector, when nothing is selected, shows the sequence: length, audio, marks collections, layers, render state.
 3. Marks draw as coloured ticks in the ruler and waveform, with full-height lines only for the selected collection.
 4. Compact / regular row height (View menu), remembered per sequence.

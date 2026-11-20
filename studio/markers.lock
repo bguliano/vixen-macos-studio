@@ -251,6 +251,10 @@
   "file": "crates/vixen-ffi/src/timeline.rs",
   "hash": "dba49d7e9d865f11"
  },
+ "block:window-chrome": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "73ba48fdd6b8a706"
+ },
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
@@ -483,6 +487,14 @@
   "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
   "hash": "bc1bd3dc11a0b764"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:6b9eda5eb466fb37": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "6b9eda5eb466fb37"
+ },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:f769a3213b44196f": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "f769a3213b44196f"
+ },
  "line:app/Sources/VixenSequencer/SequencerScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",
   "hash": "288860d93ff8cd0d"
@@ -670,6 +682,10 @@
  "line:crates/vixen-ffi/src/lib.rs:640b020f8a51ccab": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "640b020f8a51ccab"
+ },
+ "line:crates/vixen-ffi/src/lib.rs:93ed0d08cbaecfb0": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "93ed0d08cbaecfb0"
  },
  "line:crates/vixen-ffi/src/lib.rs:bb7099cad7b0e281": {
   "file": "crates/vixen-ffi/src/lib.rs",

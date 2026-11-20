@@ -14,6 +14,7 @@ mod wire_diagram;
 pub mod kit;
 mod fixture_editor;
 pub mod sequence;
+pub mod studio_window_chrome; // STUDIO: the sequencer window's title, song, unsaved and render state
 
 #[cfg(feature = "admin")]
 pub mod admin;

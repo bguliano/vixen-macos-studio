@@ -24,6 +24,7 @@ final class SequencerModel: OpenEditor {
     #endif
     /// Everything menus, strips and the status bar read. `nil` until the sequence has loaded.
     private(set) var ui: ShellUiState?
+    var studioChrome: StudioWindowChrome? // STUDIO: window-chrome title, song, unsaved dot and render ring (StudioWindowChromeSync.swift)
     private(set) var toolbars: ShellToolbars?
     private(set) var panels: ShellPanels?
     /// Updated at display rate only while playing, on its own, so only the label redraws.
@@ -460,6 +461,7 @@ final class SequencerModel: OpenEditor {
                 if result.changed {
                     self.refresh()
                 }
+                self.refreshStudioChrome() // STUDIO: renders and agent edits finish between UI changes
                 if result.transportActive {
                     self.startFrameTaskIfNeeded()
                 }
@@ -544,7 +546,7 @@ final class SequencerModel: OpenEditor {
         syncFloatingPanels()
     }
 
-    /// F4: the name in the title, the edited dot for ` *`, and the profile as the subtitle.
+    /// F4: the name in the title, the edited dot for ` *`, and the song as the subtitle (Studio).
     private func updateWindowChrome() {
         guard let window else { return }
         let title = ui?.sequenceName ?? {
@@ -554,9 +556,12 @@ final class SequencerModel: OpenEditor {
         if window.title != title {
             window.title = title
         }
-        if let profile = ui?.profileName, window.subtitle != profile {
-            window.subtitle = profile
+        // STUDIO-BEGIN window-chrome: the song as the subtitle (not the profile folder), from Rust's window chrome
+        refreshStudioChrome()
+        if let subtitle = studioChrome?.subtitle, window.subtitle != subtitle {
+            window.subtitle = subtitle
         }
+        // STUDIO-END window-chrome
         let edited = ui?.modified ?? false
         if window.isDocumentEdited != edited {
             window.isDocumentEdited = edited

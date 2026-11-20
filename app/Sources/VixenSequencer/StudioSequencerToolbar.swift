@@ -56,17 +56,18 @@ struct StudioSequencerToolbar: CustomizableToolbarContent {
         ToolbarItem(id: "audio", placement: .primaryAction) {
             StudioAudioMenu(model: model)
         }
+        ToolbarItem(id: "save", placement: .primaryAction) {
+            let unsaved = model.studioChrome?.unsaved ?? model.ui?.modified ?? false
+            Button { Task { await model.save(forcePanel: false) } } label: {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .help(unsaved ? "Save your changes to the sequence (⌘S)" : "Save the sequence (⌘S). Everything is saved.")
+        }
         ToolbarItem(id: "editor-panel", placement: .primaryAction) {
             panelToggle("Inspector", systemImage: "sidebar.trailing", panel: .effectEditor,
                         help: "Show or hide the effect editor and libraries")
         }
 
-        ToolbarItem(id: "save", placement: .primaryAction, showsByDefault: false) {
-            Button { Task { await model.save(forcePanel: false) } } label: {
-                Label("Save", systemImage: "square.and.arrow.down")
-            }
-            .help("Save the sequence (⌘S)")
-        }
         ToolbarItem(id: "export", placement: .primaryAction, showsByDefault: false) {
             Button { model.export() } label: { Label("Export", systemImage: "square.and.arrow.up") }
                 .disabled(!model.canExport)
@@ -198,7 +199,7 @@ private struct StudioTransport: View {
     }
 }
 
-/// Position and length, plus rendering progress, so it's always clear whether playback will show finished effects.
+/// Position and length, plus the render ring, so it's always clear whether playback will show finished effects.
 private struct StudioClock: View {
     let model: SequencerModel
 
@@ -211,17 +212,36 @@ private struct StudioClock: View {
             Text("/ \(ui?.lengthText ?? "0:00.000")")
                 .font(.system(.callout, design: .monospaced))
                 .foregroundStyle(.secondary)
-            if let ui, ui.renderingVisible {
-                ProgressView(value: Double(max(0, min(100, ui.renderingPercent))), total: 100)
-                    .progressViewStyle(.circular)
-                    .controlSize(.small)
-                    .help("Rendering effects: \(ui.renderingPercent)%")
-            }
+            StudioRenderRing(model: model)
         }
         .monospacedDigit()
         .padding(.horizontal, StudioMetrics.spacingM)
         .padding(.vertical, 3)
         .fixedSize()
+    }
+}
+
+/// Rendering progress: a filling ring while effects render, a checkmark once every effect is rendered. Counts rendered effects, as the Sequences list's badge and
+/// `sequence_status` do.
+private struct StudioRenderRing: View {
+    let model: SequencerModel
+
+    var body: some View {
+        let chrome = model.studioChrome
+        Group {
+            if let chrome, chrome.rendering {
+                ProgressView(value: Double(min(100, chrome.renderingPercent)), total: 100)
+                    .progressViewStyle(.circular)
+                    .controlSize(.small)
+                    .accessibilityLabel("Rendering \(chrome.renderingPercent)%")
+            } else {
+                Image(systemName: "checkmark.circle")
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel(chrome == nil ? "Loading" : "Rendered")
+            }
+        }
+        .frame(width: 16, height: 16)
+        .help(chrome?.renderHelp ?? "Loading the sequence")
     }
 }
 
