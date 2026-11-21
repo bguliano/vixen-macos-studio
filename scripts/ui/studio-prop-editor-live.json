@@ -1,0 +1,531 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "custom-prop-editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "label-window",
+    "Prop Live Test"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Prop Live Test"
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "draw",
+    "40",
+    "40"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "draw",
+    "120",
+    "40"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "rows"
+   ]
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Prop",
+    "Preferences\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "01-preferences"
+  },
+  {
+   "action": "dump",
+   "name": "01-preferences"
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "size",
+    "7"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "responder-undo"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "responder-redo"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "defaults"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "studio.propPreferences",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "click",
+   "label": "Done"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "preferences"
+   ]
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Prop",
+    "Scale Background Image\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "02-scale"
+  },
+  {
+   "action": "dump",
+   "name": "02-scale"
+  },
+  {
+   "action": "click",
+   "label": "OK"
+  },
+  {
+   "action": "click",
+   "label": "Scale",
+   "index": 2
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "select",
+    "New Prop {1} Group - 1"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "rename"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "dump",
+   "name": "03-rename-prompt"
+  },
+  {
+   "action": "click",
+   "label": "Cancel"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "select",
+    "New Prop {1}"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "context",
+    "Create Empty Group"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "dump",
+   "name": "04-group-prompt"
+  },
+  {
+   "action": "click",
+   "label": "Cancel"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "select",
+    "New Prop {1} Group - 1",
+    "New Prop {1} Group - 2"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "rename"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "05-rename-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "05-rename-sheet"
+  },
+  {
+   "action": "click",
+   "label": "OK"
+  },
+  {
+   "action": "click",
+   "label": "Rename",
+   "index": 0
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "rows"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "rename",
+    "replace"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "06-replace-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "06-replace-sheet"
+  },
+  {
+   "action": "click",
+   "label": "OK"
+  },
+  {
+   "action": "click",
+   "label": "Cancel"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Prop",
+    "Export Wire Diagram",
+    "Front Wire Diagram"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "07-wire-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "07-wire-sheet"
+  },
+  {
+   "action": "click",
+   "label": "OK"
+  },
+  {
+   "action": "click",
+   "label": "Export",
+   "index": 1
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "props",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "sequences"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioDropFiles",
+   "text": "Sequence/Christmas Can-Can.tim"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "sequencer.resize",
+   "path": [
+    "1400",
+    "900"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 12
+  },
+  {
+   "action": "hook",
+   "name": "sequencer.dropEffect",
+   "path": [
+    "Morph",
+    "0"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "sequencer.state",
+   "path": []
+  },
+  {
+   "action": "snapshot",
+   "name": "08-morph"
+  },
+  {
+   "action": "mouse",
+   "x": 1209,
+   "y": 336
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "source"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "label",
+    "Live Shape"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "source"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "save",
+    "@OUT@/live-open.tim"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "09-polygon"
+  },
+  {
+   "action": "dump",
+   "name": "09-polygon"
+  },
+  {
+   "action": "click",
+   "label": "Done"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "polygon",
+   "path": [
+    "source"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "sequencer.state",
+   "path": []
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

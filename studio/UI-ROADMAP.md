@@ -235,9 +235,20 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   says Draw Bulbs, Create a Template says Save Template, and the prop-naming prompt says Continue (`studio_design_undo.rs`
   in vixen-preview, `studio_preview_designer.rs` in vixen-ffi). MCP: `preview_location_offset` (one step on the shared
   history); linking and properties already had `preview_prop_link` and `preview_prop_set`. Harness:
-  `scripts/check_studio_designer_live.py` with `scripts/ui/studio-designer-live.json`. *Remaining:* Tools (the prop
-  editor's OK/Cancel sheets and name prompts) and Dialogs (the property, filter and controller setup sheets), each its own
-  backlog item.
+  `scripts/check_studio_designer_live.py` with `scripts/ui/studio-designer-live.json`. *Remaining:* Dialogs (the property,
+  filter and controller setup sheets), its own backlog item.
+
+- **Tools (B8).** *Done:* the Custom Prop Editor has no OK/Cancel commit flows. Preferences applies and saves each change
+  at once, each one step on the sheet's Edit ▸ Undo ("Change Preferences"; a color drag is one step, Defaults is one),
+  and closes with Done; the light size is a stepper, so Undo isn't taken by a text field (`StudioPropPreferences.swift`).
+  The Polygon Editor (an effect's Edit Polygons) writes each change to the edited effects as it's made, so a preview
+  shows it, and closes with Done; everything done in the window is one "Polygons" step on the sequence's Undo, or none
+  when the shapes end where they started (`tools/polygon/studio_live.rs` in vixen-session and vixen-ffi). Confirmations
+  say what they do: Scale Background Image says Scale (one step on the prop's Undo, as before), Select xModel says
+  Import, the rename sheets say Rename, Export Wire Diagram says Export, and every name prompt carries its own verb
+  (Create, Rename, Paste, Add, Copy), never OK. The Vendor Browser, which changes nothing until a model is chosen, closes
+  with Done. No MCP tool: the prop editor edits a `.prp` file outside the show, and polygon edits already go through the
+  effect parameter tools. Harness: `scripts/check_studio_prop_editor_live.py` with `scripts/ui/studio-prop-editor-live.json`.
 
 ## Phase 5: polish and guards
 

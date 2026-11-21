@@ -24,11 +24,11 @@ final class PolygonCanvasView: NSView {
         postPolygonDrag(view: self, from: start, to: end, shift: shift)
     }
     override func updateTrackingAreas() { super.updateTrackingAreas(); for area in trackingAreas { removeTrackingArea(area) }; addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect], owner: self, userInfo: nil)) }
-    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); let p = location(event); model.act { $0.pointerDown(x: p.x, y: p.y) } }
-    override func mouseDragged(with event: NSEvent) { let p = location(event); model.act { $0.pointerMove(x: p.x, y: p.y, dragging: true, shift: event.modifierFlags.contains(.shift)) } }
+    override func mouseDown(with event: NSEvent) { window?.makeFirstResponder(self); let p = location(event); model.track { $0.pointerDown(x: p.x, y: p.y) } } // STUDIO: the live editor writes at mouse up
+    override func mouseDragged(with event: NSEvent) { let p = location(event); model.track { $0.pointerMove(x: p.x, y: p.y, dragging: true, shift: event.modifierFlags.contains(.shift)) } } // STUDIO: a drag is a ghost until mouse up
     override func mouseUp(with event: NSEvent) { let p = location(event); model.act { $0.pointerUp(x: p.x, y: p.y, shift: event.modifierFlags.contains(.shift)) } }
-    override func mouseMoved(with event: NSEvent) { let p = location(event); model.act { $0.pointerMove(x: p.x, y: p.y, dragging: false, shift: false) }; switch model.editor.cursor(x: p.x, y: p.y) { case "cross": NSCursor.crosshair.set(); case "move": NSCursor.openHand.set(); case "add": NSCursor.dragCopy.set(); default: NSCursor.arrow.set() } }
-    override func mouseExited(with event: NSEvent) { model.act { $0.pointerLeave() }; NSCursor.arrow.set() }
+    override func mouseMoved(with event: NSEvent) { let p = location(event); model.track { $0.pointerMove(x: p.x, y: p.y, dragging: false, shift: false) }; switch model.editor.cursor(x: p.x, y: p.y) { case "cross": NSCursor.crosshair.set(); case "move": NSCursor.openHand.set(); case "add": NSCursor.dragCopy.set(); default: NSCursor.arrow.set() } } // STUDIO: hovering writes nothing
+    override func mouseExited(with event: NSEvent) { model.track { $0.pointerLeave() }; NSCursor.arrow.set() } // STUDIO: hovering writes nothing
     override func keyDown(with event: NSEvent) { if event.keyCode == 51 || event.keyCode == 117 { model.act { $0.delete() } } else { super.keyDown(with: event) } }
     @objc func copy(_ sender: Any?) { model.copy() }
     @objc func cut(_ sender: Any?) { model.copy(cut: true) }

@@ -14,9 +14,12 @@ import VixenEffectEditor
     var close: ((Bool) -> Void)?
     init(_ editor: PolygonEditor) { self.editor = editor; state = editor.state() }
     func refresh() { state = editor.state() }
-    func act(_ action: (PolygonEditor) -> Void) { action(editor); refresh() }
+    // STUDIO-BEGIN polygon-live: each change is written to the edited effects at once (pointer moves wait for mouse up)
+    func act(_ action: (PolygonEditor) -> Void) { action(editor); _ = editor.studioApplyLive(); refresh() }
+    func track(_ action: (PolygonEditor) -> Void) { action(editor); refresh() }
+    // STUDIO-END polygon-live
     func editPoint(_ row: Int, axis: String, value: String) {
-        do { try editor.setPoint(row: UInt32(row), axis: axis, value: value); error = nil; refresh() }
+        do { try editor.setPoint(row: UInt32(row), axis: axis, value: value); error = nil; _ = editor.studioApplyLive(); refresh() } // STUDIO: live
         catch { self.error = error.userMessage }
     }
     static let pasteboardType = NSPasteboard.PasteboardType("com.vixenlights.polygon-shape")
@@ -97,7 +100,7 @@ enum PolygonPresenter {
         var completed = false
         model.close = { ok in
             guard !completed else { return }; completed = true
-            let label = ok ? editor.commit() : nil
+            let label = editor.studioFinishLive() // STUDIO: the changes are already on the effects; closing records them as one undo step
             if let parent = controller.window?.sheetParent, let sheet = controller.window { parent.endSheet(sheet) }
             controller.window?.orderOut(nil); model.close = nil; windows[id] = nil; finished(label)
         }
@@ -144,7 +147,14 @@ private struct PolygonSheet: View {
                 }.padding(.horizontal, 12).padding(.bottom, 6)
             }
             Divider()
-            HStack { Spacer(); Button("Cancel") { model.close?(false) }.keyboardShortcut(.cancelAction); Button("OK") { model.close?(true) }.keyboardShortcut(.defaultAction) }.padding(12)
+            // STUDIO-BEGIN polygon-live-done: changes are live, so the window closes with Done; Edit > Undo in the sequence takes the whole window back
+            HStack {
+                Text("Changes apply as you make them. Undo in the sequence takes them all back.").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Button("Done") { model.close?(true) }.keyboardShortcut(.defaultAction)
+            }.padding(12)
+            .onExitCommand { model.close?(true) }
+            // STUDIO-END polygon-live-done
         }.studioAppearance() // STUDIO: follow the chosen appearance
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
     }

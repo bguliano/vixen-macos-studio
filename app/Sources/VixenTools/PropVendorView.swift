@@ -61,7 +61,7 @@ struct PropVendorSheet: View {
                 }.padding(12).frame(minWidth: 420, maxWidth: .infinity)
             }
             Divider()
-            HStack { Spacer(); Button("Cancel") { model.close() }.keyboardShortcut(.cancelAction) }.padding(10)
+            HStack { Spacer(); Button("Done") { model.close() }.keyboardShortcut(.cancelAction) }.padding(10) // STUDIO: the browser changes nothing until Select, so it closes with Done
         }.frame(minWidth: 740, idealWidth: 820, minHeight: 580, idealHeight: 640)
     }
     private func info(_ label: String, _ value: String) -> some View { GridRow { Text(label); Text(value).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) } }

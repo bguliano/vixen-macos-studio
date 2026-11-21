@@ -232,7 +232,7 @@ struct PropScaleSheet: View {
                 if !state.errors.isEmpty { Text(state.errors.joined(separator: "\n")).font(.caption).foregroundStyle(.red) }
             }
             if !error.isEmpty { Text(error).foregroundStyle(.red) }
-            HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction); Button("OK") { apply() }.keyboardShortcut(.defaultAction).disabled(state == nil || state?.errors.isEmpty == false) }
+            HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction); Button("Scale") { apply() }.keyboardShortcut(.defaultAction).disabled(state == nil || state?.errors.isEmpty == false) } // STUDIO: a verb on the confirmation; Edit > Undo takes the scale back
         }.padding(20).frame(width: 400)
             .onAppear { do { dialog = try model.editor.backgroundScale(); state = dialog?.state() } catch { self.error = error.userMessage } }
     }

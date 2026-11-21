@@ -2,6 +2,7 @@
 //! References: PolygonEditorViewModel.cs and Morph.cs, specialized-editors F70–F93.
 mod interaction;
 mod morph;
+pub mod studio_live; // STUDIO: the live Polygon Editor writes as it changes, one undo step at Done (B8)
 #[cfg(test)]
 mod tests;
 pub use morph::{apply_to_sequence, morph_defaults, open_from_sequence};

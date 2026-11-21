@@ -7,11 +7,15 @@ import VixenBridge
 public struct NameGeneratorSheet: View {
     private let onFinish: ([String]?) -> Void
     @State private var model: NameGeneratorModel
+    // STUDIO-BEGIN name-sheet-verb: a caller can put its verb ("Rename") on the confirmation button
+    private let verb: String
 
-    public init(seed: String, oldNames: [String]?, onFinish: @escaping ([String]?) -> Void) {
+    public init(seed: String, oldNames: [String]?, verb: String = "OK", onFinish: @escaping ([String]?) -> Void) {
         self.onFinish = onFinish
+        self.verb = verb
         _model = State(initialValue: NameGeneratorModel(seed: seed, oldNames: oldNames))
     }
+    // STUDIO-END name-sheet-verb
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -23,7 +27,7 @@ public struct NameGeneratorSheet: View {
                     .disabled(model.finishing)
                 NamePreviewTable(preview: model.preview)
             }
-            SheetButtons(okDisabled: model.finishing, ok: ok, cancel: cancel)
+            SheetButtons(okTitle: verb, okDisabled: model.finishing, ok: ok, cancel: cancel) // STUDIO: the caller's verb
         }
         .padding(16)
         .sheetResizable(width: 715, height: 684)

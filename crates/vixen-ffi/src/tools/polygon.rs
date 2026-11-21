@@ -76,7 +76,10 @@ pub struct PolygonEditor {
     draft: Mutex<Editor>,
     target: Option<(Arc<Mutex<SequenceSession>>, Vec<EffectId>)>,
     finished: Mutex<bool>,
+    live: Option<polygon::studio_live::LiveTarget>, // STUDIO: the live editor's effects from before it opened (B8)
 }
+mod studio_live; // STUDIO: the live Polygon Editor's commands (B8)
+
 #[uniffi::export]
 impl SequencerSession {
     pub fn open_polygon_editor(
@@ -95,10 +98,12 @@ impl SequencerSession {
         let draft =
             polygon::open_from_sequence(&self.session.lock(), &ids, (screen_width, screen_height))
                 .map_err(FfiError::new)?;
+        let live = polygon::studio_live::LiveTarget::new(&self.session.lock(), &ids); // STUDIO: live editor (B8)
         Ok(Arc::new(PolygonEditor {
             draft: Mutex::new(draft),
             target: Some((Arc::clone(&self.session), ids)),
             finished: Mutex::new(false),
+            live: Some(live), // STUDIO: live editor (B8)
         }))
     }
 }
@@ -133,6 +138,7 @@ impl PolygonEditor {
             )),
             target: None,
             finished: Mutex::new(false),
+            live: None, // STUDIO: live editor (B8)
         })
     }
     pub fn state(&self) -> PolygonEdState {

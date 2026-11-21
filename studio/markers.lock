@@ -199,6 +199,10 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "e3b0c44298fc1c14"
  },
+ "block:name-sheet-verb": {
+  "file": "app/Sources/VixenKit/NameGeneratorSheet.swift",
+  "hash": "b2138e4777feb526"
+ },
  "block:native-toolbar": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "33211ce659ca27ee"
@@ -239,6 +243,14 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "bce67e439e56c29b"
  },
+ "block:polygon-live": {
+  "file": "app/Sources/VixenTools/PolygonEditor.swift",
+  "hash": "125d6d2061335d5d"
+ },
+ "block:polygon-live-done": {
+  "file": "app/Sources/VixenTools/PolygonEditor.swift",
+  "hash": "3d0020376e950680"
+ },
  "block:preview-design-undo": {
   "file": "crates/vixen-ffi/src/preview.rs",
   "hash": "b974c0914c38079a"
@@ -274,6 +286,10 @@
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
+ },
+ "block:renamer-sheet-verb": {
+  "file": "app/Sources/VixenKit/SubstitutionRenamerSheet.swift",
+  "hash": "045ae7efcae44b42"
  },
  "block:render-queue-dedupe": {
   "file": "crates/vixen-session/src/sequence.rs",
@@ -455,6 +471,10 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "73ba48fdd6b8a706"
  },
+ "block:wire-sheet-verb": {
+  "file": "app/Sources/VixenKit/WireDiagramSheet.swift",
+  "hash": "9b24a5fe9125295f"
+ },
  "line:.gitattributes:bbd307d5f1ffa71c": {
   "file": ".gitattributes",
   "hash": "bbd307d5f1ffa71c"
@@ -591,6 +611,14 @@
   "file": "app/Sources/VixenKit/MetalLayerView.swift",
   "hash": "75e1aaef1d213b7c"
  },
+ "line:app/Sources/VixenKit/NameGeneratorSheet.swift:325f072b2ebf0433": {
+  "file": "app/Sources/VixenKit/NameGeneratorSheet.swift",
+  "hash": "325f072b2ebf0433"
+ },
+ "line:app/Sources/VixenKit/SubstitutionRenamerSheet.swift:61ef3e15374235e8": {
+  "file": "app/Sources/VixenKit/SubstitutionRenamerSheet.swift",
+  "hash": "61ef3e15374235e8"
+ },
  "line:app/Sources/VixenKit/UITestHarness.swift:a645eda2b82a40e5": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
   "hash": "a645eda2b82a40e5"
@@ -598,6 +626,10 @@
  "line:app/Sources/VixenKit/UITestHarness.swift:e0b2a61395d4fade": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
   "hash": "e0b2a61395d4fade"
+ },
+ "line:app/Sources/VixenKit/WireDiagramSheet.swift:8c50690c43c53adb": {
+  "file": "app/Sources/VixenKit/WireDiagramSheet.swift",
+  "hash": "8c50690c43c53adb"
  },
  "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:6b58c7212dc91dc5": {
   "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
@@ -1043,13 +1075,73 @@
   "file": "app/Sources/VixenTimeline/TimelineTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenTools/PolygonCanvas.swift:02a51175afbc8a68": {
+  "file": "app/Sources/VixenTools/PolygonCanvas.swift",
+  "hash": "02a51175afbc8a68"
+ },
+ "line:app/Sources/VixenTools/PolygonCanvas.swift:106b51ca644f7ebb": {
+  "file": "app/Sources/VixenTools/PolygonCanvas.swift",
+  "hash": "106b51ca644f7ebb"
+ },
+ "line:app/Sources/VixenTools/PolygonCanvas.swift:27fa2f00526e8224": {
+  "file": "app/Sources/VixenTools/PolygonCanvas.swift",
+  "hash": "27fa2f00526e8224"
+ },
+ "line:app/Sources/VixenTools/PolygonCanvas.swift:afae03df4e797c8e": {
+  "file": "app/Sources/VixenTools/PolygonCanvas.swift",
+  "hash": "afae03df4e797c8e"
+ },
  "line:app/Sources/VixenTools/PolygonEditor.swift:d24eb62f529443c0": {
   "file": "app/Sources/VixenTools/PolygonEditor.swift",
   "hash": "d24eb62f529443c0"
  },
+ "line:app/Sources/VixenTools/PolygonEditor.swift:d29e8e0a15d2181d": {
+  "file": "app/Sources/VixenTools/PolygonEditor.swift",
+  "hash": "d29e8e0a15d2181d"
+ },
+ "line:app/Sources/VixenTools/PolygonEditor.swift:f99503a89c3bdf11": {
+  "file": "app/Sources/VixenTools/PolygonEditor.swift",
+  "hash": "f99503a89c3bdf11"
+ },
+ "line:app/Sources/VixenTools/PropEditorModel.swift:00d3efec857a65d3": {
+  "file": "app/Sources/VixenTools/PropEditorModel.swift",
+  "hash": "00d3efec857a65d3"
+ },
+ "line:app/Sources/VixenTools/PropPanels.swift:8cf2176a4d88f270": {
+  "file": "app/Sources/VixenTools/PropPanels.swift",
+  "hash": "8cf2176a4d88f270"
+ },
+ "line:app/Sources/VixenTools/PropVendorView.swift:da68e895fe91b66c": {
+  "file": "app/Sources/VixenTools/PropVendorView.swift",
+  "hash": "da68e895fe91b66c"
+ },
+ "line:app/Sources/VixenTools/PropXModel.swift:8c043d9fefecc376": {
+  "file": "app/Sources/VixenTools/PropXModel.swift",
+  "hash": "8c043d9fefecc376"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:0de80bc330661c9c": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "0de80bc330661c9c"
+ },
  "line:app/Sources/VixenTools/ToolsScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenTools/ToolsScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:44a92ec2e07376ed": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "44a92ec2e07376ed"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:4ff449faeb9d3c08": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "4ff449faeb9d3c08"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:738bf13f5a5762ea": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "738bf13f5a5762ea"
+ },
+ "line:app/Sources/VixenTools/ToolsScene.swift:75b5cc3524a19c2d": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "75b5cc3524a19c2d"
  },
  "line:crates/vixen-ffi/Cargo.toml:5148ba7228e2664a": {
   "file": "crates/vixen-ffi/Cargo.toml",
@@ -1178,6 +1270,26 @@
  "line:crates/vixen-ffi/src/timeline.rs:c723ca74180a5749": {
   "file": "crates/vixen-ffi/src/timeline.rs",
   "hash": "c723ca74180a5749"
+ },
+ "line:crates/vixen-ffi/src/tools/polygon.rs:07e05e60479153f7": {
+  "file": "crates/vixen-ffi/src/tools/polygon.rs",
+  "hash": "07e05e60479153f7"
+ },
+ "line:crates/vixen-ffi/src/tools/polygon.rs:1558f3c618e425e8": {
+  "file": "crates/vixen-ffi/src/tools/polygon.rs",
+  "hash": "1558f3c618e425e8"
+ },
+ "line:crates/vixen-ffi/src/tools/polygon.rs:3aab297ff8f74901": {
+  "file": "crates/vixen-ffi/src/tools/polygon.rs",
+  "hash": "3aab297ff8f74901"
+ },
+ "line:crates/vixen-ffi/src/tools/polygon.rs:87f704afaed12ac8": {
+  "file": "crates/vixen-ffi/src/tools/polygon.rs",
+  "hash": "87f704afaed12ac8"
+ },
+ "line:crates/vixen-ffi/src/tools/polygon.rs:ca2fbb8d6cbe486b": {
+  "file": "crates/vixen-ffi/src/tools/polygon.rs",
+  "hash": "ca2fbb8d6cbe486b"
  },
  "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
   "file": "crates/vixen-io/src/file.rs",
@@ -1390,6 +1502,10 @@
  "line:crates/vixen-session/src/timeline/session_link.rs:a97c2b6d9dd6f98b": {
   "file": "crates/vixen-session/src/timeline/session_link.rs",
   "hash": "a97c2b6d9dd6f98b"
+ },
+ "line:crates/vixen-session/src/tools/polygon.rs:b4af995a3473c185": {
+  "file": "crates/vixen-session/src/tools/polygon.rs",
+  "hash": "b4af995a3473c185"
  },
  "line:crates/vixen-session/src/undo.rs:68f9eacc46d03920": {
   "file": "crates/vixen-session/src/undo.rs",

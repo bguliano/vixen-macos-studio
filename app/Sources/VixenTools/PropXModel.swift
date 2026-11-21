@@ -83,7 +83,7 @@ struct PropXModelSheet: View {
                 TableColumn("Model", value: \.displayName)
                 TableColumn("Type") { choice in Text(choice.modelType).foregroundStyle(.secondary) }
             }.frame(minHeight: 180)
-            HStack { Spacer(); Button("Cancel") { completion(nil) }.keyboardShortcut(.cancelAction); Button("OK") { completion(selected) }.keyboardShortcut(.defaultAction).disabled(selected == nil) }
+            HStack { Spacer(); Button("Cancel") { completion(nil) }.keyboardShortcut(.cancelAction); Button("Import") { completion(selected) }.keyboardShortcut(.defaultAction).disabled(selected == nil) } // STUDIO: a verb on the confirmation
         }.padding(16).frame(minWidth: 420, idealWidth: 480, minHeight: 300)
     }
 }

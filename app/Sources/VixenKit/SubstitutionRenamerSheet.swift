@@ -7,11 +7,15 @@ public struct SubstitutionRenamerSheet: View {
     private let onFinish: ([String]?) -> Void
     @State private var model: RenamerModel
     @FocusState private var findFocused: Bool
+    // STUDIO-BEGIN renamer-sheet-verb: a caller can put its verb ("Rename") on the confirmation button
+    private let verb: String
 
-    public init(oldNames: [String], onFinish: @escaping ([String]?) -> Void) {
+    public init(oldNames: [String], verb: String = "OK", onFinish: @escaping ([String]?) -> Void) {
         self.onFinish = onFinish
+        self.verb = verb
         _model = State(initialValue: RenamerModel(oldNames: oldNames))
     }
+    // STUDIO-END renamer-sheet-verb
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -23,7 +27,7 @@ public struct SubstitutionRenamerSheet: View {
                 NamePreviewTable(preview: model.preview)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            SheetButtons(okDisabled: !model.okEnabled || model.finishing, ok: ok, cancel: cancel)
+            SheetButtons(okTitle: verb, okDisabled: !model.okEnabled || model.finishing, ok: ok, cancel: cancel) // STUDIO: the caller's verb
         }
         .padding(16)
         .sheetResizable(width: 708, height: 508)

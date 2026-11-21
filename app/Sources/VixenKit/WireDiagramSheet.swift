@@ -6,10 +6,14 @@ public struct WireDiagramSheet: View {
     private let onFinish: (SetupWireOptions?) -> Void
     @State private var options = setupWireDefaultOptions()
     @State private var finished = false
+    // STUDIO-BEGIN wire-sheet-verb: a caller can put its verb ("Export") on the confirmation button
+    private let verb: String
 
-    public init(onFinish: @escaping (SetupWireOptions?) -> Void) {
+    public init(verb: String = "OK", onFinish: @escaping (SetupWireOptions?) -> Void) {
         self.onFinish = onFinish
+        self.verb = verb
     }
+    // STUDIO-END wire-sheet-verb
 
     private func accept() {
         if setupWireOptionsError(options: options) == nil {
@@ -50,7 +54,7 @@ public struct WireDiagramSheet: View {
             WireSliderRow(title: "Scaling", value: $options.scalePercent, range: 100...400, suffix: "%")
             Text("The diagram is fitted to a letter-sized page. Scaling scales the entire result, including the page, labels, markers, and lines.")
                 .fixedSize(horizontal: false, vertical: true)
-            SheetButtons(okDisabled: problem != nil, ok: accept, cancel: { finish(nil) })
+            SheetButtons(okTitle: verb, okDisabled: problem != nil, ok: accept, cancel: { finish(nil) }) // STUDIO: the caller's verb
         }
         .padding(16)
         .frame(width: 440)

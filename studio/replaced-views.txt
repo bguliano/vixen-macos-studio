@@ -9,3 +9,4 @@ app/Sources/VixenAdmin/SetupPreviewsSheet.swift  ->  app/Sources/VixenAdmin/Stud
 app/Sources/VixenScheduler/SchedulesWindow.swift  ->  app/Sources/VixenAdmin/StudioSchedulePane.swift
 app/Sources/VixenScheduler/ShowsWindow.swift  ->  app/Sources/VixenAdmin/StudioSchedulePane.swift (and ShowEditorSheet.swift)
 app/Sources/VixenMarks/ImageMapsSheet.swift  ->  app/Sources/VixenMarks/StudioImageMapsSheet.swift (ImageMapsSheet, ImageMapEditorSheet, ImageMapperSheet; vanilla's stays in the marks test scene)
+app/Sources/VixenTools/PropPreferences.swift  ->  app/Sources/VixenTools/StudioPropPreferences.swift (PropPreferencesSheet; the prop editor's live Preferences)

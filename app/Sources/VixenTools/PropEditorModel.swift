@@ -261,7 +261,7 @@ final class PropEditorModel {
     func prompt(_ text: String, title: String, initial: String, validator: ((String) -> Bool)? = nil) async -> String? {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = text
         let input = NSTextField(string: initial); input.frame = NSRect(x: 0, y: 0, width: 280, height: 24)
-        let verb = title.hasPrefix("Create") ? "Create" : title.hasPrefix("Rename") ? "Rename" : title.hasPrefix("Paste") ? "Paste" : title.hasPrefix("Add") ? "Add" : title.hasPrefix("Copy") ? "Copy" : "OK"
+        let verb = String(title.split(separator: " ").first ?? "Continue") // STUDIO: every prompt's title starts with its verb (Create, Rename, Paste, Add, Copy); never OK
         alert.accessoryView = input; alert.addButton(withTitle: verb); alert.addButton(withTitle: "Cancel")
         let validation = PropPromptValidation(button: alert.buttons[0], validator: validator)
         input.delegate = validation; validation.validate(input.stringValue)

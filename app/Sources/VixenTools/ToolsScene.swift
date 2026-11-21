@@ -6,7 +6,7 @@ import VixenKit
 public struct ToolsScene: Scene {
     private let app: AppModel
     @State private var registry = PropEditorRegistry()
-    public init(model: AppModel) { app = model; PropEditorHarness.install(); PolygonPresenter.install() }
+    public init(model: AppModel) { app = model; PropEditorHarness.install(); PolygonPresenter.install(); StudioPropPreferencesHarness.install() } // STUDIO: live Preferences' harness hook
     public var body: some Scene {
         WindowGroup("Custom Prop Editor", id: WindowID.customPropEditor, for: UUID.self) { _ in
             PropEditorRoot(app: app, registry: registry)
@@ -102,14 +102,14 @@ private struct PropEditorRoot: View {
         .onAppear { PropEditorHarness.current = model; registry.active = model }
         .onDisappear { if registry.active === model { registry.active = nil } }
         .sheet(isPresented: $model.showScale) { PropScaleSheet(model: model) }
-        .sheet(isPresented: $model.showPreferences) { PropPreferencesSheet(model: model) }
+        .sheet(isPresented: $model.showPreferences) { StudioPropPreferencesSheet(model: model) } // STUDIO: live, with Undo and Done (B8)
         .sheet(item: $model.renameRequest) { request in
             if request.findReplace {
-                SubstitutionRenamerSheet(oldNames: request.names) { names in
+                SubstitutionRenamerSheet(oldNames: request.names, verb: "Rename") { names in // STUDIO: a verb on the confirmation
                     if let names { model.mutate { _ = $0.renameMany(idsText: request.ids, names: names) } }; model.renameRequest = nil
                 }
             } else {
-                NameGeneratorSheet(seed: "NewName", oldNames: request.names) { names in
+                NameGeneratorSheet(seed: "NewName", oldNames: request.names, verb: "Rename") { names in // STUDIO: a verb on the confirmation
                     if let names { model.mutate { _ = $0.renameMany(idsText: request.ids, names: names) } }; model.renameRequest = nil
                 }
             }
@@ -122,7 +122,7 @@ private struct PropEditorRoot: View {
             }
         }
         .sheet(item: $model.wireRequest) { request in
-            WireDiagramSheet { options in
+            WireDiagramSheet(verb: "Export") { options in // STUDIO: a verb on the confirmation
                 model.wireRequest = nil
                 if let options { model.exportWireDiagram(flip: request.flip, options: options) }
             }
