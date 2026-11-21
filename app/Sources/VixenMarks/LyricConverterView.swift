@@ -85,8 +85,10 @@ final class LyricConverterModel {
     @ObservationIgnored private var revision: UInt64
     @ObservationIgnored private let cursorPosition: (() -> Int64)?
     @ObservationIgnored private let pasteAtTime: ((Int64) -> UInt32)?
+    @ObservationIgnored private let session: SequencerSession // STUDIO: Map Word goes on the profile's shared Undo through it
 
     init(session: SequencerSession, cursorPosition: (() -> Int64)?, pasteAtTime: ((Int64) -> UInt32)?) {
+        self.session = session // STUDIO: Map Word goes on the profile's shared Undo through it
         converter = session.lyricConverter()
         state = converter.state()
         revision = converter.revision()
@@ -146,7 +148,13 @@ final class LyricConverterModel {
     func finishMapping(_ mapped: String?) {
         guard let asked = failure else { return }
         failure = nil
-        if let mapped, let problem = converter.addMapping(word: asked.word, mapped: mapped) {
+        // STUDIO-BEGIN lyric-map-word: Map Word is one step on the profile's shared Undo, mirrored into this window's Edit ▸ Undo (R40)
+        let outcome = mapped.map { session.studioMapWord(word: asked.word, mapped: $0) }
+        if let label = outcome?.label {
+            StudioWordMappingUndo.register(label, session: session, on: textView?.window?.undoManager)
+        }
+        if let problem = outcome?.problem {
+        // STUDIO-END lyric-map-word
             afterAlert = { [weak self] in
                 guard let self else { return }
                 handle(converter.resume())
@@ -398,9 +406,9 @@ public struct LyricFailureSheet: View {
             .frame(maxWidth: .infinity)
             HStack {
                 Spacer()
-                Button("Cancel", role: .cancel) { onFinish(nil) }
+                Button("Skip Word", role: .cancel) { onFinish(nil) } // STUDIO: a verb, not Cancel (R40)
                     .keyboardShortcut(.cancelAction)
-                Button("OK") { onFinish(mapped) }
+                Button("Map Word") { onFinish(mapped) } // STUDIO: a verb, not OK; the mapping is one Undo step (R40)
                     .keyboardShortcut(.defaultAction)
             }
         }
@@ -442,6 +450,7 @@ enum LyricTestHooks {
     static weak var current: LyricConverterModel?
 
     static func install() {
+        StudioLyricTestHooks.install() // STUDIO: the word mapping's Undo for test scripts (R40)
         UITestHarness.hooks["lyricText"] = { args in
             guard let model = current else { return "FAIL no converter" }
             model.text = args.first ?? ""

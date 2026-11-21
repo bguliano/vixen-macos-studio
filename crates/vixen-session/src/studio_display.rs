@@ -21,6 +21,8 @@ struct Entry {
     kind: Kind,
     /// An image map step's picture folders as they were (`studio_lipsync`).
     pictures: Option<crate::studio_lipsync::Pictures>,
+    /// A user dictionary step's file as it was (`studio_phoneme_mappings`).
+    dictionary: Option<crate::studio_phoneme_mappings::Saved>,
 }
 /// What a step changed, which decides how undoing it publishes.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -33,6 +35,8 @@ enum Kind {
     Schedule,
     /// Only the LipSync image map library and its pictures (`studio_lipsync`): republished without rebuilding the output.
     LipSync,
+    /// Only the user phoneme dictionary file (`studio_phoneme_mappings`): nothing in the configuration to republish.
+    Dictionary,
 }
 impl Kind {
     fn of(command: &str) -> Kind {
@@ -42,6 +46,8 @@ impl Kind {
             Kind::Schedule
         } else if crate::studio_lipsync::is_command(command) {
             Kind::LipSync
+        } else if crate::studio_phoneme_mappings::is_command(command) {
+            Kind::Dictionary
         } else {
             Kind::Display
         }
@@ -255,8 +261,10 @@ impl StudioDisplay {
             Kind::Preview => crate::studio_previews::label(command, args),
             Kind::Schedule => crate::studio_schedule::label(command, args),
             Kind::LipSync => crate::studio_lipsync::label(command),
+            Kind::Dictionary => "",
             Kind::Display => command,
         };
+        let name = if Kind::of(command) == Kind::Dictionary { crate::studio_phoneme_mappings::label(command, args) } else { name.to_string() };
         let label = format!("{}{}", name, if agent { " (Agent)" } else { "" });
         let result;
         match command {
@@ -275,16 +283,22 @@ impl StudioDisplay {
                 .ok_or("Nothing to undo/redo")?;
                 let pictures =
                     entry.pictures.as_ref().map(|p| p.restore(&crate::studio_lipsync::lipsync_dir(core)));
+                let dictionary = entry
+                    .dictionary
+                    .as_ref()
+                    .map(|d| d.restore(&crate::studio_phoneme_mappings::user_dictionary(core)));
                 let inverse = Entry {
                     label: entry.label.clone(),
                     system: before,
                     kind,
                     pictures,
+                    dictionary,
                 };
                 match kind {
                     Kind::Preview => crate::studio_previews::publish(core, entry.system),
                     Kind::Schedule => crate::studio_schedule::publish(core, entry.system),
                     Kind::LipSync => crate::studio_lipsync::publish(core, entry.system),
+                    Kind::Dictionary => {}
                     Kind::Display => core.apply_display(entry.system),
                 }
                 if command == "display_undo" {
@@ -307,6 +321,7 @@ impl StudioDisplay {
                     system: before,
                     kind: Kind::Preview,
                     pictures: None,
+            dictionary: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -327,6 +342,7 @@ impl StudioDisplay {
                     system: before,
                     kind: Kind::Schedule,
                     pictures: None,
+            dictionary: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -351,6 +367,29 @@ impl StudioDisplay {
                     system: before,
                     kind: Kind::LipSync,
                     pictures: Some(pictures),
+                    dictionary: None,
+                });
+                if state.undo.len() > HISTORY_LIMIT {
+                    state.undo.remove(0);
+                }
+                state.redo.clear();
+            }
+            _ if crate::studio_phoneme_mappings::is_command(command) => {
+                let (value, changed, saved) = crate::studio_phoneme_mappings::edit(
+                    &crate::studio_phoneme_mappings::user_dictionary(core),
+                    command,
+                    args,
+                )?;
+                result = value;
+                if !changed {
+                    return Ok(json!({"changed":false,"revision":actual,"result":result}));
+                }
+                state.undo.push(Entry {
+                    label,
+                    system: before,
+                    kind: Kind::Dictionary,
+                    pictures: None,
+                    dictionary: Some(saved),
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -377,6 +416,7 @@ impl StudioDisplay {
                     system: before,
                     kind: Kind::Display,
                     pictures: None,
+            dictionary: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -476,6 +516,7 @@ impl StudioDisplay {
             system: before,
             kind: Kind::Display,
             pictures: None,
+            dictionary: None,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -518,6 +559,7 @@ impl StudioDisplay {
             system: before,
             kind: Kind::Preview,
             pictures: None,
+            dictionary: None,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -825,6 +867,7 @@ pub fn command_tools() -> Vec<Value> {
     tools.extend(crate::studio_props::tools());
     tools.extend(crate::studio_previews::tools());
     tools.extend(crate::studio_lipsync::tools());
+    tools.extend(crate::studio_phoneme_mappings::tools());
     tools
 }
 

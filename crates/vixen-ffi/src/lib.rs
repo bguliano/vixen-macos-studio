@@ -29,6 +29,8 @@ pub mod dialogs;
 pub mod effecteditor;
 #[cfg(feature = "marks")]
 pub mod marks;
+#[cfg(feature = "marks")]
+pub mod studio_phoneme_mappings; // STUDIO: the Text Conversion Failure sheet's word mapping on the shared undo
 #[cfg(feature = "preview")]
 pub mod preview;
 #[cfg(feature = "scheduler")]

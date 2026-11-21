@@ -120,7 +120,7 @@ extension SequencerModel {
             }
             let clean = shell?.breakdownCleanWord(text: word) ?? word
             guard let mapped = askForMapping(word: clean) else { continue }
-            if let problem = session.addPhonemeMapping(word: clean, mapped: mapped) {
+            if let problem = session.studioMapWord(word: clean, mapped: mapped).problem { // STUDIO: one step on the profile's shared Undo (R40)
                 let alert = NSAlert()
                 alert.alertStyle = .warning
                 alert.messageText = problem.title

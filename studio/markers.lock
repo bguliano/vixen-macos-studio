@@ -191,6 +191,10 @@
   "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
   "hash": "49eea8b2488965f3"
  },
+ "block:lyric-map-word": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "9c9a8f58e158ae5a"
+ },
  "block:marks-header-label": {
   "file": "crates/vixen-ffi/src/marks.rs",
   "hash": "b7e9ee301464fc5a"
@@ -915,6 +919,26 @@
   "file": "app/Sources/VixenKit/WireDiagramSheet.swift",
   "hash": "8c50690c43c53adb"
  },
+ "line:app/Sources/VixenMarks/LyricConverterView.swift:319b786980feddcc": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "319b786980feddcc"
+ },
+ "line:app/Sources/VixenMarks/LyricConverterView.swift:8c34e07ac0004430": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "8c34e07ac0004430"
+ },
+ "line:app/Sources/VixenMarks/LyricConverterView.swift:a99ee3ba41add3ce": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "a99ee3ba41add3ce"
+ },
+ "line:app/Sources/VixenMarks/LyricConverterView.swift:cf6ad4cdd885e873": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "cf6ad4cdd885e873"
+ },
+ "line:app/Sources/VixenMarks/LyricConverterView.swift:df967bacf55d9e1f": {
+  "file": "app/Sources/VixenMarks/LyricConverterView.swift",
+  "hash": "df967bacf55d9e1f"
+ },
  "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:6b58c7212dc91dc5": {
   "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
   "hash": "6b58c7212dc91dc5"
@@ -1110,6 +1134,10 @@
  "line:app/Sources/VixenSequencer/SequencerLipSync.swift:7a7dc189e0a6ae72": {
   "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
   "hash": "7a7dc189e0a6ae72"
+ },
+ "line:app/Sources/VixenSequencer/SequencerLipSync.swift:7fdb42d751cab513": {
+  "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
+  "hash": "7fdb42d751cab513"
  },
  "line:app/Sources/VixenSequencer/SequencerLipSync.swift:bc1bd3dc11a0b764": {
   "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
@@ -1459,6 +1487,10 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "bb7099cad7b0e281"
  },
+ "line:crates/vixen-ffi/src/lib.rs:ce60d52ed991a445": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "ce60d52ed991a445"
+ },
  "line:crates/vixen-ffi/src/lib.rs:d1100fa74313d8ae": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "d1100fa74313d8ae"
@@ -1646,6 +1678,10 @@
  "line:crates/vixen-session/src/lib.rs:2cbae59633d3a4b1": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "2cbae59633d3a4b1"
+ },
+ "line:crates/vixen-session/src/lib.rs:3baf70ac997c0039": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "3baf70ac997c0039"
  },
  "line:crates/vixen-session/src/lib.rs:3d99fb8e8da6eb30": {
   "file": "crates/vixen-session/src/lib.rs",

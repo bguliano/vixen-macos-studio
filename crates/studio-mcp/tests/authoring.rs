@@ -211,6 +211,18 @@ fn real_music_thirty_second_show_via_stdio_only() {
     call("display_undo", json!({}));
     call("display_undo", json!({}));
     assert!(!call("image_map_list", json!({}))["maps"].as_array().unwrap().iter().any(|m| m["name"] == "MCP test mouths"));
+    // The user phoneme dictionary: a word mapped, listed, removed, and both steps undone off the shared history.
+    let before = call("phoneme_mapping_list", json!({}));
+    let mapped = call("phoneme_mapping_set", json!({"word":"zorbleplex","phonemes":["ETC","O","MBP"]}));
+    assert_eq!(mapped["result"]["word"], "ZORBLEPLEX");
+    let listed = call("phoneme_mapping_list", json!({}));
+    assert!(listed["mappings"].as_array().unwrap().iter().any(|m| m["word"] == "ZORBLEPLEX" && m["phonemes"] == json!(["ETC","O","MBP"])), "{listed}");
+    call("phoneme_mapping_remove", json!({"word":"ZORBLEPLEX"}));
+    assert_eq!(call("phoneme_mapping_list", json!({})), before);
+    call("display_undo", json!({}));
+    assert!(call("phoneme_mapping_list", json!({}))["mappings"].as_array().unwrap().iter().any(|m| m["word"] == "ZORBLEPLEX"));
+    call("display_undo", json!({}));
+    assert_eq!(call("phoneme_mapping_list", json!({})), before);
     if let Some(preview) = previews["items"].as_array().unwrap().first() {
         let prop = call(
             "preview_prop_create",

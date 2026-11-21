@@ -1,0 +1,228 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Tools",
+        "LipSync",
+        "Lyric Converter"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "focus",
+      "window": "LipSync Text Convert"
+    },
+    {
+      "action": "click",
+      "label": "Clipboard / Even Spacing"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "lyricText",
+      "path": [
+        "hello zorbleplex"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "convert"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "01-failure-sheet"
+    },
+    {
+      "action": "click",
+      "label": "ETC"
+    },
+    {
+      "action": "click",
+      "label": "MBP"
+    },
+    {
+      "action": "click",
+      "label": "WQ"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "snapshot",
+      "name": "02-mapped"
+    },
+    {
+      "action": "click",
+      "label": "Map Word"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "lyricState",
+      "path": [
+        "03-after-map"
+      ]
+    },
+    {
+      "action": "click",
+      "label": "OK"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "focus",
+      "window": "LipSync Text Convert"
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "sendUndo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "sendRedo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "sendUndo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioLyric",
+      "path": [
+        "convert"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 2.5
+    },
+    {
+      "action": "snapshot",
+      "name": "03-asked-again"
+    },
+    {
+      "action": "click",
+      "label": "Skip Word"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "lyricState",
+      "path": [
+        "04-after-skip"
+      ]
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

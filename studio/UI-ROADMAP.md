@@ -224,8 +224,13 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   close with Done; the Image Mapper confirms with Map Pictures, as one step. Tools ▸ LipSync ▸ Default Image Map is a step
   too. MCP: `image_map_list`, `image_map_create`, `image_map_rename`, `image_map_clone`, `image_map_delete`,
   `image_map_update`, `image_map_set_default`. Harness: `scripts/check_studio_lipsync_live.py` with
-  `scripts/ui/studio-lipsync-live.json`. *Remaining:* the Lyric Converter's unknown-word mapping and Face Mapping node
-  selection (backlog).
+  `scripts/ui/studio-lipsync-live.json`. *Done for the Lyric Converter's unknown-word mapping (B22):* the Text Conversion
+  Failure sheet confirms with Skip Word and Map Word (the conversion waits on it, as before); Map Word is one step on the
+  profile's shared history that keeps the user dictionary file as it was, so Undo puts the file back
+  (`studio_phoneme_mappings.rs`), and the Lyric Converter window mirrors the step into its Edit ▸ Undo; Breakdown Word's
+  mapping is the same step, undone from the show window. MCP: `phoneme_mapping_set`, `phoneme_mapping_remove`,
+  `phoneme_mapping_list`. Harness: `scripts/check_studio_lyric_map_word.py` with `scripts/ui/studio-lyric-map-word.json`.
+  *Remaining:* Face Mapping node selection (backlog).
 
 - **Preview designer (R41).** *Done:* the designer's sheets no longer commit through OK/Cancel. Linked Elements changes the
   shape as it's used (drop, double-click, Copy, Reverse, Set) and closes with Done; everything done while it's open is one
