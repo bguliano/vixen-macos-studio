@@ -25,6 +25,10 @@ final class GridCanvasView: TimelineSurface {
     private let indicators = CAShapeLayer()
     private let guideLines = CAShapeLayer()
     private let movingMarks = plainLayer()
+    // STUDIO-BEGIN snapping-mark-lines: every collection's lines over the grid while an effect drag snaps (R35)
+    private let snappingMarks = plainLayer()
+    private var snappingLines: [TimelineLine] = []
+    // STUDIO-END snapping-mark-lines
     private let cursorLine = plainLayer()
     private let playbackLine = plainLayer()
     private let hoverBox = plainLayer()
@@ -79,6 +83,7 @@ final class GridCanvasView: TimelineSurface {
         guideLines.lineWidth = 1
         guideLines.lineDashPattern = [2, 2]
         indicators.lineWidth = 1
+        root.addSublayer(snappingMarks) // STUDIO: R35's snapping lines, under the dragged marks
         root.addSublayer(movingMarks)
         rubberBand.isHidden = true
         rubberBand.borderWidth = 1
@@ -137,6 +142,7 @@ final class GridCanvasView: TimelineSurface {
         if !gridGuides.isEmpty || !indicatorX.isEmpty {
             redrawColumnPaths()
         }
+        if !snappingLines.isEmpty { applySnappingMarks(snappingLines) } // STUDIO: they scroll with an autoscrolling drag
         if plane.currentBase != lastBase {
             lastBase = plane.currentBase
             cover = .zero
@@ -174,6 +180,7 @@ final class GridCanvasView: TimelineSurface {
         indicators.strokeColor = TimelineColors.argb(o.indicatorColor)
         redrawColumnPaths()
         applyMovingMarks(o.movingMarkLines)
+        applySnappingMarks(o.snappingMarkLines) // STUDIO: R35
         applyHover(o.hover)
         cursorX = CGFloat(o.cursorX)
         placeColumn(cursorLine, x: cursorX, width: 2.5)
@@ -227,6 +234,36 @@ final class GridCanvasView: TimelineSurface {
             return shape
         }
     }
+
+    // STUDIO-BEGIN snapping-mark-lines-apply: one shape per colour, width and dash, so a snapping drag adds a few layers
+    private func applySnappingMarks(_ lines: [TimelineLine]) {
+        guard !lines.isEmpty || !snappingLines.isEmpty else { return }
+        snappingLines = lines
+        struct Style: Hashable { let color: UInt32; let width: Int32; let dash: Int32 }
+        var paths: [Style: CGMutablePath] = [:]
+        for line in lines {
+            let path = paths[Style(color: line.color, width: line.width, dash: line.dash), default: CGMutablePath()]
+            let x = (CGFloat(line.x) - scroll.x).rounded(.down) + 0.5
+            path.move(to: CGPoint(x: x, y: 0))
+            path.addLine(to: CGPoint(x: x, y: bounds.height))
+            paths[Style(color: line.color, width: line.width, dash: line.dash)] = path
+        }
+        snappingMarks.sublayers = paths.map { style, path in
+            let shape = CAShapeLayer()
+            shape.actions = noActions
+            shape.anchorPoint = .zero
+            shape.frame = bounds
+            shape.path = path
+            shape.fillColor = nil
+            shape.strokeColor = TimelineColors.argb(style.color)
+            shape.lineWidth = CGFloat(style.width)
+            if style.dash > 0 {
+                shape.lineDashPattern = [NSNumber(value: style.dash), NSNumber(value: style.dash)]
+            }
+            return shape
+        }
+    }
+    // STUDIO-END snapping-mark-lines-apply
 
     private func applyHover(_ hover: TimelineHover?) {
         guard let hover else {

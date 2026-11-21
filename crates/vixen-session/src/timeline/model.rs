@@ -346,6 +346,7 @@ pub struct Timeline {
     pub(crate) pinch_rows: f64,
     /// Mark selection changed since the last time someone asked.
     pub(crate) marks_selection_notify: bool,
+    pub(crate) studio_lit_collections: Vec<Uuid>, // STUDIO: collections with selected marks, whose lines cross the grid (R35)
 
     pub(crate) g: GridInput,
     pub(crate) cursor_kind: CursorKind,
@@ -403,6 +404,7 @@ impl Timeline {
             wheel_accumulator: 0,
             pinch_rows: 1.0,
             marks_selection_notify: false,
+            studio_lit_collections: Vec::new(), // STUDIO: R35
             g: GridInput::default(),
             cursor_kind: CursorKind::Arrow,
             dirty: Dirty { grid_all: true, row_header: true, ruler: true, marks_bar: true, waveform: true, overlay: true, view: true, ..Dirty::default() },
@@ -1290,6 +1292,7 @@ impl Timeline {
         // Wider than the rectangle by the width of a bold line. Lines of marks being dragged are lifted, like effects.
         let lines = mark_lines(&self.snap_index, TimeSpan(t0 - 3 * tpp_ticks), TimeSpan(t1 + 3 * tpp_ticks), &self.guides, tpp);
         frame.mark_lines = if self.marks.moving_ids_empty() { lines } else { self.without_moving_marks(lines) };
+        frame.mark_lines = self.studio_tile_mark_lines(std::mem::take(&mut frame.mark_lines)); // STUDIO: only selected marks' collections cross the tiles
         frame
     }
 

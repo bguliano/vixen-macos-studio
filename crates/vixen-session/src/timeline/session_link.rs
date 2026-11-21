@@ -25,6 +25,7 @@ impl Timeline {
         self.dirty.marks_bar = true;
         self.dirty.ruler = true;
         self.dirty.view = true;
+        self.dirty.waveform = true; // STUDIO: the waveform draws mark ticks
     }
 
     /// `LoadSystemNodesToRows` and the view state the sequence holds. Applied only when above zero; a new sequence holds `TimeSpan.MinValue`.

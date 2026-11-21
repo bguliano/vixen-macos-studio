@@ -1,0 +1,98 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "snapshot",
+      "name": "quiet"
+    },
+    {
+      "action": "mouse",
+      "x": 560,
+      "y": 253,
+      "toX": 600,
+      "toY": 253,
+      "hold": true
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "snapping"
+    },
+    {
+      "action": "mouse",
+      "x": 600,
+      "y": 253,
+      "resume": true
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "dropped"
+    },
+    {
+      "action": "mouse",
+      "x": 518,
+      "y": 175
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "selected-mark"
+    },
+    {
+      "action": "menus",
+      "name": "menus-after-drop"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

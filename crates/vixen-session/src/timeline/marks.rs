@@ -255,6 +255,8 @@ impl MarksState {
         self.moving.is_empty()
     }
 
+    pub(crate) fn is_moving(&self, id: Uuid) -> bool { self.moving.contains(&id) } // STUDIO: for R35's quieter mark lines
+
     /// `MarksMoveResizeInfo`: the selected marks as they are now.
     pub(crate) fn save_selected_times(&mut self) {
         let mut info = MarkMoveInfo { earliest: TimeSpan::MAX, latest: TimeSpan::MIN, shortest: TimeSpan::MAX, ..MarkMoveInfo::default() };
@@ -544,6 +546,8 @@ impl Timeline {
     fn marks_selection_changed(&mut self) {
         self.dirty.ruler = true;
         self.dirty.marks_bar = true;
+        self.dirty.waveform = true; // STUDIO: the waveform draws mark ticks
+        self.studio_refresh_lit_collections(); // STUDIO: a selected mark's collection draws its lines across the grid
         self.marks_selection_notify = true;
     }
 
@@ -947,6 +951,7 @@ impl Timeline {
         self.dirty.ruler = true;
         self.dirty.marks_bar = true;
         self.dirty.overlay = true;
+        self.dirty.waveform = true; // STUDIO: the waveform draws mark ticks
     }
 
     fn dirty_mark_column(&mut self, t: TimeSpan) {
@@ -984,6 +989,7 @@ impl Timeline {
         self.dirty.ruler = true;
         self.dirty.marks_bar = true;
         self.dirty.overlay = true;
+        self.dirty.waveform = true; // STUDIO: the waveform draws mark ticks
     }
 
     /// Puts every collection in the bar, for tests and the benchmark.

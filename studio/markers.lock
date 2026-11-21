@@ -135,6 +135,10 @@
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "f8fa60171898b51c"
  },
+ "block:quiet-mark-ticks": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "dec97e86a6f68b39"
+ },
  "block:release-names": {
   "file": "scripts/package_release.sh",
   "hash": "94253c7a2fbcf13c"
@@ -214,6 +218,14 @@
  "block:show-window": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "fddef2a35d3b6a92"
+ },
+ "block:snapping-mark-lines": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "f48582aa0cceac0f"
+ },
+ "block:snapping-mark-lines-apply": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "120079f7c08590c9"
  },
  "block:status-bar": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
@@ -643,6 +655,10 @@
   "file": "app/Sources/VixenSetup/Window/TemplateRunner.swift",
   "hash": "724a17888d1ce6bd"
  },
+ "line:app/Sources/VixenTimeline/Painters.swift:032acb9d1ddc303f": {
+  "file": "app/Sources/VixenTimeline/Painters.swift",
+  "hash": "032acb9d1ddc303f"
+ },
  "line:app/Sources/VixenTimeline/Painters.swift:13227a3d9af4a69a": {
   "file": "app/Sources/VixenTimeline/Painters.swift",
   "hash": "13227a3d9af4a69a"
@@ -658,6 +674,22 @@
  "line:app/Sources/VixenTimeline/Painters.swift:adee0d34867bff90": {
   "file": "app/Sources/VixenTimeline/Painters.swift",
   "hash": "adee0d34867bff90"
+ },
+ "line:app/Sources/VixenTimeline/Painters.swift:ff8b3c7c8fbeef20": {
+  "file": "app/Sources/VixenTimeline/Painters.swift",
+  "hash": "ff8b3c7c8fbeef20"
+ },
+ "line:app/Sources/VixenTimeline/Surfaces.swift:33be91b0d1d01bb7": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "33be91b0d1d01bb7"
+ },
+ "line:app/Sources/VixenTimeline/Surfaces.swift:5bca5446068a21a7": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "5bca5446068a21a7"
+ },
+ "line:app/Sources/VixenTimeline/Surfaces.swift:b9642291a539a78f": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "b9642291a539a78f"
  },
  "line:app/Sources/VixenTimeline/TimelinePane.swift:dee5b47040e123bc": {
   "file": "app/Sources/VixenTimeline/TimelinePane.swift",
@@ -723,6 +755,18 @@
   "file": "crates/vixen-ffi/src/setup.rs",
   "hash": "d66988b1b137012f"
  },
+ "line:crates/vixen-ffi/src/timeline.rs:06c8721cf3e7c9a5": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "06c8721cf3e7c9a5"
+ },
+ "line:crates/vixen-ffi/src/timeline.rs:bf059ef75b4eb3ff": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "bf059ef75b4eb3ff"
+ },
+ "line:crates/vixen-ffi/src/timeline.rs:c723ca74180a5749": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "c723ca74180a5749"
+ },
  "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "658915e8cd98c064"
@@ -779,6 +823,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "54e1cfc535d64c95"
  },
+ "line:crates/vixen-session/src/lib.rs:71eeca2dd233139f": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "71eeca2dd233139f"
+ },
  "line:crates/vixen-session/src/lib.rs:8d1d07c80410de8e": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "8d1d07c80410de8e"
@@ -830,6 +878,34 @@
  "line:crates/vixen-session/src/setup/mod.rs:f5c5db0718a20319": {
   "file": "crates/vixen-session/src/setup/mod.rs",
   "hash": "f5c5db0718a20319"
+ },
+ "line:crates/vixen-session/src/timeline/marks.rs:50a86cacddd5b615": {
+  "file": "crates/vixen-session/src/timeline/marks.rs",
+  "hash": "50a86cacddd5b615"
+ },
+ "line:crates/vixen-session/src/timeline/marks.rs:70a83b3dfcb53e19": {
+  "file": "crates/vixen-session/src/timeline/marks.rs",
+  "hash": "70a83b3dfcb53e19"
+ },
+ "line:crates/vixen-session/src/timeline/marks.rs:b414073660ca1d4a": {
+  "file": "crates/vixen-session/src/timeline/marks.rs",
+  "hash": "b414073660ca1d4a"
+ },
+ "line:crates/vixen-session/src/timeline/model.rs:4fa9528375138ae3": {
+  "file": "crates/vixen-session/src/timeline/model.rs",
+  "hash": "4fa9528375138ae3"
+ },
+ "line:crates/vixen-session/src/timeline/model.rs:53ad4a92a2dd7974": {
+  "file": "crates/vixen-session/src/timeline/model.rs",
+  "hash": "53ad4a92a2dd7974"
+ },
+ "line:crates/vixen-session/src/timeline/model.rs:bda2c8a53be12465": {
+  "file": "crates/vixen-session/src/timeline/model.rs",
+  "hash": "bda2c8a53be12465"
+ },
+ "line:crates/vixen-session/src/timeline/session_link.rs:70a83b3dfcb53e19": {
+  "file": "crates/vixen-session/src/timeline/session_link.rs",
+  "hash": "70a83b3dfcb53e19"
  },
  "line:crates/vixen-session/src/undo.rs:68f9eacc46d03920": {
   "file": "crates/vixen-session/src/undo.rs",

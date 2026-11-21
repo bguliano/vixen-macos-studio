@@ -256,6 +256,7 @@ pub struct TimelineOverlay {
     pub grid_guides: Vec<f64>,
     pub guides: Vec<f64>,
     pub moving_mark_lines: Vec<TimelineLine>,
+    pub snapping_mark_lines: Vec<TimelineLine>, // STUDIO: every collection's lines while an effect drag snaps
     pub hover: Option<TimelineHover>,
     pub cursor_x: f64,
     /// The time beside the pointer while a mark drags on the ruler, and where.
@@ -883,6 +884,7 @@ fn overlay_record(frame: OverlayFrame, t: &Timeline) -> TimelineOverlay {
         grid_guides: frame.grid_guides,
         guides: frame.guides,
         moving_mark_lines: frame.moving_mark_lines.iter().map(line).collect(),
+        snapping_mark_lines: Vec::new(), // STUDIO: filled in by `overlay`
         hover: frame.hover.map(|h| TimelineHover { text: h.text, rect: h.rect.into() }),
         cursor_x: frame.cursor_x,
         ruler_drag_x: drag.as_ref().map(|d| d.0),
@@ -1017,7 +1019,9 @@ impl TimelineController {
     pub fn overlay(&self, x: i32, y: i32, w: i32, h: i32) -> TimelineOverlay {
         let mut t = self.timeline.lock();
         let frame = t.overlay_frame(IRect::new(x, y, w, h));
-        overlay_record(frame, &t)
+        let mut o = overlay_record(frame, &t);
+        o.snapping_mark_lines = t.studio_snapping_mark_lines(IRect::new(x, y, w, h)).iter().map(|l| TimelineLine { x: l.x, color: argb(l.color), width: l.width, dash: l.dash }).collect(); // STUDIO: R35
+        o
     }
 
     /// F21, F22 for a span of the canvas.
@@ -1048,6 +1052,14 @@ impl TimelineController {
     pub fn marks_frame(&self, x: i32, width: i32, time_per_pixel: i64) -> TimelineMarksFrame {
         self.frame("marks bar", || TimelineMarksFrame { total_height: 0, row_bottoms: Vec::new(), marks: Vec::new(), failed: true }, || self.build_marks_frame(x, width, TimeSpan(time_per_pixel)))
     }
+
+    // STUDIO-BEGIN quiet-mark-ticks: marks as coloured ticks in the waveform (UI roadmap R35)
+    /// The waveform's mark ticks over a span of columns: the ruler's marks, colours and selection, solid.
+    pub fn studio_mark_ticks(&self, x: i32, width: i32, time_per_pixel: i64) -> Vec<TimelineLine> {
+        let t = self.timeline.lock();
+        t.studio_mark_ticks(x, width, TimeSpan(time_per_pixel)).iter().map(|l| TimelineLine { x: l.x, color: argb(l.color), width: l.width, dash: l.dash }).collect()
+    }
+    // STUDIO-END quiet-mark-ticks
 
     /// F141 for a span of the canvas.
     pub fn waveform_frame(&self, first_column: i32, columns: i32, time_per_pixel: i64) -> TimelineWaveformFrame {

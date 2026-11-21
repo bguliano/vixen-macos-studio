@@ -316,7 +316,7 @@ nonisolated func paintRulerTile(_ request: TileRequest, _ ctx: CGContext, contro
     paintRange(f, height: height, ctx)
 
     for line in f.markLines {
-        paintMarkLine(line, ctx, top: 0, height: height)
+        paintStudioRulerTick(line, ctx, height: height) // STUDIO: marks are coloured ticks, not full-height dashed lines
     }
     return []
 }
@@ -467,6 +467,7 @@ nonisolated func paintWaveformTile(_ request: TileRequest, _ ctx: CGContext, con
     guard !f.failed else { return nil }
     ctx.setFillColor(TimelineColors.waveformBackground)
     ctx.fill(r)
+    defer { paintStudioWaveformTicks(request, ctx, controller: controller, height: CGFloat(f.height)) } // STUDIO: mark ticks over the wave
     guard !f.building, !f.highs.isEmpty else { return [] }
     let baseline = CGFloat(f.baseline)
     let top = CGFloat(f.top)

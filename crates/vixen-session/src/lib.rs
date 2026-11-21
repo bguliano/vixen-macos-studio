@@ -9,6 +9,7 @@ pub mod studio_wiring; // STUDIO: megatree and grid wiring (start corner, revers
 pub mod studio_patch; // STUDIO: patching by intent (reverse, swap, move to output) for the Display pane and MCP
 pub mod studio_commission; // STUDIO: commissioning tests (moving pixel, color bars, all on) per element, group or controller
 pub mod studio_palette; // STUDIO: the ⌘K command palette's search, disabled reasons and MCP tool
+pub mod studio_mark_ticks; // STUDIO: marks as ruler and waveform ticks, lines across the grid for the active collection
 pub mod archive;
 pub mod boot;
 pub mod compare;

@@ -148,6 +148,14 @@ command, edits are live with Undo, and each change is verified with harness runs
    `sequence_length` also takes the field's text as `length`. Harness: `scripts/ui/studio-sequence-inspector.json`
    (hook `sequencer.inspector`).
 3. Marks draw as coloured ticks in the ruler and waveform, with full-height lines only for the selected collection.
+   *Done:* the ruler draws each mark as a solid tick in its collection's colour, rising from the bottom edge (wider when
+   selected), and the waveform as short ticks at its top and bottom edges (`StudioMarkTicks.swift`, `studio_mark_ticks.rs`).
+   Lines cross the grid only for the collections whose marks are selected (click a mark in the ruler or the marks bar;
+   clearing the selection clears them), and for every collection with lines while an effect drag snaps, as an overlay
+   that leaves the tiles alone, so snapping still shows what it can snap to. The collection's own colour, bold and dash
+   still style those lines. Which lines show is the window's view, not the document, so there is no command or Undo for
+   it; mark selection, visibility (`marks_visibility`) and snapping are unchanged. Harness:
+   `scripts/ui/studio-quiet-marks.json`.
 4. Compact / regular row height (View menu), remembered per sequence.
 5. Replace the vanilla dock tab with the native window tab bar.
 6. Effects library: favourites and recently used at the top.
