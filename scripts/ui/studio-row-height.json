@@ -16,7 +16,6 @@
     { "action": "hook", "name": "sequencer.rows" },
     { "action": "snapshot", "name": "compact" },
     { "action": "menus", "name": "menus-compact" },
-    { "action": "menu", "path": ["File", "Save"] },
     { "action": "wait", "seconds": 3 },
     { "action": "closeWindow" },
     { "action": "wait", "seconds": 2 },

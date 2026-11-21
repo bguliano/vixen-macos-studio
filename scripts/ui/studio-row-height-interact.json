@@ -41,9 +41,21 @@
       "seconds": 12
     },
     {
+      "action": "menu",
+      "path": [
+        "View",
+        "Row Height",
+        "Compact"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
       "action": "mouse",
       "x": 206,
-      "y": 544
+      "y": 516
     },
     {
       "action": "wait",
@@ -60,9 +72,9 @@
     {
       "action": "mouse",
       "x": 817,
-      "y": 244,
+      "y": 216,
       "toX": 887,
-      "toY": 244
+      "toY": 216
     },
     {
       "action": "wait",
@@ -94,7 +106,7 @@
     {
       "action": "mouse",
       "x": 268,
-      "y": 285
+      "y": 257
     },
     {
       "action": "wait",
