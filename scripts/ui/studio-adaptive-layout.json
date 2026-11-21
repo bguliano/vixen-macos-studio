@@ -1437,6 +1437,744 @@
    "name": "sequencer-dragged"
   },
   {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "mouse",
+   "x": 330,
+   "y": 230
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Edit",
+    "Place Effect on Marks\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "place-on-marks-dark",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "place-on-marks-light",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Sequence",
+    "Export"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "export-sequence-dark",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "export-sequence-light",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "click",
+   "label": "Close"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Light Strip Controller"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.4
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "controller-setup-dark",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "controller-setup-light",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "display"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "setup.selectElements",
+   "path": [
+    "White Top"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.selectProperty",
+   "path": [
+    "Color"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureProperty"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "property-setup-dark",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "property-setup-light",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "previewTarget",
+   "text": "Christmas Tree 2019"
+  },
+  {
+   "action": "window",
+   "id": "preview-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Preview Configuration"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "preview-designer-dark",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Preview Configuration"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "preview-designer-light",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Preview Configuration"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Preview Configuration"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "custom-prop-editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Custom Prop Editor"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "prop-editor-dark",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Custom Prop Editor"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "prop-editor-light",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1100",
+    "700",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "prop-editor-wide",
+    "Custom Prop Editor"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Custom Prop Editor"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
    "action": "hook",
    "name": "studio.layout",
    "path": [

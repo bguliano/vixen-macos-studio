@@ -331,6 +331,10 @@
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
   "hash": "f8fa60171898b51c"
  },
+ "block:prop-toolbar-fits": {
+  "file": "app/Sources/VixenTools/ToolsScene.swift",
+  "hash": "6df36201092e9d16"
+ },
  "block:quiet-mark-ticks": {
   "file": "crates/vixen-ffi/src/timeline.rs",
   "hash": "dec97e86a6f68b39"

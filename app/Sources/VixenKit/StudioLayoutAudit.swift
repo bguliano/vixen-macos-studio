@@ -6,8 +6,9 @@ import AppKit
 /// `{ "action": "hook", "name": "studio.layout", "path": [...] }`:
 /// - `appearance light|dark|system`: sets Settings ▸ Appearance, as the user would; windows follow at once.
 /// - `restore`: puts back the appearance the user had before the script changed it. End every script that changes it with this.
-/// Window titles may be `@settings` for the Settings window.
-/// - `min [window title]`: shrinks the window to the smallest size its content allows. Answers `WxH`.
+/// Window titles may be `@settings` for the Settings window, or `@sheet` for the sheet showing on any window.
+/// - `min [window title]`: shrinks the window to the smallest size its content allows (a sheet that sets none keeps the size
+///   its content asked for). Answers `WxH`.
 /// - `size <width> <height> [window title]`: resizes the window's content to that size.
 /// - `panes [window title]`: the widths of the window's widest side-by-side split view's panes, as `180,320,260`.
 /// - `snapshot <name> [window title]`: writes `<name>.png` of that window, as the harness's `snapshot` does.
@@ -60,10 +61,16 @@ enum StudioLayoutAudit {
         }
     }
 
-    /// `@settings` names the Settings window, whose title is whichever tab was last open.
+    /// `@settings` names the Settings window, whose title is whichever tab was last open; `@sheet` the frontmost sheet, which
+    /// has no title of its own.
     static func window(titled title: String?) -> NSWindow? {
         if title == "@settings" {
             return NSApp.windows.first { $0.isVisible && ($0.identifier?.rawValue.contains("Settings") ?? false) }
+        }
+        if title == "@sheet" {
+            var sheet = NSApp.orderedWindows.lazy.compactMap(\.attachedSheet).first
+            while let inner = sheet?.attachedSheet { sheet = inner }
+            return sheet
         }
         if let title { return NSApp.windows.first { $0.title == title && $0.isVisible } }
         var window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.orderedWindows.first { $0.isVisible && $0.canBecomeMain }
@@ -76,7 +83,11 @@ enum StudioLayoutAudit {
     static func resize(_ window: NSWindow, to size: NSSize) async -> String {
         // SwiftUI publishes the content's minimum as the window's minimum size once it has laid out.
         window.contentView?.layoutSubtreeIfNeeded()
-        let minimum = window.contentMinSize
+        var minimum = window.contentMinSize
+        // A SwiftUI sheet publishes no minimum: it's the size its content asked for, and a person can't make it smaller.
+        if window.sheetParent != nil, minimum.width < 2 || minimum.height < 2 {
+            minimum = window.contentRect(forFrameRect: window.frame).size
+        }
         let wanted = NSSize(width: max(size.width, minimum.width, 1), height: max(size.height, minimum.height, 1))
         var frame = window.frameRect(forContentRect: NSRect(origin: .zero, size: wanted))
         frame.origin = NSPoint(x: window.frame.minX, y: window.frame.maxY - frame.height)

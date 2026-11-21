@@ -151,30 +151,58 @@ struct PropSplitStart: NSViewRepresentable {
 
 private struct PropToolbar: View {
     let model: PropEditorModel
+    // STUDIO-BEGIN prop-toolbar-fits: at the window's minimum the arranging tools fold into one menu, not out of sight
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 9) {
-                tool("New", "doc.badge.plus") { model.newDocument() }
-                tool("Open", "folder") { model.openDocument() }
-                tool("Save", "square.and.arrow.down") { Task { _ = await model.save() } }
-                Divider().frame(height: 24)
-                Picker("Mode", selection: Binding(get: { model.state.mode }, set: { mode in model.mutate { $0.setMode(mode: mode) } })) {
-                    Text("Draw").tag(PropEdMode.draw)
-                    Text("Select").tag(PropEdMode.select)
-                }.pickerStyle(.segmented).frame(width: 125)
-                tool("Assign Background", "photo") { model.assignBackground() }
-                Menu { Button("Left") { model.align(.left) }; Button("Right") { model.align(.right) }; Button("Top") { model.align(.top) }; Button("Bottom") { model.align(.bottom) } } label: { Image(systemName: "align.horizontal.left") }.help("Align selected lights").accessibilityLabel("Align selected lights").disabled(!model.state.canIncreaseLightSize)
-                Menu { Button("Horizontal") { model.mutate { _ = $0.distribute(axis: .horizontal) } }; Button("Vertical") { model.mutate { _ = $0.distribute(axis: .vertical) } } } label: { Image(systemName: "distribute.horizontal.center") }.help("Distribute selected lights").accessibilityLabel("Distribute selected lights").disabled(!model.state.canIncreaseLightSize)
-                Menu { Button("Horizontal") { model.mutate { _ = $0.flip(axis: .horizontal) } }; Button("Vertical") { model.mutate { _ = $0.flip(axis: .vertical) } } } label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }.help("Flip selected lights").accessibilityLabel("Flip selected lights").disabled(!model.state.canIncreaseLightSize)
+        ViewThatFits(in: .horizontal) {
+            row(compact: false)
+            row(compact: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading).fixedSize(horizontal: false, vertical: true).background(.bar)
+    }
+    private func row(compact: Bool) -> some View {
+        HStack(spacing: 9) {
+            tool("New", "doc.badge.plus") { model.newDocument() }
+            tool("Open", "folder") { model.openDocument() }
+            tool("Save", "square.and.arrow.down") { Task { _ = await model.save() } }
+            Divider().frame(height: 24)
+            Picker("Mode", selection: Binding(get: { model.state.mode }, set: { mode in model.mutate { $0.setMode(mode: mode) } })) {
+                Text("Draw").tag(PropEdMode.draw)
+                Text("Select").tag(PropEdMode.select)
+            }.pickerStyle(.segmented).frame(width: 125)
+            tool("Assign Background", "photo") { model.assignBackground() }
+            if compact {
+                Menu {
+                    Menu("Align") { alignItems }.disabled(!model.state.canIncreaseLightSize)
+                    Menu("Distribute") { distributeItems }.disabled(!model.state.canIncreaseLightSize)
+                    Menu("Flip") { flipItems }.disabled(!model.state.canIncreaseLightSize)
+                    Divider()
+                    Button("Increase Light Size") { model.mutate { _ = $0.changeLightSize(change: .increase) } }.disabled(!model.state.canIncreaseLightSize)
+                    Button("Decrease Light Size") { model.mutate { _ = $0.changeLightSize(change: .decrease) } }.disabled(!model.state.canDecreaseLightSize)
+                    Button("Match Light Size") { model.mutate { _ = $0.changeLightSize(change: .match) } }.disabled(!model.state.canMatchLightSize)
+                } label: { Image(systemName: "square.on.square.dashed") }.help("Arrange selected lights").accessibilityLabel("Arrange selected lights")
+            } else {
+                Menu { alignItems } label: { Image(systemName: "align.horizontal.left") }.help("Align selected lights").accessibilityLabel("Align selected lights").disabled(!model.state.canIncreaseLightSize)
+                Menu { distributeItems } label: { Image(systemName: "distribute.horizontal.center") }.help("Distribute selected lights").accessibilityLabel("Distribute selected lights").disabled(!model.state.canIncreaseLightSize)
+                Menu { flipItems } label: { Image(systemName: "arrow.left.and.right.righttriangle.left.righttriangle.right") }.help("Flip selected lights").accessibilityLabel("Flip selected lights").disabled(!model.state.canIncreaseLightSize)
                 tool("Increase Light Size", "plus.magnifyingglass") { model.mutate { _ = $0.changeLightSize(change: .increase) } }.disabled(!model.state.canIncreaseLightSize)
                 tool("Decrease Light Size", "minus.magnifyingglass") { model.mutate { _ = $0.changeLightSize(change: .decrease) } }.disabled(!model.state.canDecreaseLightSize)
                 tool("Match Light Size", "equal.square") { model.mutate { _ = $0.changeLightSize(change: .match) } }.disabled(!model.state.canMatchLightSize)
-                Divider().frame(height: 24)
-                tool("Undo", "arrow.uturn.backward") { model.documentUndoManager.undo() }.disabled(model.state.undoName == nil)
-                tool("Redo", "arrow.uturn.forward") { model.documentUndoManager.redo() }.disabled(model.state.redoName == nil)
-            }.padding(8).buttonStyle(.borderless)
-        }.fixedSize(horizontal: false, vertical: true).background(.bar)
+            }
+            Divider().frame(height: 24)
+            tool("Undo", "arrow.uturn.backward") { model.documentUndoManager.undo() }.disabled(model.state.undoName == nil)
+            tool("Redo", "arrow.uturn.forward") { model.documentUndoManager.redo() }.disabled(model.state.redoName == nil)
+        }.padding(8).buttonStyle(.borderless)
     }
+    @ViewBuilder private var alignItems: some View {
+        Button("Left") { model.align(.left) }; Button("Right") { model.align(.right) }; Button("Top") { model.align(.top) }; Button("Bottom") { model.align(.bottom) }
+    }
+    @ViewBuilder private var distributeItems: some View {
+        Button("Horizontal") { model.mutate { _ = $0.distribute(axis: .horizontal) } }; Button("Vertical") { model.mutate { _ = $0.distribute(axis: .vertical) } }
+    }
+    @ViewBuilder private var flipItems: some View {
+        Button("Horizontal") { model.mutate { _ = $0.flip(axis: .horizontal) } }; Button("Vertical") { model.mutate { _ = $0.flip(axis: .vertical) } }
+    }
+    // STUDIO-END prop-toolbar-fits
     private func tool(_ title: String, _ image: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Image(systemName: image).frame(width: 22, height: 22) }.help(title).accessibilityLabel(title)
     }
