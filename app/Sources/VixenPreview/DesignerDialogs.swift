@@ -98,7 +98,7 @@ private struct ResizeBackgroundSheet: View {
             HStack {
                 Button("Help") { model.help("https://www.vixenlights.com/docs/usage/preview/preview-main-screen/#background") }
                 Spacer()
-                Button("OK") {
+                Button("Resize") { // STUDIO: a verb on the confirmation button; Undo takes the resize back
                     model.resizeBackground(width: Int32(width), height: Int32(height), scaleShapes: scaleShapes)
                     dismiss()
                 }
@@ -139,30 +139,34 @@ private struct LocationOffsetSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Location Offset").font(.headline)
+            // STUDIO-BEGIN designer-live-offset: each field applies as it's committed, one step on the designer's Undo; Done closes
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 8) {
                 GridRow {
                     Text("Horizontal")
                     TextField("Horizontal", text: $horizontal).labelsHidden().frame(width: 100)
+                        .onSubmit(commit)
                 }
                 GridRow {
                     Text("Vertical")
                     TextField("Vertical", text: $vertical).labelsHidden().frame(width: 100)
+                        .onSubmit(commit)
                 }
             }
+            Text("Added to every linked light's position when Save Locations writes it.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("OK") {
-                    // An empty box is 0, and `IntValue` truncates toward zero.
-                    let x = Double(horizontal).map { $0.rounded(.towardZero) } ?? 0
-                    let y = Double(vertical).map { $0.rounded(.towardZero) } ?? 0
-                    model.designer?.setLocationOffset(x: x, y: y)
+                Button("Done") {
+                    commit()
                     dismiss()
                 }
                 .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
             }
         }
+        .onDisappear(perform: commit)
+        // STUDIO-END designer-live-offset
         .padding(16)
         .frame(width: 260)
         .onAppear {
@@ -171,6 +175,16 @@ private struct LocationOffsetSheet: View {
             vertical = String(Int(s?.locationOffsetY ?? 0))
         }
     }
+
+    // STUDIO-BEGIN designer-live-offset-commit: the offset as typed, live; the same values add no undo step
+    private func commit() {
+        // An empty box is 0, and `IntValue` truncates toward zero.
+        let x = Double(horizontal).map { $0.rounded(.towardZero) } ?? 0
+        let y = Double(vertical).map { $0.rounded(.towardZero) } ?? 0
+        model.apply(model.designer?.studioSetLocationOffset(x: x, y: y))
+        model.refreshSettings()
+    }
+    // STUDIO-END designer-live-offset-commit
 }
 
 // MARK: F49
@@ -201,7 +215,7 @@ private struct SingleBulbSheet: View {
             }
             HStack {
                 Spacer()
-                Button("OK") {
+                Button("Draw Bulbs") { // STUDIO: a verb on the confirmation button
                     model.singleBulbFinished(prefix: prefix, index: Int32(index), size: Int32(size))
                     dismiss()
                 }
@@ -283,7 +297,7 @@ private struct CreateTemplateSheet: View {
             }
             HStack {
                 Spacer()
-                Button("OK") { finish() }
+                Button("Save Template") { finish() } // STUDIO: a verb on the confirmation button
                     .keyboardShortcut(.defaultAction)
                 // The group stays, as upstream.
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -327,34 +341,40 @@ private struct FixtureLinkSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var nodes: [DesignerFixtureNode] = []
     @State private var selection: String?
+    @State private var linked: String? // STUDIO: designer-live-fixture-link, the link the shape has now
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Link Element").font(.headline)
+            // STUDIO-BEGIN designer-live-fixture-link: choosing a row links it at once, one step on the designer's Undo; Done closes
             List(nodes, id: \.id, selection: $selection) { node in
                 Text(node.name).tag(node.id)
             }
-            HStack {
-                Spacer()
-                Button("OK") {
-                    // OK with no selection clears the link.
-                    do {
-                        model.apply(try model.designer?.setFixtureNode(shape: shape, node: selection))
-                    } catch {
-                        model.alert("Link Element", error.userMessage)
-                    }
-                    model.properties.reload()
-                    dismiss()
+            .onChange(of: selection) { _, node in
+                guard node != linked else { return }
+                linked = node
+                do {
+                    model.apply(try model.designer?.studioSetFixtureNode(shape: shape, node: node))
+                } catch {
+                    model.alert("Link Element", error.userMessage)
                 }
-                .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                model.properties.reload()
+            }
+            HStack {
+                Button("Unlink") { selection = nil }
+                    .disabled(selection == nil)
+                    .help("Link this fixture to no element")
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
             }
         }
+        // STUDIO-END designer-live-fixture-link
         .padding(16)
         .frame(width: 350, height: 400)
         .onAppear {
             nodes = model.designer?.fixtureNodes() ?? []
+            linked = current // STUDIO: designer-live-fixture-link
             selection = current
         }
     }
@@ -411,7 +431,7 @@ private struct LinkElementsSheet: View {
                     NumberField(title: "Light Count for String:", value: $lightCount, range: 1...1000)
                     Button("Set") {
                         linker.setLightCount(string: UInt32(string), count: UInt32(lightCount))
-                        fill()
+                        changed() // STUDIO: designer-live-linking
                     }
                 }
             }
@@ -442,19 +462,19 @@ private struct LinkElementsSheet: View {
                             let dragged = Set(ids).isSubset(of: Set(selection)) ? selection : ids
                             let nodes = dragged.compactMap { $0.split(separator: "/").last.map(String.init) }
                             linker.dropNodes(string: UInt32(string), row: UInt32(row), nodes: nodes)
-                            fill()
+                            changed() // STUDIO: designer-live-linking
                         },
                         onCopyToString: { row in
                             linker.copyToThisString(string: UInt32(string), row: UInt32(row))
-                            fill()
+                            changed() // STUDIO: designer-live-linking
                         },
                         onCopyToAll: { row in
                             linker.copyToAllStrings(string: UInt32(string), row: UInt32(row))
-                            fill()
+                            changed() // STUDIO: designer-live-linking
                         },
                         onReverse: {
                             linker.reverse(string: UInt32(string))
-                            fill()
+                            changed() // STUDIO: designer-live-linking
                         }
                     )
                 }
@@ -470,14 +490,10 @@ private struct LinkElementsSheet: View {
             HStack {
                 Button("Help") { model.help("https://www.vixenlights.com/docs/usage/preview/preview-linking-elements/") }
                 Spacer()
-                Button("OK") {
-                    model.apply(linker.apply())
-                    model.properties.reload()
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) { dismiss() }
-                    .keyboardShortcut(.cancelAction)
+                // STUDIO-BEGIN designer-live-linking-done: every change is already on the shape, and the sheet's changes are one step on the designer's Undo
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+                // STUDIO-END designer-live-linking-done
             }
         }
         .padding(14)
@@ -501,6 +517,14 @@ private struct LinkElementsSheet: View {
         .onChange(of: string) { fill() }
     }
 
+    // STUDIO-BEGIN designer-live-linking: the shape takes the sheet's links after each change
+    private func changed() {
+        model.apply(linker.studioApplyLive())
+        model.properties.reload()
+        fill()
+    }
+    // STUDIO-END designer-live-linking
+
     private func fill() {
         rows = linker.rows(string: UInt32(string))
         lightCount = Int(linker.lightCount(string: UInt32(string)))
@@ -510,7 +534,7 @@ private struct LinkElementsSheet: View {
     private func doubleClicked(_ row: String) {
         guard !tableSelection.isEmpty, let node = row.split(separator: "/").last.map(String.init) else { return }
         linker.setRows(string: UInt32(string), rows: tableSelection.map { UInt32($0) }, node: node)
-        fill()
+        changed() // STUDIO: designer-live-linking
     }
 }
 

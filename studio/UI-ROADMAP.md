@@ -214,6 +214,18 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   unknown-word mapping, Face Mapping node selection), which edit the profile's LipSync library rather than the sequence and
   need the show window's shared history for Undo (backlog).
 
+- **Preview designer (R41).** *Done:* the designer's sheets no longer commit through OK/Cancel. Linked Elements changes the
+  shape as it's used (drop, double-click, Copy, Reverse, Set) and closes with Done; everything done while it's open is one
+  step on the designer's Edit ▸ Undo ("Link Elements"). A moving head's Link Element links the chosen row at once ("Link
+  Element", with Unlink and Done). Location Offset applies each field as it's committed ("Location Offset", Done). Resize
+  Background confirms with Resize and is one Undo step that puts the old image and size back; Single Bulb Configuration
+  says Draw Bulbs, Create a Template says Save Template, and the prop-naming prompt says Continue (`studio_design_undo.rs`
+  in vixen-preview, `studio_preview_designer.rs` in vixen-ffi). MCP: `preview_location_offset` (one step on the shared
+  history); linking and properties already had `preview_prop_link` and `preview_prop_set`. Harness:
+  `scripts/check_studio_designer_live.py` with `scripts/ui/studio-designer-live.json`. *Remaining:* Tools (the prop
+  editor's OK/Cancel sheets and name prompts) and Dialogs (the property, filter and controller setup sheets), each its own
+  backlog item.
+
 ## Phase 5: polish and guards
 
 - Replace fixed widths with adaptive layout; check every window at its minimum size and in light mode.

@@ -499,11 +499,11 @@ final class PreviewDesignerModel {
     }
 
     func undo(steps: UInt32 = 1) {
-        apply(designer?.undoMany(steps: steps))
+        apply(designer?.studioUndoMany(steps: steps)) // STUDIO: designer-live-dialogs undo may load the background again
     }
 
     func redo(steps: UInt32 = 1) {
-        apply(designer?.redoMany(steps: steps))
+        apply(designer?.studioRedoMany(steps: steps)) // STUDIO: designer-live-dialogs redo may load the background again
     }
 
     func toggleHideLocked() {
@@ -579,7 +579,7 @@ final class PreviewDesignerModel {
         }
         Task {
             do {
-                let change = try await Task.detached { try designer.resizeBackground(width: width, height: height, scaleShapes: scaleShapes) }.value
+                let change = try await Task.detached { try designer.studioResizeBackground(width: width, height: height, scaleShapes: scaleShapes) }.value // STUDIO: undoable resize
                 apply(change)
                 refreshSettings()
             } catch {
@@ -902,7 +902,7 @@ final class PreviewDesignerModel {
         let field = NSTextField(string: initial)
         field.frame = NSRect(x: 0, y: 0, width: 240, height: 22)
         alert.accessoryView = field
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Continue") // STUDIO: a verb on the confirmation button
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
         return await withCheckedContinuation { finished in

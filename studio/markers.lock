@@ -39,6 +39,38 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:designer-live-dialogs": {
+  "file": "crates/vixen-ffi/src/preview.rs",
+  "hash": "e2b3b0d9774cbd13"
+ },
+ "block:designer-live-fixture-link": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "f1408e1a56c42b8d"
+ },
+ "block:designer-live-linking": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "2dcefc67d661617b"
+ },
+ "block:designer-live-linking-done": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "e8211bb3e37b529e"
+ },
+ "block:designer-live-offset": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "8c691338c434d3e1"
+ },
+ "block:designer-live-offset-commit": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "d38df173b56602c5"
+ },
+ "block:designer-live-undo": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "c54a3e285588aa10"
+ },
+ "block:designer-shape-export": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "c56ec8e8c777430e"
+ },
  "block:display-materialize": {
   "file": "crates/vixen-session/src/setup/commit.rs",
   "hash": "73786ef58dc7140c"
@@ -507,6 +539,46 @@
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:4be024d1cee5f743": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "4be024d1cee5f743"
+ },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:51e14fafdde76d13": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "51e14fafdde76d13"
+ },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:544a58d1b149c70e": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "544a58d1b149c70e"
+ },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:79934109efe11ad1": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "79934109efe11ad1"
+ },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:7fac0cfa92f0e125": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "7fac0cfa92f0e125"
+ },
+ "line:app/Sources/VixenPreview/DesignerDialogs.swift:960cd06ce1f0f7ce": {
+  "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
+  "hash": "960cd06ce1f0f7ce"
+ },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:282ab4d5689f13f8": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "282ab4d5689f13f8"
+ },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:332f7e143c445a9d": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "332f7e143c445a9d"
+ },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:83848c4af573afc9": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "83848c4af573afc9"
+ },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:fc58c90e3aa5b9fc": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "fc58c90e3aa5b9fc"
+ },
  "line:app/Sources/VixenPreview/LivePreviewWindow.swift:6f72f0ae0897a032": {
   "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
   "hash": "6f72f0ae0897a032"
@@ -903,6 +975,14 @@
   "file": "crates/vixen-ffi/src/marks.rs",
   "hash": "fa1c8aa25ba9b528"
  },
+ "line:crates/vixen-ffi/src/preview.rs:52b6e3532f304e0e": {
+  "file": "crates/vixen-ffi/src/preview.rs",
+  "hash": "52b6e3532f304e0e"
+ },
+ "line:crates/vixen-ffi/src/preview.rs:a9dd7ff8056d7efe": {
+  "file": "crates/vixen-ffi/src/preview.rs",
+  "hash": "a9dd7ff8056d7efe"
+ },
  "line:crates/vixen-ffi/src/scheduler.rs:51a6beb21bb227be": {
   "file": "crates/vixen-ffi/src/scheduler.rs",
   "hash": "51a6beb21bb227be"
@@ -934,6 +1014,18 @@
  "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "658915e8cd98c064"
+ },
+ "line:crates/vixen-preview/src/session.rs:1f2140749feeef34": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "1f2140749feeef34"
+ },
+ "line:crates/vixen-preview/src/session.rs:54aaeff4dbbd79a0": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "54aaeff4dbbd79a0"
+ },
+ "line:crates/vixen-preview/src/session.rs:6c993b35eb9b07bd": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "6c993b35eb9b07bd"
  },
  "line:crates/vixen-session/src/app.rs:b0bca46243531f1d": {
   "file": "crates/vixen-session/src/app.rs",

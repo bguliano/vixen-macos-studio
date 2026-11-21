@@ -14,12 +14,13 @@ use vixen_preview::{PreviewData, Scene, VIXEN_PREVIEW_MODULE_TYPE};
 use vixen_xml::XNode;
 
 /// The commands that publish through [`publish`] instead of rebuilding the display.
-pub const COMMANDS: [&str; 5] = [
+pub const COMMANDS: [&str; 6] = [
     "preview_create",
     "preview_rename",
     "preview_duplicate",
     "preview_delete",
     "preview_enable",
+    "preview_location_offset",
 ];
 
 pub fn is_command(command: &str) -> bool {
@@ -33,6 +34,7 @@ pub fn label(command: &str, args: &Value) -> &'static str {
         "preview_rename" => "Rename Preview",
         "preview_duplicate" => "Duplicate Preview",
         "preview_delete" => "Delete Preview",
+        "preview_location_offset" => "Set Location Offset",
         _ if args["enabled"] == true => "Turn On Preview",
         _ => "Turn Off Preview",
     }
@@ -138,6 +140,28 @@ pub fn edit(system: &mut SystemData, command: &str, args: &Value) -> Result<(Val
                 system.disabled_devices.push(id);
             }
             Ok((json!({"previewId":id.to_string(),"enabled":on}), was != on))
+        }
+        "preview_location_offset" => {
+            // The designer's Location Offset: added to every linked light's preview position when locations are saved.
+            let id = preview_id(system, args)?;
+            let coordinate = |key: &str| {
+                args[key]
+                    .as_i64()
+                    .filter(|n| n.abs() <= 100_000)
+                    .map(|n| n as f64)
+                    .ok_or(format!("{key} must be a whole number between -100000 and 100000"))
+            };
+            let (x, y) = (coordinate("x")?, coordinate("y")?);
+            let entry = crate::preview::preview_entries(system).into_iter().find(|p| p.id == id).ok_or("Preview not found")?;
+            let mut data = crate::preview::load_preview_data(&system.module_store, &entry).map_err(|e| e.to_string())?;
+            let changed = data.location_offset.x.value != x || data.location_offset.y.value != y;
+            if changed {
+                let mut design = vixen_preview::DesignSession::new(data, None);
+                design.studio_set_location_offset(x, y);
+                data = design.into_data();
+                crate::preview_design::save_preview_data(system, &entry, &data);
+            }
+            Ok((json!({"previewId":id.to_string(),"x":x,"y":y}), changed))
         }
         _ => Err("Unknown preview command".into()),
     }
@@ -310,6 +334,7 @@ pub fn tools() -> Vec<Value> {
         ("preview_rename","Rename a preview. Its window title follows; an \"(OpenGL)\" tag at the end of the name is left out of the title.",json!({"previewId":string,"name":string}),vec!["previewId","name"],false),
         ("preview_duplicate","Duplicate a preview with its whole layout and links, inserted after it. name defaults to \"<name> copy\".",json!({"previewId":string,"name":string}),vec!["previewId"],false),
         ("preview_delete","Delete a preview and its layout. Undo brings it back. Requires explicit confirmation.",json!({"previewId":string,"confirm":{"type":"boolean"}}),vec!["previewId","confirm"],true),
+        ("preview_location_offset","Set a preview's location offset, the designer's Location Offset: x and y are added to every linked light's preview position when light locations are written (element_location, the designer's Save Locations). One undo step; the same values add none.",json!({"previewId":string,"x":{"type":"integer","minimum":-100000,"maximum":100000},"y":{"type":"integer","minimum":-100000,"maximum":100000}}),vec!["previewId","x","y"],false),
         ("preview_enable","Turn a preview on or off: an on preview shows in its own window whenever Live Output is on (saved as the profile's disabled devices). Takes effect at once, without restarting controllers.",json!({"previewId":string,"enabled":{"type":"boolean"}}),vec!["previewId","enabled"],false),
     ].into_iter().map(|(name,description,mut properties,required,destructive)|{properties["expectedRevision"]=json!({"type":"integer","minimum":0});json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":destructive,"openWorldHint":false}})}).collect()
 }
@@ -388,6 +413,29 @@ mod tests {
         assert!(loaded.disabled_devices.contains(&Uuid::parse_str(&id).unwrap()));
         let png = thumbnail(&core, Uuid::parse_str(&id).unwrap(), 160, 100).unwrap();
         assert_eq!(&png[1..4], b"PNG");
+        drop(core);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn location_offset_is_one_undo_step() {
+        let (core, root) = core();
+        let id = run(&core, "preview_create", json!({}))["result"]["previewId"].as_str().unwrap().to_string();
+        let entry = crate::preview::preview_entries(&core.system.read()).into_iter().find(|p| p.id.to_string() == id).unwrap();
+        let offset = |core: &AppCore| {
+            let o = crate::preview::load_preview_data(&core.system.read().module_store, &entry).unwrap().location_offset;
+            (o.x.value, o.y.value)
+        };
+        assert_eq!(offset(&core), (0.0, 0.0));
+        core.studio_display.execute(&core, "preview_location_offset", &json!({"previewId":id,"x":40,"y":-12}), true).unwrap();
+        assert_eq!(offset(&core), (40.0, -12.0));
+        assert_eq!(core.studio_display.history()["undo"][0], "Set Location Offset (Agent)");
+        assert_eq!(run(&core, "preview_location_offset", json!({"previewId":id,"x":40,"y":-12}))["changed"], false);
+        assert!(core.studio_display.execute(&core, "preview_location_offset", &json!({"previewId":id,"x":1.5,"y":0}), false).is_err());
+        run(&core, "display_undo", json!({}));
+        assert_eq!(offset(&core), (0.0, 0.0));
+        run(&core, "display_redo", json!({}));
+        assert_eq!(offset(&core), (40.0, -12.0));
         drop(core);
         std::fs::remove_dir_all(root).unwrap();
     }

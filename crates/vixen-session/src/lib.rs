@@ -85,6 +85,12 @@ pub enum SessionError {
     Other(String),
 }
 
+// STUDIO-BEGIN designer-shape-export: the designer's live Linked Elements sheet keeps the shape it undoes to
+pub mod studio_design {
+    pub use vixen_preview::Shape;
+}
+// STUDIO-END designer-shape-export
+
 // STUDIO-BEGIN authoring-modules: shared sequence, parameter and offscreen preview commands
 pub mod studio_sequence;
 pub mod studio_params;

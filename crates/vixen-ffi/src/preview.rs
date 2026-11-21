@@ -17,6 +17,11 @@ use vixen_session::preview_design::{background_dimensions, import_background, lo
 use vixen_session::preview_live::{load_live_window_state, restore_bounds, LiveView, LiveWindowState};
 use vixen_session::render_support::{design, LiveRenderer, Scene};
 
+// STUDIO-BEGIN designer-live-dialogs: the designer's Linked Elements, Link Element, Location Offset and Resize Background are live, with Undo
+#[path = "studio_preview_designer.rs"]
+mod studio_preview_designer;
+// STUDIO-END designer-live-dialogs
+
 /// A preview in the system configuration.
 #[derive(uniffi::Record)]
 pub struct PreviewRow {
@@ -1415,7 +1420,7 @@ impl PreviewDesigner {
             design::ElementLinker::new(&host.session.item(Self::shape_id(shape))?.shape)
         };
         linker.resolve_group_links(&tree);
-        Some(Arc::new(PreviewLinker { designer: self, shape: Self::shape_id(shape), linker: Mutex::new(Some(linker)), tree }))
+        Some(Arc::new(PreviewLinker { designer: self, shape: Self::shape_id(shape), linker: Mutex::new(Some(linker)), tree, studio_live: studio_preview_designer::new_live_link() })) // STUDIO: designer-live-dialogs
     }
 
     /// Sets a moving head's one linked element, or clears it.
@@ -1647,6 +1652,7 @@ pub struct PreviewLinker {
     shape: design::ShapeId,
     linker: Mutex<Option<design::ElementLinker>>,
     tree: Arc<ElementTree>,
+    studio_live: Mutex<studio_preview_designer::LiveLink>, // STUDIO: designer-live-dialogs
 }
 
 impl PreviewLinker {

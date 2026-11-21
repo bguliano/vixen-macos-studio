@@ -1,0 +1,266 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "previewTarget",
+   "text": "Christmas Tree 2019"
+  },
+  {
+   "action": "window",
+   "id": "preview-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "designerOnScreen"
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerCommand",
+   "text": "offsetSheet"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "01-offset-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "01-offset-sheet"
+  },
+  {
+   "action": "click",
+   "label": "Horizontal"
+  },
+  {
+   "action": "key",
+   "key": "a",
+   "modifiers": [
+    "cmd"
+   ]
+  },
+  {
+   "action": "type",
+   "text": "25"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "click",
+   "label": "Done"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerCommand",
+   "text": "undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerCommand",
+   "text": "redo"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerCommand",
+   "text": "resizeSheet"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "02-resize-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "02-resize-sheet"
+  },
+  {
+   "action": "type",
+   "text": "400"
+  },
+  {
+   "action": "key",
+   "key": "return"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "click",
+   "label": "Resize",
+   "index": 1
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerCommand",
+   "text": "undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerClickLight",
+   "index": 500
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerCommand",
+   "text": "linkFirst"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "04-linker-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "04-linker-sheet"
+  },
+  {
+   "action": "designerLinkerInfo"
+  },
+  {
+   "action": "selectRow",
+   "label": "White Top"
+  },
+  {
+   "action": "selectRow",
+   "label": "Light Strip L"
+  },
+  {
+   "action": "hook",
+   "name": "previewLinker",
+   "path": [
+    "doubleClick"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "selectRow",
+   "label": "Relays"
+  },
+  {
+   "action": "hook",
+   "name": "previewLinker",
+   "path": [
+    "doubleClick"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerLinkerInfo"
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "click",
+   "label": "Done"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerCommand",
+   "text": "undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "designerCommand",
+   "text": "singleSheet"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "snapshot",
+   "name": "05-single-sheet"
+  },
+  {
+   "action": "dump",
+   "name": "05-single-sheet"
+  },
+  {
+   "action": "click",
+   "label": "Cancel"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

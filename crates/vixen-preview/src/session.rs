@@ -24,6 +24,11 @@ use vixen_core::element::{property_ids, PropertyData, PropertyInstance};
 use vixen_core::{ElementTree, NodeId};
 use vixen_xml::XElement;
 
+// STUDIO-BEGIN designer-live-undo: Studio's live designer edits (Linked Elements, Link Element, Location Offset, Resize Background) on the designer's undo stack
+#[path = "studio_design_undo.rs"]
+mod studio_design_undo;
+// STUDIO-END designer-live-undo
+
 /// `VixenPreviewControl.Tools`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum Tool {
@@ -228,6 +233,7 @@ enum UndoAction {
     /// `PreviewItemsGroupAddedUndoAction`. The C# finds the items again by hit testing a point on them, and these
     /// ids avoid picking up whatever else is under that point. In the normal case that is the same items.
     GroupAdded { group: ShapeId, children: Vec<ShapeId> },
+    Studio(studio_design_undo::StudioUndo), // STUDIO: designer-live-undo
 }
 
 impl UndoAction {
@@ -252,6 +258,7 @@ impl UndoAction {
             UndoAction::Lock { items } => format!("Lock {} props", items.len()),
             UndoAction::PixelSize { ids, .. } => format!("Pixel size on {} items.", ids.as_ref().map_or(0, Vec::len)),
             UndoAction::GroupAdded { .. } => "Added Group".to_string(),
+            UndoAction::Studio(action) => action.description(), // STUDIO: designer-live-undo
         }
     }
 }
@@ -1997,6 +2004,7 @@ impl DesignSession {
                 }
             }
             UndoAction::MoveResize { saved, .. } => self.swap_places(saved, ch),
+            UndoAction::Studio(action) => self.apply_studio_undo(action, ch), // STUDIO: designer-live-undo
             UndoAction::Lock { items } => {
                 // Undo_Lock. Find goes by the bounds in the clone, and finding nothing throws in C#.
                 for (key, locked) in items.iter() {
