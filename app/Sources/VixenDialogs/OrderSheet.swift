@@ -12,6 +12,7 @@ struct OrderHelperSheet: View {
     @State private var revision = 0
     @State private var zigzagging = false
     @State private var alert: DialogAlert?
+    @State private var studio = StudioLiveSheet(step: "Patching Order") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(session: OrderSession, onFinish: @escaping (Bool) -> Void) {
         self.session = session
@@ -40,17 +41,19 @@ struct OrderHelperSheet: View {
                 }
             )
             .frame(minHeight: 300)
-            SheetButtons(onOK: { session.apply(); onFinish(true) }, onCancel: { onFinish(false) })
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(minWidth: 462, idealWidth: 462, minHeight: 519, idealHeight: 519)
+        .onChange(of: revision) { session.apply(); studio.appliedNow() } // STUDIO: each move applies at once; the visit is one step on Display Setup's Undo (B9)
         .sheet(isPresented: $zigzagging) {
             let bounds = session.zigzagBounds(selectedCount: UInt32(selection.count))
             NumberPromptSheet(
                 title: "ZigZag Length",
                 prompt: "How many pixels to ZigZag?",
                 value: bounds.defaultValue,
-                range: bounds.minimum...max(bounds.minimum, bounds.maximum)
+                range: bounds.minimum...max(bounds.minimum, bounds.maximum),
+                verb: "ZigZag" // STUDIO: a verb (B9)
             ) { length in
                 zigzagging = false
                 guard let length else { return }

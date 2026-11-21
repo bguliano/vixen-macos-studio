@@ -145,6 +145,8 @@ final class StudioDisplayLive {
     /// Scripts can't run a test while muted; `displayTestCommission` stands in for one to show the banner.
     @ObservationIgnored var testCommission: StudioCommissionStatus?
     @ObservationIgnored private var history = ""
+    /// The step a setup sheet open now will publish as, once it closes.
+    @ObservationIgnored private var heldSheet: String?
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var unsaved = false
     @ObservationIgnored private let undoTarget = UndoTarget()
@@ -172,7 +174,14 @@ final class StudioDisplayLive {
         commission = testCommission ?? test.flatMap { try? JSONDecoder().decode(StudioCommissionStatus.self, from: Data($0.utf8)) }
         // A template's elements, colour handling and preview shape publish together, as one undo step.
         guard !working, !model.addingFromTemplate else { return }
-        await publish(model: model, core: core, cleanup: false)
+        // A setup sheet applies as it's used (B9); everything done while it's open is one step, named for it.
+        if case .dialog(let request, _) = model.sheet?.kind {
+            heldSheet = Self.stepName(request)
+            return
+        }
+        let label = heldSheet
+        heldSheet = nil
+        await publish(model: model, core: core, cleanup: false, label: label)
         await refreshHistory(core: core, rebuildIfChanged: true)
     }
 
@@ -185,7 +194,17 @@ final class StudioDisplayLive {
         await save(core: core)
     }
 
-    private func publish(model: SetupModel, core: VixenCore, cleanup: Bool) async {
+    /// The name of a setup sheet's step on the shared history.
+    static func stepName(_ request: SetupDialogRequest) -> String {
+        switch request {
+        case .controller: "Configure Controller"
+        case .filter(_, let typeName): "Configure \(typeName)"
+        case .property(_, _, _, let typeName): "Configure \(typeName)"
+        case .helper(let name, _, _, _): name
+        }
+    }
+
+    private func publish(model: SetupModel, core: VixenCore, cleanup: Bool, label: String? = nil) async {
         guard let session = model.session, blocked == nil || cleanup else { return }
         working = true
         defer { working = false }
@@ -194,7 +213,7 @@ final class StudioDisplayLive {
             if core.displayRevision() != base { return .stale }
             guard cleanup || session.isDirty() else { return .idle }
             do {
-                let reply = try core.studioPublishDisplaySetup(session: session, expectedRevision: base, cleanup: cleanup)
+                let reply = try core.studioPublishDisplaySetup(session: session, expectedRevision: base, cleanup: cleanup, label: label)
                 guard let object = try? JSONSerialization.jsonObject(with: Data(reply.utf8)) as? [String: Any],
                       object["changed"] as? Bool == true,
                       let revision = (object["revision"] as? NSNumber)?.uint64Value else { return .idle }

@@ -10,6 +10,7 @@ struct FaceSheet: View {
     @State private var rows: [DialogFaceRow]
     @State private var choosingColor: ColorChoice?
     @State private var tab = 0
+    @State private var studio = StudioLiveSheet(step: "Face Setup") // STUDIO: live sheet, Undo while it's up (B9)
 
     struct ColorChoice: Identifiable {
         let id = UUID()
@@ -45,10 +46,11 @@ struct FaceSheet: View {
                     chooseColor: chooseColor
                 )
             }
-            SheetButtons(onOK: { context.applyFace(rows: rows); onFinish(true) }, onCancel: { onFinish(false) })
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(minWidth: 864, idealWidth: 864, minHeight: 394, idealHeight: 420)
+        .studioLive(studio, draft: $rows) { context.applyFace(rows: $0) } // STUDIO: live sheet, Undo while it's up (B9)
         .sheet(item: $choosingColor) { choice in
             if choice.allowed.isEmpty {
                 FreeColorSheet(current: choice.current) { color in finish(choice, color) }

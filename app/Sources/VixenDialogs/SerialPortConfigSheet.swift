@@ -44,7 +44,7 @@ public struct SerialPortConfigSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 100)
                 }
             }
-            SheetButtons(okDisabled: !config.groupEnabled, onOK: ok, onCancel: { onFinish(nil) })
+            StudioVerbButtons(verb: "Use Port", disabled: !config.groupEnabled, onConfirm: ok, onCancel: { onFinish(nil) }) // STUDIO: a verb, not OK (B9)
         }
         .padding(20)
         .frame(width: 460)

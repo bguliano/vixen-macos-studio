@@ -10,6 +10,7 @@ struct LocationSheet: View {
     let selection: [String]
     let onFinish: (Bool) -> Void
     @State private var location: DialogLocation
+    @State private var studio = StudioLiveSheet(step: "Location Setup") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, element: String, selection: [String], location: DialogLocation, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -27,13 +28,11 @@ struct LocationSheet: View {
                 row("Y Position", $location.y)
                 row("Z Position", $location.z)
             }
-            SheetButtons(
-                onOK: { onFinish((try? context.applyLocation(node: element, selection: selection, location: location)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 300)
+        .studioLive(studio, draft: $location) { try context.applyLocation(node: element, selection: selection, location: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 
     private func row(_ title: String, _ value: Binding<Int32>) -> some View {
@@ -68,7 +67,7 @@ struct OrientationSheet: View {
                 }
                 .labelsHidden()
             }
-            SheetButtons(onOK: { onChoose(value) }, onCancel: { onChoose(nil) })
+            StudioVerbButtons(verb: "Set", onConfirm: { onChoose(value) }, onCancel: { onChoose(nil) }) // STUDIO: a verb, not OK (B9)
         }
         .padding(20)
         .frame(width: 300)
@@ -82,6 +81,7 @@ struct OrderValueSheet: View {
     let selection: [String]
     let onFinish: (Bool) -> Void
     @State private var value: Int32
+    @State private var studio = StudioLiveSheet(step: "Order Setup") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, element: String, selection: [String], value: Int32, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -98,13 +98,11 @@ struct OrderValueSheet: View {
                 Text("Order")
                 NumberField(value: $value, range: 0...Int32.max, width: 110)
             }
-            SheetButtons(
-                onOK: { onFinish((try? context.applyOrderValue(node: element, selection: selection, value: value)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 300)
+        .studioLive(studio, draft: $value) { try context.applyOrderValue(node: element, selection: selection, value: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 }
 
@@ -117,6 +115,7 @@ struct GridSheet: View {
     let onFinish: (Bool) -> Void
     @State private var width: Int32
     @State private var height: Int32
+    @State private var studio = StudioLiveSheet(step: "Grid Setup") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, element: String, selection: [String], grid: DialogGrid, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -145,14 +144,16 @@ struct GridSheet: View {
             if let problem {
                 Text(problem).foregroundStyle(.red)
             }
-            SheetButtons(
-                okDisabled: problem != nil,
-                onOK: { onFinish((try? context.applyGrid(node: element, selection: selection, width: width, height: height)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 320)
+        // STUDIO-BEGIN grid-live: width and height apply together once they pass the check (B9)
+        .studioLive(studio, draft: Binding(get: { SIMD2(width, height) }, set: { width = $0.x; height = $0.y })) { size in
+            guard context.gridCheck(width: size.x, height: size.y, required: required) == nil else { throw StudioLiveHold() }
+            try context.applyGrid(node: element, selection: selection, width: size.x, height: size.y)
+        }
+        // STUDIO-END grid-live
     }
 }
 
@@ -241,7 +242,7 @@ struct ColorHelperSheet: View {
                 if working {
                     ProgressView().controlSize(.small)
                 }
-                SheetButtons(okDisabled: !canApply || working, onOK: ok, onCancel: { onFinish(false) })
+                StudioVerbButtons(verb: "Set Up Colors", disabled: !canApply || working, onConfirm: ok, onCancel: { onFinish(false) }) // STUDIO: a verb, not OK (B9)
             }
         }
         .padding(20)
@@ -388,14 +389,14 @@ struct ColorSetsSheet: View {
             }
             HStack {
                 Spacer()
-                Button("OK", action: close).keyboardShortcut(.defaultAction)
+                Button("Done", action: close).keyboardShortcut(.defaultAction) // STUDIO: it writes as it goes, so Done (B9)
             }
         }
         .padding(20)
         .frame(width: 600)
         .onChange(of: selected) { show(selected) }
         .sheet(isPresented: $addingSet) {
-            TextPromptSheet(title: "New Color Set", prompt: "New Color Set name?", validate: { $0.isEmpty ? "" : nil }) { response in
+            TextPromptSheet(title: "New Color Set", prompt: "New Color Set name?", verb: "Add", validate: { $0.isEmpty ? "" : nil }) { response in // STUDIO: a verb (B9)
                 addingSet = false
                 if let response {
                     addSet(response)
@@ -545,7 +546,7 @@ struct DimmingHelperSheet: View {
                         NSWorkspace.shared.open(url)
                     }
                 }
-                SheetButtons(okDisabled: curve == nil, onOK: ok, onCancel: { onFinish(false) })
+                StudioVerbButtons(verb: "Set Up Curves", disabled: curve == nil, onConfirm: ok, onCancel: { onFinish(false) }) // STUDIO: a verb, not OK (B9)
             }
         }
         .padding(20)

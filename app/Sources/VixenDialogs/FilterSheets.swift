@@ -11,6 +11,7 @@ struct ColorBreakdownSheet: View {
     @State private var draft: DialogColorBreakdown
     @State private var template: String
     @State private var alert: DialogAlert?
+    @State private var studio = StudioLiveSheet(step: "Configure Color Breakdown") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, filter: String, draft: DialogColorBreakdown, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -52,11 +53,12 @@ struct ColorBreakdownSheet: View {
             }
             HStack {
                 Button("Add Color") { draft.rows.append(context.colorBreakdownNewRow()) }
-                SheetButtons(onOK: ok, onCancel: { onFinish(false) })
+                StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
             }
         }
         .padding(20)
         .frame(minWidth: 464, idealWidth: 464, minHeight: 548, idealHeight: 548)
+        .studioLive(studio, draft: $draft) { try context.applyColorBreakdown(filter: filter, draft: $0) } // STUDIO: live sheet, Undo while it's up (B9)
         .dialogAlert($alert)
     }
 
@@ -92,6 +94,7 @@ struct CoarseFineSheet: View {
     @State private var draft: DialogCoarseFine
     @State private var live = false
     @State private var lastLive: DialogCoarseFine?
+    @State private var studio = StudioLiveSheet(step: "Configure Coarse Fine Breakdown") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, filter: String, draft: DialogCoarseFine, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -106,14 +109,16 @@ struct CoarseFineSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             DialogTitle("Coarse Fine Breakdown Setup")
             Toggle("Enable default value mapping", isOn: $draft.enableDefaultValueMapping).toggleStyle(.checkbox)
-            Toggle("Live mode (apply changes immediately)", isOn: $live).toggleStyle(.checkbox)
+            // STUDIO-BEGIN coarse-fine-always-live: every change applies, so upstream's Live mode switch goes (B9)
+            // STUDIO-END coarse-fine-always-live
             slider("Resting coarse value (0-255)", value: $draft.restingCoarse)
             slider("Resting fine value (0-255)", value: $draft.restingFine)
             ForEach(issues, id: \.self) { Text($0).font(.caption).foregroundStyle(.red) }
-            SheetButtons(okDisabled: !issues.isEmpty, onOK: ok, onCancel: cancel)
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 420)
+        .studioLive(studio, draft: $draft) { d in guard context.coarseFineIssues(draft: d).isEmpty else { throw StudioLiveHold() }; try context.applyCoarseFine(filter: filter, draft: d) } // STUDIO: live sheet, Undo while it's up (B9)
         .onChange(of: draft) { applyLive() }
         .onChange(of: live) { applyLive() }
     }
@@ -156,6 +161,7 @@ struct TagFilterSheet: View {
     let onFinish: (Bool) -> Void
     @State private var draft: DialogTagFilter
     @State private var alert: DialogAlert?
+    @State private var studio = StudioLiveSheet(step: "Configure Tag Filter") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, filter: String, labels: DialogTagFilterLabels, draft: DialogTagFilter, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -191,10 +197,12 @@ struct TagFilterSheet: View {
                     }
                 }
             }
-            SheetButtons(okDisabled: !canApply, onOK: ok, onCancel: { onFinish(false) })
+            if !canApply { Text("Changes apply once the tag and values are valid.").font(.caption).foregroundStyle(.secondary) } // STUDIO: why a change waits (B9)
+            StudioDoneButton(studio) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: labels.function.isEmpty ? 480 : 560)
+        .studioLive(studio, draft: $draft) { d in guard (try? context.tagFilterCanApply(filter: filter, draft: d)) == true else { throw StudioLiveHold() }; try context.applyTagFilter(filter: filter, draft: d) } // STUDIO: live sheet, Undo while it's up (B9)
         .dialogAlert($alert)
     }
 

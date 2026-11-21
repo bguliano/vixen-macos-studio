@@ -11,6 +11,7 @@ struct GenericSerialSheet: View {
     @State private var draft: DialogGenericSerial
     @State private var choosingPort = false
     @State private var alert: DialogAlert?
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, controller: String, draft: DialogGenericSerial, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -55,10 +56,11 @@ struct GenericSerialSheet: View {
                 }
                 .padding(6)
             }
-            SheetButtons(okDisabled: draft.settings == nil, onOK: ok, onCancel: { onFinish(false) })
+            StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 440)
+        .studioLive(live, draft: $draft) { d in guard d.settings != nil else { throw StudioLiveHold() }; _ = try context.applyGenericSerial(controller: controller, draft: d) } // STUDIO: live sheet, Undo while it's up (B9)
         .sheet(isPresented: $choosingPort) {
             SerialPortConfigSheet(context: context, current: draft.settings) { settings in
                 choosingPort = false
@@ -103,6 +105,7 @@ struct DummyLightingSheet: View {
     let controller: String
     let onFinish: (Bool) -> Void
     @State private var draft: DialogDummyLighting
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, controller: String, draft: DialogDummyLighting, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -129,13 +132,11 @@ struct DummyLightingSheet: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
-            SheetButtons(
-                onOK: { onFinish((try? context.applyDummyLighting(controller: controller, draft: draft)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 420)
+        .studioLive(live, draft: $draft) { try context.applyDummyLighting(controller: controller, draft: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 }
 
@@ -146,6 +147,7 @@ struct DdpSheet: View {
     let onFinish: (Bool) -> Void
     @State private var draft: DialogDdp
     @State private var resolving = false
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
     @State private var alert: DialogAlert?
     @FocusState private var fieldFocused: Bool
 
@@ -184,11 +186,13 @@ struct DdpSheet: View {
                 if resolving {
                     ProgressView().controlSize(.small)
                 }
-                SheetButtons(okDisabled: resolving || !context.ddpCanApply(draft: draft), onOK: ok, onCancel: { onFinish(false) })
+                StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
             }
         }
         .padding(20)
         .frame(width: 380)
+        // A host name resolves as it applies, so typing waits a little longer before it does.
+        .studioLive(live, draft: $draft, delay: .milliseconds(1200)) { d in guard context.ddpCanApply(draft: d) else { throw StudioLiveHold() }; try context.applyDdp(controller: controller, draft: d) } // STUDIO: live sheet, Undo while it's up (B9)
         .dialogAlert($alert)
     }
 
@@ -222,6 +226,7 @@ struct OpenDmxSheet: View {
     let controller: String
     let onFinish: (Bool) -> Void
     @State private var draft: DialogOpenDmx
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, controller: String, draft: DialogOpenDmx, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -243,13 +248,11 @@ struct OpenDmxSheet: View {
             }
             .labelsHidden()
             .frame(maxWidth: .infinity, alignment: .leading)
-            SheetButtons(
-                onOK: { onFinish((try? context.applyOpenDmx(controller: controller, draft: draft)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 420)
+        .studioLive(live, draft: $draft) { try context.applyOpenDmx(controller: controller, draft: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 }
 
@@ -260,6 +263,7 @@ struct ElexolSheet: View {
     let onFinish: (Bool) -> Void
     @State private var draft: DialogElexol
     @State private var testing = false
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
     @State private var alert: DialogAlert?
 
     init(context: DialogContext, controller: String, draft: DialogElexol, onFinish: @escaping (Bool) -> Void) {
@@ -300,10 +304,11 @@ struct ElexolSheet: View {
                 }
                 .padding(6)
             }
-            SheetButtons(onOK: ok, onCancel: { onFinish(false) })
+            StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 460)
+        .studioLive(live, draft: $draft) { try context.applyElexol(controller: controller, draft: $0) } // STUDIO: live sheet, Undo while it's up (B9)
         .dialogAlert($alert)
     }
 
@@ -340,6 +345,7 @@ struct RdsSheet: View {
     @State private var testText = ""
     @State private var status = "DIYC"
     @State private var sending = false
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, controller: String, draft: DialogRds, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -381,11 +387,7 @@ struct RdsSheet: View {
                         .padding(6)
                     }
                     Spacer()
-                    SheetButtons(
-                        okTitle: "Save",
-                        onOK: { onFinish((try? context.applyRds(controller: controller, draft: draft)) != nil) },
-                        onCancel: { onFinish(false) }
-                    )
+                    StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
                 }
                 .frame(width: 190)
             }
@@ -397,6 +399,7 @@ struct RdsSheet: View {
                 .padding(.vertical, 4)
         }
         .frame(width: 720)
+        .studioLive(live, draft: $draft) { try context.applyRds(controller: controller, draft: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 
     private func hardwareBinding() -> Binding<DialogRdsHardware> {
@@ -492,6 +495,7 @@ struct LauncherSheet: View {
     let controller: String
     let onFinish: (Bool) -> Void
     @State private var hide: Bool
+    @State private var live = StudioLiveSheet(step: "Configure Controller") // STUDIO: live sheet, Undo while it's up (B9)
 
     init(context: DialogContext, controller: String, hide: Bool, onFinish: @escaping (Bool) -> Void) {
         self.context = context
@@ -504,13 +508,10 @@ struct LauncherSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             DialogTitle("Launcher Controller Configuration")
             Toggle("Hide Launched Windows", isOn: $hide).toggleStyle(.checkbox)
-            SheetButtons(
-                okTitle: "Save",
-                onOK: { onFinish((try? context.applyLauncher(controller: controller, hideLaunchedWindows: hide)) != nil) },
-                onCancel: { onFinish(false) }
-            )
+            StudioDoneButton(live) { onFinish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 340)
+        .studioLive(live, draft: $hide) { try context.applyLauncher(controller: controller, hideLaunchedWindows: $0) } // STUDIO: live sheet, Undo while it's up (B9)
     }
 }

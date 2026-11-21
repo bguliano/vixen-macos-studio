@@ -64,10 +64,15 @@ struct StateMapperSheet: View {
                 itemsPane.frame(minWidth: 320).padding(.trailing, 6)
                 assignmentsPane.frame(minWidth: 280).padding(.leading, 6)
             }
-            SheetButtons(okDisabled: issues.blocking, onOK: ok, onCancel: cancel)
+            StudioDoneButton(studio) { changed in session.close(); onFinish(changed) } // STUDIO: live, closes with Done (B9)
         }
         .padding(16)
         .frame(minWidth: 720, idealWidth: 920, minHeight: 420, idealHeight: 560)
+        // STUDIO-BEGIN state-mapper-live-hooks: every edit refreshes the items, names or description; each applies (B9)
+        .onChange(of: items) { studioApply() }
+        .onChange(of: names) { studioApply() }
+        .onChange(of: description) { studioApply() }
+        // STUDIO-END state-mapper-live-hooks
         .onAppear {
             refreshAll()
             if UITestHarness.isActive {
@@ -88,6 +93,7 @@ struct StateMapperSheet: View {
                 title: p.title,
                 prompt: "Name",
                 text: p.text,
+                verb: p.kind == .add ? "Add" : p.kind == .rename ? "Rename" : "Copy", // STUDIO: a verb (B9)
                 validate: { context.stateNameError(name: $0, current: p.current, existing: names) },
                 warn: { context.stateNameWarning(name: $0, current: p.current, existing: names) }
             ) { response in
@@ -369,6 +375,21 @@ struct StateMapperSheet: View {
         session.close()
         onFinish(false)
     }
+
+    // STUDIO-BEGIN state-mapper-live: applies each change as it's made instead of at OK (B9)
+    // A blocking problem (a missing or repeated name) leaves the element's states as last applied; the issues above say what
+    // to fix. The visit is one step on Display Setup's Undo.
+    @State private var studio = StudioLiveSheet(step: "State Mapping")
+
+    private func studioApply() {
+        guard !issues.blocking else { return }
+        if let error = session.apply() {
+            studio.error = error
+        } else {
+            studio.appliedNow()
+        }
+    }
+    // STUDIO-END state-mapper-live
 }
 
 /// A name that commits on focus loss, as upstream's grid does.

@@ -236,7 +236,8 @@ impl VixenCore {
 
 #[uniffi::export]
 impl VixenCore {
-    /// Publishes the live Display pane's working copy as one shared-undo transaction. Returns JSON {changed, revision, label?}.
+    /// Publishes the live Display pane's working copy as one shared-undo transaction, named `label` when given. Returns JSON
+    /// {changed, revision, label?}.
     /// Fails with "Display changed; refresh before retrying" when the display moved past `expected_revision`, or with
     /// "Live Output is on" while non-muted execution is open.
     pub fn studio_publish_display_setup(
@@ -244,11 +245,12 @@ impl VixenCore {
         session: Arc<crate::setup::DisplaySetupSession>,
         expected_revision: u64,
         cleanup: bool,
+        label: Option<String>,
     ) -> Result<String, FfiError> {
         let mut working = session.inner.write();
         self.inner
             .studio_display
-            .publish_setup(&self.inner, &mut working, expected_revision, cleanup)
+            .publish_setup(&self.inner, &mut working, expected_revision, cleanup, label.as_deref())
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }

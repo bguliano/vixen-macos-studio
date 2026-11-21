@@ -52,6 +52,16 @@ public final class FixtureEditorModel {
             busy = false
         }
     }
+    // STUDIO-BEGIN fixture-functions-live: Edit Functions writes each valid change back to the profile being edited (B9)
+    /// The functions sheet's editor changed: take its functions while they're valid. The last valid ones stay otherwise.
+    func studioAcceptFunctions() {
+        guard let functions, functions.state.functionErrors.isEmpty else { return }
+        if let accepted = try? editor.acceptFunctions(editor: functions.editor), accepted != state {
+            state = accepted
+            changed?()
+        }
+    }
+    // STUDIO-END fixture-functions-live
     func readImages() { Task { images = await Task.detached { self.editor.goboImages() }.value } }
     func importImages() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.png]; panel.allowsMultipleSelection = true
@@ -91,7 +101,7 @@ public struct FixtureChannelsView: View {
             FixtureErrors(errors: model.state.channelErrors, notice: model.state.notice)
         }
         .sheet(isPresented: Binding(get: { model.functions != nil }, set: { if !$0 { model.finishFunctions(false) } })) {
-            if let functions = model.functions { FixtureFunctionsSheet(model: functions, finish: model.finishFunctions) }
+            if let functions = model.functions { FixtureFunctionsSheet(model: functions, finish: model.finishFunctions).onChange(of: functions.state) { model.studioAcceptFunctions() } } // STUDIO: live (B9)
         }
         .sheet(isPresented: Binding(get: { model.profileNames != nil }, set: { if !$0 { model.profileNames = nil } })) { profilePicker }
         .alert("Fixture Profile", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
@@ -108,7 +118,7 @@ public struct FixtureChannelsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Load Fixture Specification").font(.headline)
             List(model.profileNames ?? [], id: \.self, selection: Binding(get: { model.profileSelection }, set: { model.profileSelection = $0 })) { Text($0).tag($0) }
-            HStack { Spacer(); Button("Cancel", role: .cancel) { model.profileNames = nil }; Button("OK") { model.loadSelected() }.disabled(model.profileSelection == nil || model.busy).keyboardShortcut(.defaultAction) }
+            HStack { Spacer(); Button("Cancel", role: .cancel) { model.profileNames = nil }; Button("Load") { model.loadSelected() }.disabled(model.profileSelection == nil || model.busy).keyboardShortcut(.defaultAction) } // STUDIO: a verb, not OK (B9)
         }.padding(20).frame(width: 350, height: 400)
     }
 }
@@ -227,7 +237,16 @@ struct FixtureFunctionsSheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Edit Functions").font(.headline)
             FixtureFunctionsView(model: model)
-            HStack { FixtureHelp(title: "Learn More About Fixture Functions"); Spacer(); Button("Cancel", role: .cancel) { finish(false) }.keyboardShortcut(.cancelAction); Button("OK") { finish(true) }.disabled(!model.state.functionErrors.isEmpty).help(model.state.functionErrors.joined(separator: "\n")).keyboardShortcut(.defaultAction) }
+            // STUDIO-BEGIN fixture-functions-done: changes went back as they were made, so Done closes (B9)
+            HStack {
+                FixtureHelp(title: "Learn More About Fixture Functions")
+                Spacer()
+                if let problem = model.state.functionErrors.first {
+                    Text("Not applied until fixed: \(problem)").font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                Button("Done") { finish(false) }.keyboardShortcut(.defaultAction)
+            }
+            // STUDIO-END fixture-functions-done
         }.padding(20).frame(minWidth: 1320, minHeight: 550)
     }
 }
@@ -247,11 +266,50 @@ struct FixturePropertySheet: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Fixture Property Editor").font(.headline)
             if let model { FixtureChannelsView(model: model) } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
-            HStack { FixtureHelp(title: "Learn More About Fixture Profiles"); Spacer(); Button("Cancel", role: .cancel) { onFinish(false) }.keyboardShortcut(.cancelAction); Button("OK") { save() }.disabled(model?.state.errors.isEmpty != true || saving).keyboardShortcut(.defaultAction).help(model?.state.errors.joined(separator: "\n") ?? "") }
+            // STUDIO-BEGIN fixture-property-done: each valid change saves as it's made, so Done closes (B9)
+            HStack {
+                FixtureHelp(title: "Learn More About Fixture Profiles")
+                Spacer()
+                if let problem = model?.state.errors.first {
+                    Text("Not saved until fixed: \(problem)").font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                Button("Done") { studioDone() }.disabled(saving).keyboardShortcut(.defaultAction)
+            }
+            // STUDIO-END fixture-property-done
         }.padding(20).frame(minWidth: 650, minHeight: 500)
+        .onChange(of: model?.state) { old, _ in if old != nil { studioSaveSoon() } } // STUDIO: live, not on opening (B9)
         .task { do { model = FixtureEditorModel(editor: try context.fixtureEditor(node: node)) } catch { self.error = error.userMessage } }
         .alert("Fixture Profile", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) { Button("OK") { error = nil } } message: { Text(error ?? "") }
     }
+    // STUDIO-BEGIN fixture-property-live: saves the profile and applies it to the elements a moment after each valid change (B9)
+    @State private var studioPending: Task<Void, Never>?
+    @State private var studioSaved = false
+
+    private func studioSaveSoon() {
+        guard let model, model.state.errors.isEmpty else { return }
+        studioPending?.cancel()
+        studioPending = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            await studioSave()
+        }
+    }
+
+    private func studioSave() async {
+        guard let model, model.state.errors.isEmpty else { return }
+        studioPending = nil
+        let result = await Task.detached { Result { try model.editor.saveLibrary(); try context.applyFixtureEditor(node: node, selection: selection, editor: model.editor) } }.value
+        switch result { case .success: studioSaved = true; case .failure(let problem): error = problem.userMessage }
+    }
+
+    private func studioDone() {
+        guard let pending = studioPending else { return onFinish(studioSaved) }
+        pending.cancel()
+        saving = true
+        Task { await studioSave(); saving = false; onFinish(studioSaved) }
+    }
+    // STUDIO-END fixture-property-live
+
     private func save() {
         guard let model else { return }; saving = true
         Task {

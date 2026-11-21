@@ -1,0 +1,357 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioSection",
+   "name": "display"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "controllerType",
+    "Launcher"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "addController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "Live Launcher"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "1"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "displayPaneState"
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "01-launcher"
+  },
+  {
+   "action": "dump",
+   "name": "01-launcher"
+  },
+  {
+   "action": "click",
+   "label": "OK"
+  },
+  {
+   "action": "click",
+   "label": "Cancel"
+  },
+  {
+   "action": "click",
+   "label": "Save"
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "click",
+   "label": "Hide Launched Windows"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.dirty",
+   "path": []
+  },
+  {
+   "action": "displayPaneState"
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "responder-undo"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.3
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "responder-redo"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.3
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "02-launcher-changed"
+  },
+  {
+   "action": "click",
+   "label": "Done"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetOpen",
+   "path": []
+  },
+  {
+   "action": "displayPaneState"
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.liveSheet",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetOpen",
+   "path": []
+  },
+  {
+   "action": "displayPaneState"
+  },
+  {
+   "action": "displayMenuUndoRedo",
+   "text": "undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "displayPaneState"
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "controllerType",
+    "Elexol Ethernet I/O 24"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "addController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "Live Elexol"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "1"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "03-elexol"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "controllerType",
+    "RDS"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "addController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "Live RDS"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "1"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "configureController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "snapshot",
+   "name": "04-rds"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

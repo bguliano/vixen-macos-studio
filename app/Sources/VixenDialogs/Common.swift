@@ -174,6 +174,14 @@ public struct NumberPromptSheet: View {
     let range: ClosedRange<Int32>
     let onFinish: (Int32?) -> Void
     @State private var value: Int32
+    // STUDIO-BEGIN dialog-prompt-verb: the caller's verb on the confirmation ("Add"), never OK (B9)
+    private var verb = "OK"
+
+    public init(title: String, prompt: String, value: Int32, range: ClosedRange<Int32>, verb: String, onFinish: @escaping (Int32?) -> Void) {
+        self.init(title: title, prompt: prompt, value: value, range: range, onFinish: onFinish)
+        self.verb = verb
+    }
+    // STUDIO-END dialog-prompt-verb
 
     public init(title: String, prompt: String, value: Int32, range: ClosedRange<Int32>, onFinish: @escaping (Int32?) -> Void) {
         self.title = title
@@ -188,7 +196,7 @@ public struct NumberPromptSheet: View {
             DialogTitle(title)
             Text(prompt)
             NumberField(value: $value, range: range)
-            SheetButtons(onOK: { onFinish(value) }, onCancel: { onFinish(nil) })
+            StudioVerbButtons(verb: verb, onConfirm: { onFinish(value) }, onCancel: { onFinish(nil) }) // STUDIO: the caller's verb (B9)
         }
         .padding(20)
         .frame(minWidth: 280)
@@ -204,6 +212,22 @@ public struct TextPromptSheet: View {
     let onFinish: (String?) -> Void
     @State private var text: String
     @FocusState private var focused: Bool
+    // STUDIO-BEGIN dialog-text-verb: the caller's verb on the confirmation ("Create"), never OK (B9)
+    private var verb = "OK"
+
+    public init(
+        title: String,
+        prompt: String,
+        text: String = "",
+        verb: String,
+        validate: @escaping (String) -> String? = { _ in nil },
+        warn: @escaping (String) -> String? = { _ in nil },
+        onFinish: @escaping (String?) -> Void
+    ) {
+        self.init(title: title, prompt: prompt, text: text, validate: validate, warn: warn, onFinish: onFinish)
+        self.verb = verb
+    }
+    // STUDIO-END dialog-text-verb
 
     public init(
         title: String,
@@ -234,7 +258,7 @@ public struct TextPromptSheet: View {
             } else if let warning = warn(text) {
                 Text(warning).font(.caption).foregroundStyle(.secondary)
             }
-            SheetButtons(okDisabled: problem != nil, onOK: { onFinish(text) }, onCancel: { onFinish(nil) })
+            StudioVerbButtons(verb: verb, disabled: problem != nil, onConfirm: { onFinish(text) }, onCancel: { onFinish(nil) }) // STUDIO: the caller's verb (B9)
         }
         .padding(20)
         .frame(width: 360)
@@ -307,14 +331,7 @@ public struct DiscreteColorSheet: View {
                     .buttonStyle(.plain)
                 }
             }
-            HStack {
-                Spacer()
-                Button("Ok") { onFinish(selected) }
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(selected == nil)
-                Button("Cancel") { onFinish(nil) }
-                    .keyboardShortcut(.cancelAction)
-            }
+            StudioVerbButtons(verb: "Choose", disabled: selected == nil, onConfirm: { onFinish(selected) }, onCancel: { onFinish(nil) }) // STUDIO: a verb, not Ok (B9)
         }
         .padding(20)
     }
@@ -335,7 +352,7 @@ struct FreeColorSheet: View {
             DialogTitle("Select Color")
             ArgbColorPicker(argb: $color)
                 .controlSize(.large)
-            SheetButtons(onOK: { onFinish(color) }, onCancel: { onFinish(nil) })
+            StudioVerbButtons(verb: "Choose", onConfirm: { onFinish(color) }, onCancel: { onFinish(nil) }) // STUDIO: a verb, not OK (B9)
         }
         .padding(20)
         .frame(minWidth: 240)

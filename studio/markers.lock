@@ -27,6 +27,10 @@
   "file": "crates/vixen-session/src/marks/beats.rs",
   "hash": "582982158f932b0e"
  },
+ "block:coarse-fine-always-live": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "e3b0c44298fc1c14"
+ },
  "block:command-palette": {
   "file": "app/Sources/VixenApp/VixenApp.swift",
   "hash": "4068e4b09abec6a6"
@@ -83,6 +87,14 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "c56ec8e8c777430e"
  },
+ "block:dialog-prompt-verb": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "94fc9f21f356e9ba"
+ },
+ "block:dialog-text-verb": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "8c152ee15be331b4"
+ },
  "block:display-materialize": {
   "file": "crates/vixen-session/src/setup/commit.rs",
   "hash": "73786ef58dc7140c"
@@ -103,9 +115,33 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "aa9d9811a6b4ac44"
  },
+ "block:e131-live": {
+  "file": "app/Sources/VixenDialogs/E131Sheet.swift",
+  "hash": "a50d3c7121fdb1f8"
+ },
+ "block:e131-live-hooks": {
+  "file": "app/Sources/VixenDialogs/E131Sheet.swift",
+  "hash": "05c2de71e6bcac6e"
+ },
  "block:exclusive-save-temp": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
+ },
+ "block:fixture-functions-done": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "cb86db3b76dd84fb"
+ },
+ "block:fixture-functions-live": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "4c7d5f93dff32ec0"
+ },
+ "block:fixture-property-done": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "1b2145781172f57e"
+ },
+ "block:fixture-property-live": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "c685b7ac2a3bece1"
  },
  "block:graph-access": {
   "file": "crates/vixen-ffi/src/lib.rs",
@@ -114,6 +150,10 @@
  "block:graph-access-hooks": {
   "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
   "hash": "cca3771f34f41dda"
+ },
+ "block:grid-live": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "0dabb2a87255eb42"
  },
  "block:grid-wiring-moved": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
@@ -130,6 +170,18 @@
  "block:inspector-title": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "1ac6603fc819de34"
+ },
+ "block:layer-chroma-live": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "4624e086e0db6c4b"
+ },
+ "block:layer-luma-live": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "e089f8974adbfcdd"
+ },
+ "block:layer-mask-live": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "04b5a554a6e75931"
  },
  "block:lipsync-default-undo": {
   "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
@@ -415,6 +467,14 @@
   "file": "app/Sources/VixenTimeline/Surfaces.swift",
   "hash": "120079f7c08590c9"
  },
+ "block:state-mapper-live": {
+  "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
+  "hash": "1fb4be0150f3322d"
+ },
+ "block:state-mapper-live-hooks": {
+  "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
+  "hash": "7f644c00728e855d"
+ },
  "block:status-bar": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
   "hash": "034b2e867c197250"
@@ -583,17 +643,237 @@
   "file": "app/Sources/VixenAdmin/SmallWindows.swift",
   "hash": "8f1f7c3c23bd229a"
  },
+ "line:app/Sources/VixenDialogs/Common.swift:0b4f7b1e6b58b7fd": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "0b4f7b1e6b58b7fd"
+ },
+ "line:app/Sources/VixenDialogs/Common.swift:4ea912a4fce0331b": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "4ea912a4fce0331b"
+ },
+ "line:app/Sources/VixenDialogs/Common.swift:bff775bf0ce76a81": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "bff775bf0ce76a81"
+ },
+ "line:app/Sources/VixenDialogs/Common.swift:e2a798377da03bb6": {
+  "file": "app/Sources/VixenDialogs/Common.swift",
+  "hash": "e2a798377da03bb6"
+ },
  "line:app/Sources/VixenDialogs/ControllerMonitors.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:399aad2c3c2d8529": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "399aad2c3c2d8529"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:3c981902e548b2fa": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "3c981902e548b2fa"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:4813c4933a6cdbd6": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "4813c4933a6cdbd6"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:8f212d4fe654a073": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "8f212d4fe654a073"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:dfe731a60a8e33e6": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "dfe731a60a8e33e6"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:e3d99402e9cf4d4e": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "e3d99402e9cf4d4e"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:e9ed4fbb448d70a8": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "e9ed4fbb448d70a8"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:eb4c78be9433042b": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "eb4c78be9433042b"
+ },
+ "line:app/Sources/VixenDialogs/ControllerSheets.swift:f32ba5752c4bfda1": {
+  "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
+  "hash": "f32ba5752c4bfda1"
  },
  "line:app/Sources/VixenDialogs/DialogsTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenDialogs/DialogsTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenDialogs/E131Sheet.swift:30a5cff30d239026": {
+  "file": "app/Sources/VixenDialogs/E131Sheet.swift",
+  "hash": "30a5cff30d239026"
+ },
+ "line:app/Sources/VixenDialogs/E131Sheet.swift:5743413ac5ec71f1": {
+  "file": "app/Sources/VixenDialogs/E131Sheet.swift",
+  "hash": "5743413ac5ec71f1"
+ },
+ "line:app/Sources/VixenDialogs/E131Sheet.swift:7b13de193c446d3a": {
+  "file": "app/Sources/VixenDialogs/E131Sheet.swift",
+  "hash": "7b13de193c446d3a"
+ },
+ "line:app/Sources/VixenDialogs/EntryPoints.swift:45e8c775f240a17e": {
+  "file": "app/Sources/VixenDialogs/EntryPoints.swift",
+  "hash": "45e8c775f240a17e"
+ },
+ "line:app/Sources/VixenDialogs/EntryPoints.swift:843fa2fb360ea225": {
+  "file": "app/Sources/VixenDialogs/EntryPoints.swift",
+  "hash": "843fa2fb360ea225"
+ },
+ "line:app/Sources/VixenDialogs/EntryPoints.swift:b32febd0cbc68dde": {
+  "file": "app/Sources/VixenDialogs/EntryPoints.swift",
+  "hash": "b32febd0cbc68dde"
+ },
+ "line:app/Sources/VixenDialogs/FaceSheet.swift:1dc5fbc1ee4f1622": {
+  "file": "app/Sources/VixenDialogs/FaceSheet.swift",
+  "hash": "1dc5fbc1ee4f1622"
+ },
+ "line:app/Sources/VixenDialogs/FaceSheet.swift:4f0b9424c2b77498": {
+  "file": "app/Sources/VixenDialogs/FaceSheet.swift",
+  "hash": "4f0b9424c2b77498"
+ },
+ "line:app/Sources/VixenDialogs/FaceSheet.swift:72f4850fb0f8156d": {
+  "file": "app/Sources/VixenDialogs/FaceSheet.swift",
+  "hash": "72f4850fb0f8156d"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:27c96d0b2d9ad461": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "27c96d0b2d9ad461"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:72f4850fb0f8156d": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "72f4850fb0f8156d"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:81cd721dbaae4ca9": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "81cd721dbaae4ca9"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:935c4115d4228c82": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "935c4115d4228c82"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:aaf7494322e64869": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "aaf7494322e64869"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:b1a7d192648a6830": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "b1a7d192648a6830"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:bf4e40e3443005da": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "bf4e40e3443005da"
+ },
+ "line:app/Sources/VixenDialogs/FilterSheets.swift:eb3570b3829906a4": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "eb3570b3829906a4"
+ },
+ "line:app/Sources/VixenDialogs/FixtureEditor.swift:0303986b15cd6279": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "0303986b15cd6279"
+ },
+ "line:app/Sources/VixenDialogs/FixtureEditor.swift:047d6ff8f0fd0554": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "047d6ff8f0fd0554"
+ },
+ "line:app/Sources/VixenDialogs/FixtureEditor.swift:4cf5f7c95a825d5f": {
+  "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
+  "hash": "4cf5f7c95a825d5f"
+ },
+ "line:app/Sources/VixenDialogs/LayerSheets.swift:62bda666a1935c46": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "62bda666a1935c46"
+ },
+ "line:app/Sources/VixenDialogs/LayerSheets.swift:8609f8bbd9aca53f": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "8609f8bbd9aca53f"
+ },
+ "line:app/Sources/VixenDialogs/LayerSheets.swift:af04c805d61080ea": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "af04c805d61080ea"
+ },
+ "line:app/Sources/VixenDialogs/LayerSheets.swift:ef2fccc679947c5e": {
+  "file": "app/Sources/VixenDialogs/LayerSheets.swift",
+  "hash": "ef2fccc679947c5e"
+ },
+ "line:app/Sources/VixenDialogs/OrderSheet.swift:1525d1f886993131": {
+  "file": "app/Sources/VixenDialogs/OrderSheet.swift",
+  "hash": "1525d1f886993131"
+ },
+ "line:app/Sources/VixenDialogs/OrderSheet.swift:4e12f2b76d479f06": {
+  "file": "app/Sources/VixenDialogs/OrderSheet.swift",
+  "hash": "4e12f2b76d479f06"
+ },
+ "line:app/Sources/VixenDialogs/OrderSheet.swift:72f4850fb0f8156d": {
+  "file": "app/Sources/VixenDialogs/OrderSheet.swift",
+  "hash": "72f4850fb0f8156d"
+ },
+ "line:app/Sources/VixenDialogs/OrderSheet.swift:d336ccaba96e2b70": {
+  "file": "app/Sources/VixenDialogs/OrderSheet.swift",
+  "hash": "d336ccaba96e2b70"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:2985754e499c10a7": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "2985754e499c10a7"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:4b08b1695ba82f42": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "4b08b1695ba82f42"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:72f4850fb0f8156d": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "72f4850fb0f8156d"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:9c361732cf540e17": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "9c361732cf540e17"
+ },
  "line:app/Sources/VixenDialogs/PropertySheets.swift:a3b88274fa0af110": {
   "file": "app/Sources/VixenDialogs/PropertySheets.swift",
   "hash": "a3b88274fa0af110"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:a5280bfab7672cb1": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "a5280bfab7672cb1"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:aafa2ffe3a571a64": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "aafa2ffe3a571a64"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:b78473d8d137c204": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "b78473d8d137c204"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:c3803478629c567b": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "c3803478629c567b"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:c8f4a02d331c4709": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "c8f4a02d331c4709"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:dcc0c46127c72a81": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "dcc0c46127c72a81"
+ },
+ "line:app/Sources/VixenDialogs/PropertySheets.swift:f05c2336ef811f05": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "f05c2336ef811f05"
+ },
+ "line:app/Sources/VixenDialogs/SerialPortConfigSheet.swift:14bc6b1f9508dae4": {
+  "file": "app/Sources/VixenDialogs/SerialPortConfigSheet.swift",
+  "hash": "14bc6b1f9508dae4"
+ },
+ "line:app/Sources/VixenDialogs/StateMapperSheet.swift:5fa265437e0a57fb": {
+  "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
+  "hash": "5fa265437e0a57fb"
+ },
+ "line:app/Sources/VixenDialogs/StateMapperSheet.swift:b39de77f3de72564": {
+  "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
+  "hash": "b39de77f3de72564"
  },
  "line:app/Sources/VixenEffectEditor/EffectEditorPane.swift:036ee544948c9627": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",

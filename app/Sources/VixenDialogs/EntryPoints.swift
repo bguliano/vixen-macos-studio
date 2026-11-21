@@ -408,7 +408,7 @@ public struct LayerFilterSetupSheet: View {
         switch try? session.layerFilterKind(layer: layer) {
         case .chromaKey:
             if let draft = try? session.chromaKey(layer: layer) {
-                ChromaKeySheet(context: context, draft: draft) { edited in
+                ChromaKeySheet(context: context, draft: draft, apply: { try session.applyChromaKey(layer: layer, draft: $0) }) { edited in // STUDIO: live (B9)
                     guard let edited else {
                         onFinish(false)
                         return
@@ -418,7 +418,7 @@ public struct LayerFilterSetupSheet: View {
             }
         case .lumaKey:
             if let limits = try? session.lumaKey(layer: layer) {
-                LumaKeySheet(context: context, limits: limits) { edited in
+                LumaKeySheet(context: context, limits: limits, apply: { try session.applyLumaKey(layer: layer, limits: $0) }) { edited in // STUDIO: live (B9)
                     guard let edited else {
                         onFinish(false)
                         return
@@ -428,7 +428,7 @@ public struct LayerFilterSetupSheet: View {
             }
         case .maskFill:
             if let draft = try? session.maskFill(layer: layer) {
-                MaskFillSheet(draft: draft) { edited in
+                MaskFillSheet(draft: draft, apply: { try session.applyMaskFill(layer: layer, draft: $0) }) { edited in // STUDIO: live (B9)
                     guard let edited else {
                         onFinish(false)
                         return

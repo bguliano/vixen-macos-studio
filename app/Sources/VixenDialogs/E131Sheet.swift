@@ -47,7 +47,7 @@ struct E131Sheet: View {
                 }
             }
             .frame(minHeight: 420, alignment: .top)
-            SheetButtons(onOK: ok, onCancel: { finish(false) })
+            StudioDoneButton(live, ready: studioReady) { finish($0) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 560)
@@ -62,7 +62,7 @@ struct E131Sheet: View {
             }
         }
         .sheet(isPresented: $addingMany) {
-            NumberPromptSheet(title: "Add Universes", prompt: "Number of universes to add.", value: 1, range: 1...max(1, session.maxUniversesToAdd())) { count in
+            NumberPromptSheet(title: "Add Universes", prompt: "Number of universes to add.", value: 1, range: 1...max(1, session.maxUniversesToAdd()), verb: "Add") { count in // STUDIO: a verb (B9)
                 addingMany = false
                 if let count {
                     session.addUniverses(count: count)
@@ -72,6 +72,10 @@ struct E131Sheet: View {
         }
         .dialogAlert($alert)
         .onChange(of: options) { session.setOptions(options: options); rows = session.rows(); reload += 1 }
+        // STUDIO-BEGIN e131-live-hooks: every edit reaches the grid's reload or the destination list; each applies (B9)
+        .onChange(of: reload) { studioApply() }
+        .onChange(of: destinations) { studioApply() }
+        // STUDIO-END e131-live-hooks
         .onAppear {
             if let missing = destinations.missingInterfaceAlert {
                 alert = .notice("", missing)
@@ -293,6 +297,42 @@ struct E131Sheet: View {
         session.close()
         onFinish(saved)
     }
+
+    // STUDIO-BEGIN e131-live: applies each change as it's made instead of at OK (B9)
+    // What upstream's OK checks still runs on every change: a step that blocks shows above Done and leaves the controller
+    // as last applied; a warning applies and shows there too. The visit is one step on Display Setup's Undo; the sheet's
+    // own working state has no per-edit Undo.
+    @State private var live = StudioLiveSheet(step: "Configure Controller")
+
+    private func studioApply() {
+        guard context.e131RepeatIsValid(text: options.repeatText), context.e131SuppressIsValid(text: options.suppressText) else {
+            live.error = "Fix the count on Advanced Options; the last valid settings stay applied."
+            return
+        }
+        let steps = session.okSteps()
+        for step in steps {
+            if case let .block(_, text) = step {
+                live.error = text
+                return
+            }
+        }
+        session.apply()
+        live.appliedNow()
+        for step in steps {
+            switch step {
+            case let .warn(_, text), let .reviewOrContinue(text): live.error = text
+            case .block: break
+            }
+        }
+    }
+
+    /// Done ends a cell's edit first; an invalid value keeps the sheet up with its alert, as OK did.
+    private func studioReady() -> Bool {
+        guard grid.endEditing() else { return false }
+        studioApply()
+        return true
+    }
+    // STUDIO-END e131-live
 }
 
 /// New Unicast Destination (F56 to F59).
@@ -318,11 +358,7 @@ struct UnicastSheet: View {
             }
             .pickerStyle(.radioGroup)
             .labelsHidden()
-            SheetButtons(
-                okDisabled: !context.unicastTextIsValid(text: text, isIp: usesIP),
-                onOK: { onFinish(text) },
-                onCancel: { onFinish(nil) }
-            )
+            StudioVerbButtons(verb: "Add", disabled: !context.unicastTextIsValid(text: text, isIp: usesIP), onConfirm: { onFinish(text) }, onCancel: { onFinish(nil) }) // STUDIO: a verb (B9)
         }
         .padding(20)
         .frame(width: 300)

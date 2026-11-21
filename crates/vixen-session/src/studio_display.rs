@@ -412,13 +412,15 @@ impl StudioDisplay {
     /// The Display pane's live edit. Its working copy already holds edits made through Display Setup's own algorithms; this publishes
     /// them as one undoable transaction on the shared history, as `execute` publishes a command's candidate. `expected_revision` is the
     /// display revision the working copy was opened at or last published: anything newer (an agent, undo, another writer) refuses, and
-    /// the pane reloads. Afterwards the working copy matches the display and is clean again.
+    /// the pane reloads. Afterwards the working copy matches the display and is clean again. `label` names the step when the
+    /// pane knows better than the dirty flags, such as a setup sheet's visit ("Configure Controller").
     pub fn publish_setup(
         &self,
         core: &AppCore,
         session: &mut SetupSession,
         expected_revision: u64,
         cleanup: bool,
+        label: Option<&str>,
     ) -> Result<Value, String> {
         let mut state = self.state.lock();
         if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
@@ -443,7 +445,9 @@ impl StudioDisplay {
             return Ok(json!({"changed":false,"revision":actual}));
         }
         let d = &session.dirty;
-        let label = if d.controllers && !d.tree && !d.flow {
+        let label = if let Some(label) = label.filter(|l| !l.is_empty()) {
+            label
+        } else if d.controllers && !d.tree && !d.flow {
             "Edit Controllers"
         } else if d.run_state && !d.tree && !d.flow && !d.controllers {
             "Start or Stop Controllers"
@@ -677,10 +681,10 @@ mod tests {
         let start = core.display.revision();
         let mut pane = SetupSession::open(&core);
         // Nothing edited: nothing published.
-        let clean = core.studio_display.publish_setup(&core, &mut pane, start, false).unwrap();
+        let clean = core.studio_display.publish_setup(&core, &mut pane, start, false, None).unwrap();
         assert_eq!(clean["changed"], false);
         pane.add_element(None, "Arch");
-        let published = core.studio_display.publish_setup(&core, &mut pane, start, false).unwrap();
+        let published = core.studio_display.publish_setup(&core, &mut pane, start, false, None).unwrap();
         assert_eq!(published["changed"], true);
         assert_eq!(published["label"], "Edit Elements");
         assert!(!pane.is_dirty());
@@ -689,16 +693,37 @@ mod tests {
         assert_eq!(core.studio_display.history()["undo"][0], "Edit Elements");
         // A stale working copy refuses rather than overwriting newer work.
         pane.add_element(None, "Tree");
-        assert!(core.studio_display.publish_setup(&core, &mut pane, start, false).is_err());
+        assert!(core.studio_display.publish_setup(&core, &mut pane, start, false, None).is_err());
         // The pane's step undoes on the same history agents use.
         let mut fresh = SetupSession::open(&core);
         fresh.add_element(None, "Star");
-        core.studio_display.publish_setup(&core, &mut fresh, after, false).unwrap();
+        core.studio_display.publish_setup(&core, &mut fresh, after, false, None).unwrap();
         assert_eq!(core.system.read().tree.len(), 2);
         core.studio_display.execute(&core, "display_undo", &json!({}), false).unwrap();
         assert_eq!(core.system.read().tree.len(), 1);
         core.studio_display.execute(&core, "display_undo", &json!({}), false).unwrap();
         assert_eq!(core.system.read().tree.len(), 0);
+        let _ = std::fs::remove_dir_all(root);
+    }
+    #[test]
+    fn a_setup_sheet_visit_is_one_named_step() {
+        // B9: everything a setup sheet changed while it was open publishes once, under the sheet's name.
+        let root = std::env::temp_dir().join(format!("studio-pane-sheet-{}", Uuid::new_v4()));
+        let core = Arc::new(AppCore::open(root.clone(), true).unwrap());
+        let start = core.display.revision();
+        let mut pane = SetupSession::open(&core);
+        pane.add_element(None, "Arch");
+        pane.add_element(None, "Tree");
+        let published = core.studio_display.publish_setup(&core, &mut pane, start, false, Some("Configure Controller")).unwrap();
+        assert_eq!(published["label"], "Configure Controller");
+        assert_eq!(core.studio_display.history()["undo"].as_array().unwrap().len(), 1);
+        core.studio_display.execute(&core, "display_undo", &json!({}), false).unwrap();
+        assert_eq!(core.system.read().tree.len(), 0);
+        // An empty name falls back to the dirty flags.
+        let mut again = SetupSession::open(&core);
+        again.add_element(None, "Star");
+        let fallback = core.studio_display.publish_setup(&core, &mut again, core.display.revision(), false, Some("")).unwrap();
+        assert_eq!(fallback["label"], "Edit Elements");
         let _ = std::fs::remove_dir_all(root);
     }
     #[test]

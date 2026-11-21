@@ -45,6 +45,16 @@ public struct ChromaKeySheet: View {
     let context: DialogContext
     let onFinish: (DialogChromaKey?) -> Void
     @State private var draft: DialogChromaKey
+    // STUDIO-BEGIN layer-chroma-live: the Layer Editor applies each change to the layer as it's made, with Undo while the sheet is up (B9)
+    private var studioApply: (DialogChromaKey) throws -> Void = { _ in }
+    @State private var studio = StudioLiveSheet(step: "Configure Layer")
+
+    /// `apply` writes a change to the layer; Done hands back the last value when anything changed, nil otherwise.
+    public init(context: DialogContext, draft: DialogChromaKey, apply: @escaping (DialogChromaKey) throws -> Void, onFinish: @escaping (DialogChromaKey?) -> Void) {
+        self.init(context: context, draft: draft, onFinish: onFinish)
+        studioApply = apply
+    }
+    // STUDIO-END layer-chroma-live
 
     public init(context: DialogContext, draft: DialogChromaKey, onFinish: @escaping (DialogChromaKey?) -> Void) {
         self.context = context
@@ -75,10 +85,11 @@ public struct ChromaKeySheet: View {
             Toggle("Treat Zero Brightness as Transparent.", isOn: $draft.transparent)
                 .toggleStyle(.checkbox)
                 .help("Determines if the layer should pass the underlying color when the Chroma Key layer's effect(s) have a zero brightness color.")
-            SheetButtons(onOK: { onFinish(draft) }, onCancel: { onFinish(nil) })
+            StudioDoneButton(studio) { onFinish($0 ? draft : nil) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 460)
+        .studioLive(studio, draft: $draft, apply: studioApply) // STUDIO: live (B9)
     }
 
     private func tolerance(_ title: String, value: Binding<Int32>, edited: Binding<Bool>, range: ClosedRange<Int32>, ticks: Int32) -> some View {
@@ -97,6 +108,16 @@ public struct LumaKeySheet: View {
     let context: DialogContext
     let onFinish: (DialogLimits?) -> Void
     @State private var limits: DialogLimits
+    // STUDIO-BEGIN layer-luma-live: the Layer Editor applies each change to the layer as it's made, with Undo while the sheet is up (B9)
+    private var studioApply: (DialogLimits) throws -> Void = { _ in }
+    @State private var studio = StudioLiveSheet(step: "Configure Layer")
+
+    /// `apply` writes a change to the layer; Done hands back the last value when anything changed, nil otherwise.
+    public init(context: DialogContext, limits: DialogLimits, apply: @escaping (DialogLimits) throws -> Void, onFinish: @escaping (DialogLimits?) -> Void) {
+        self.init(context: context, limits: limits, onFinish: onFinish)
+        studioApply = apply
+    }
+    // STUDIO-END layer-luma-live
 
     public init(context: DialogContext, limits: DialogLimits, onFinish: @escaping (DialogLimits?) -> Void) {
         self.context = context
@@ -109,10 +130,11 @@ public struct LumaKeySheet: View {
             DialogTitle("Luma Key Configuration")
             Text("Brightness Limits").fontWeight(.medium)
             BrightnessRows(context: context, limits: $limits, tooltips: false)
-            SheetButtons(onOK: { onFinish(limits) }, onCancel: { onFinish(nil) })
+            StudioDoneButton(studio) { onFinish($0 ? limits : nil) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 400)
+        .studioLive(studio, draft: $limits, apply: studioApply) // STUDIO: live (B9)
     }
 }
 
@@ -120,6 +142,16 @@ public struct LumaKeySheet: View {
 public struct MaskFillSheet: View {
     let onFinish: (DialogMaskFill?) -> Void
     @State private var draft: DialogMaskFill
+    // STUDIO-BEGIN layer-mask-live: the Layer Editor applies each change to the layer as it's made, with Undo while the sheet is up (B9)
+    private var studioApply: (DialogMaskFill) throws -> Void = { _ in }
+    @State private var studio = StudioLiveSheet(step: "Configure Layer")
+
+    /// `apply` writes a change to the layer; Done hands back the last value when anything changed, nil otherwise.
+    public init(draft: DialogMaskFill, apply: @escaping (DialogMaskFill) throws -> Void, onFinish: @escaping (DialogMaskFill?) -> Void) {
+        self.init(draft: draft, onFinish: onFinish)
+        studioApply = apply
+    }
+    // STUDIO-END layer-mask-live
 
     public init(draft: DialogMaskFill, onFinish: @escaping (DialogMaskFill?) -> Void) {
         self.onFinish = onFinish
@@ -131,9 +163,10 @@ public struct MaskFillSheet: View {
             DialogTitle("Mask And Fill Configuration")
             Toggle("Exclude zero values", isOn: $draft.excludeZeroValues).toggleStyle(.checkbox)
             Toggle("Require Mixing Partner", isOn: $draft.requiresMixingPartner).toggleStyle(.checkbox)
-            SheetButtons(onOK: { onFinish(draft) }, onCancel: { onFinish(nil) })
+            StudioDoneButton(studio) { onFinish($0 ? draft : nil) } // STUDIO: live, closes with Done (B9)
         }
         .padding(20)
         .frame(width: 320)
+        .studioLive(studio, draft: $draft, apply: studioApply) // STUDIO: live (B9)
     }
 }

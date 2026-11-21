@@ -235,8 +235,24 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   says Draw Bulbs, Create a Template says Save Template, and the prop-naming prompt says Continue (`studio_design_undo.rs`
   in vixen-preview, `studio_preview_designer.rs` in vixen-ffi). MCP: `preview_location_offset` (one step on the shared
   history); linking and properties already had `preview_prop_link` and `preview_prop_set`. Harness:
-  `scripts/check_studio_designer_live.py` with `scripts/ui/studio-designer-live.json`. *Remaining:* Dialogs (the property,
-  filter and controller setup sheets), its own backlog item.
+  `scripts/check_studio_designer_live.py` with `scripts/ui/studio-designer-live.json`.
+
+- **Dialogs (B9).** *Done:* the property, filter, controller and layer setup sheets no longer commit through OK/Cancel.
+  Each change is written where the sheet works (Display Setup's working copy, a sequence's layer, or the profile) as it's
+  made, and the sheet closes with Done (Esc too). A sheet with a draft (every controller sheet but E1.31, Color Breakdown,
+  Coarse Fine, the tag filters, Location, Order, Grid, Face, Chroma/Luma Key, Mask And Fill) makes each change a step on
+  its own Edit ▸ Undo while it's up; typing, a slider drag or a run of quick changes is one step. A change that can't apply
+  yet (no serial port, an invalid tag, a blocking State Mapper name, an E1.31 universe clash) leaves the last valid
+  settings applied and says why above Done; E1.31's warnings show there instead of alerts. Display Setup holds publication
+  while a setup sheet is open, so the visit is one step on the display's shared Undo, named for it ("Configure
+  Controller", "Configure Color Breakdown", "Patching Order"); the Fixture Property Editor saves the profile and applies it
+  a moment after each valid change, and Edit Functions writes valid changes back to it. Choices that hand a value back
+  confirm with verbs: Use Port, Add, ZigZag, Set, Choose, Load, Set Up Colors, Set Up Curves (the two helpers run once,
+  with their overwrite questions); Coarse Fine's Live mode switch is gone, since every change is live. No MCP tool: the
+  sheets run vanilla's own dialog commands, and agents configure controllers, colour and locations through
+  `controller_configure`, `element_color` and `element_location`. Harness: `scripts/check_studio_dialogs_live.py` with
+  `scripts/ui/studio-dialogs-live.json` (`studio.liveSheet` hook). *Remaining:* the curve editor (VixenKit), which the
+  Dimming Curve filter and helper open, still has OK (backlog).
 
 - **Tools (B8).** *Done:* the Custom Prop Editor has no OK/Cancel commit flows. Preferences applies and saves each change
   at once, each one step on the sheet's Edit ▸ Undo ("Change Preferences"; a color drag is one step, Defaults is one),
