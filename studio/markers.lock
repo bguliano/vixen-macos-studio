@@ -127,6 +127,18 @@
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
  },
+ "block:face-mapping-check": {
+  "file": "scripts/test_image_maps_live_ui.py",
+  "hash": "e7c68da0f12edb28"
+ },
+ "block:face-mapping-live": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "0b41b859e60c878f"
+ },
+ "block:face-mapping-visit": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "8ec8682281dae886"
+ },
  "block:fixture-functions-done": {
   "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
   "hash": "cb86db3b76dd84fb"
@@ -919,6 +931,38 @@
   "file": "app/Sources/VixenKit/WireDiagramSheet.swift",
   "hash": "8c50690c43c53adb"
  },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:1d0d09f8a21a645c": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "1d0d09f8a21a645c"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:2fdedd00bdbb0f27": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "2fdedd00bdbb0f27"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:525bcef294af0e95": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "525bcef294af0e95"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:7074f086c9040667": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "7074f086c9040667"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:a70b5968db95e54d": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "a70b5968db95e54d"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:b2c8248ee2a67054": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "b2c8248ee2a67054"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:c00df364cf318470": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "c00df364cf318470"
+ },
+ "line:app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift:f2e1a34a5cb4946a": {
+  "file": "app/Sources/VixenMarks/FaceMappingNodeSelectSheet.swift",
+  "hash": "f2e1a34a5cb4946a"
+ },
  "line:app/Sources/VixenMarks/LyricConverterView.swift:319b786980feddcc": {
   "file": "app/Sources/VixenMarks/LyricConverterView.swift",
   "hash": "319b786980feddcc"
@@ -1479,6 +1523,10 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "93ed0d08cbaecfb0"
  },
+ "line:crates/vixen-ffi/src/lib.rs:96d2dc14432ccb00": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "96d2dc14432ccb00"
+ },
  "line:crates/vixen-ffi/src/lib.rs:a85bb0a3316758d8": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "a85bb0a3316758d8"
@@ -1662,6 +1710,10 @@
  "line:crates/vixen-session/src/lib.rs:00ac71821b008fa4": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "00ac71821b008fa4"
+ },
+ "line:crates/vixen-session/src/lib.rs:0f9380dceca78c54": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "0f9380dceca78c54"
  },
  "line:crates/vixen-session/src/lib.rs:13f0eb6349ec7795": {
   "file": "crates/vixen-session/src/lib.rs",

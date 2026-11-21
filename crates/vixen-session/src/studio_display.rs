@@ -37,6 +37,8 @@ enum Kind {
     LipSync,
     /// Only the user phoneme dictionary file (`studio_phoneme_mappings`): nothing in the configuration to republish.
     Dictionary,
+    /// Only elements' Face properties (`studio_face_mapping`): LipSync effects render again, without rebuilding the output.
+    Face,
 }
 impl Kind {
     fn of(command: &str) -> Kind {
@@ -48,6 +50,8 @@ impl Kind {
             Kind::LipSync
         } else if crate::studio_phoneme_mappings::is_command(command) {
             Kind::Dictionary
+        } else if crate::studio_face_mapping::is_command(command) {
+            Kind::Face
         } else {
             Kind::Display
         }
@@ -262,6 +266,7 @@ impl StudioDisplay {
             Kind::Schedule => crate::studio_schedule::label(command, args),
             Kind::LipSync => crate::studio_lipsync::label(command),
             Kind::Dictionary => "",
+            Kind::Face => crate::studio_face_mapping::LABEL,
             Kind::Display => command,
         };
         let name = if Kind::of(command) == Kind::Dictionary { crate::studio_phoneme_mappings::label(command, args) } else { name.to_string() };
@@ -299,6 +304,7 @@ impl StudioDisplay {
                     Kind::Schedule => crate::studio_schedule::publish(core, entry.system),
                     Kind::LipSync => crate::studio_lipsync::publish(core, entry.system),
                     Kind::Dictionary => {}
+                    Kind::Face => crate::studio_face_mapping::publish(core, entry.system),
                     Kind::Display => core.apply_display(entry.system),
                 }
                 if command == "display_undo" {
@@ -367,6 +373,26 @@ impl StudioDisplay {
                     system: before,
                     kind: Kind::LipSync,
                     pictures: Some(pictures),
+                    dictionary: None,
+                });
+                if state.undo.len() > HISTORY_LIMIT {
+                    state.undo.remove(0);
+                }
+                state.redo.clear();
+            }
+            _ if crate::studio_face_mapping::is_command(command) => {
+                let mut system = before.clone();
+                let (value, changed) = crate::studio_face_mapping::edit(&mut system, command, args)?;
+                result = value;
+                if !changed {
+                    return Ok(json!({"changed":false,"revision":actual,"result":result}));
+                }
+                crate::studio_face_mapping::publish(core, system);
+                state.undo.push(Entry {
+                    label,
+                    system: before,
+                    kind: Kind::Face,
+                    pictures: None,
                     dictionary: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
@@ -575,6 +601,69 @@ impl StudioDisplay {
             command: "preview_design".into(),
             agent: false,
         });
+    }
+}
+/// What a Face Setup visit did: whether the Face properties changed, how many LipSync effects rendered again, and the visit's step
+/// on the shared history (none when nothing changed, or when the display moved during the visit so Undo would take that back too).
+#[derive(Debug, PartialEq, Eq)]
+pub struct FaceSetupFinished {
+    pub changed: bool,
+    pub rendered: usize,
+    pub label: Option<String>,
+}
+/// The profile as Face Setup found it, from [`StudioDisplay::face_setup_begin`].
+pub struct FaceSetupStart {
+    system: SystemData,
+    revision: u64,
+}
+impl StudioDisplay {
+    /// Tools ▸ LipSync ▸ Edit Element Face Mapping is about to open Face Setup, which writes the profile as it's used.
+    pub fn face_setup_begin(&self, core: &AppCore) -> FaceSetupStart {
+        let _state = self.state.lock();
+        FaceSetupStart { system: core.system.read().clone(), revision: core.display.revision() }
+    }
+    /// Face Setup closed: when it changed `nodes`' Face properties, the whole visit becomes one step on the shared history
+    /// (`studio_face_mapping`) and LipSync effects in the open sequences render again. No step when the display moved meanwhile
+    /// (an agent, an Undo): Undo of the visit would take that back too.
+    pub fn face_setup_finish(&self, core: &AppCore, start: FaceSetupStart, nodes: &[Uuid]) -> FaceSetupFinished {
+        let mut state = self.state.lock();
+        let changed = crate::studio_face_mapping::fingerprint(&start.system, nodes)
+            != crate::studio_face_mapping::fingerprint(&core.system.read(), nodes);
+        if !changed {
+            return FaceSetupFinished { changed: false, rendered: 0, label: None };
+        }
+        let actual = core.display.revision();
+        core.display.studio_bump();
+        let rendered = core.face_mapping_applied();
+        let recorded = actual == start.revision && !self.is_stopped();
+        if recorded {
+            if state.revision != actual {
+                state.redo.clear();
+                state.undo.clear();
+            }
+            state.undo.push(Entry {
+                label: crate::studio_face_mapping::LABEL.into(),
+                system: start.system,
+                kind: Kind::Face,
+                pictures: None,
+                dictionary: None,
+            });
+            if state.undo.len() > HISTORY_LIMIT {
+                state.undo.remove(0);
+            }
+            state.redo.clear();
+            state.revision = core.display.revision();
+        }
+        let revision = core.display.revision();
+        drop(state);
+        self.publish(StudioEvent {
+            document_id: None,
+            revision,
+            kind: "displayChanged".into(),
+            command: "face_setup".into(),
+            agent: false,
+        });
+        FaceSetupFinished { changed: true, rendered, label: recorded.then(|| crate::studio_face_mapping::LABEL.to_string()) }
     }
 }
 fn text<'a>(args: &'a Value, key: &str) -> Result<&'a str, String> {
@@ -868,6 +957,7 @@ pub fn command_tools() -> Vec<Value> {
     tools.extend(crate::studio_previews::tools());
     tools.extend(crate::studio_lipsync::tools());
     tools.extend(crate::studio_phoneme_mappings::tools());
+    tools.extend(crate::studio_face_mapping::tools());
     tools
 }
 

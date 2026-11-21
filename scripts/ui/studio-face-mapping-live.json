@@ -1,0 +1,256 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Tools",
+        "LipSync",
+        "Edit Element Face Mapping"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "list"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "faceNodes",
+      "path": [
+        "selectTree",
+        "Relays/White Bottom"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "faceNodes",
+      "path": [
+        "add"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "faceNodes",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "01-chosen"
+    },
+    {
+      "action": "mouse",
+      "x": 485,
+      "y": 292
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "02-face-setup"
+    },
+    {
+      "action": "mouse",
+      "x": 165,
+      "y": 172
+    },
+    {
+      "action": "wait",
+      "seconds": 0.6
+    },
+    {
+      "action": "snapshot",
+      "name": "03-face-checked"
+    },
+    {
+      "action": "hook",
+      "name": "studio.liveSheet",
+      "path": [
+        "flush"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "list"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "escape"
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "history"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "04-back-to-node-select"
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "undo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "list"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "redo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "list"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "undo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "list"
+      ]
+    },
+    {
+      "action": "mouse",
+      "x": 393,
+      "y": 292
+    },
+    {
+      "action": "wait",
+      "seconds": 2.5
+    },
+    {
+      "action": "hook",
+      "name": "studioFaceMapping",
+      "path": [
+        "closed"
+      ]
+    },
+    {
+      "action": "windows"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

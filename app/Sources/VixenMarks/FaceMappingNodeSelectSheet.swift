@@ -10,9 +10,12 @@ public struct FaceMappingNodeSelectSheet: View {
     @State private var model: FaceNodeSelectModel
     private let app: AppModel
     private let onClose: (Bool) -> Void
+    @State private var studio: StudioFaceMappingVisits // STUDIO: each Face Setup visit is one step on the shared Undo (R40)
+    @Environment(\.undoManager) private var undoManager // STUDIO: the sheet's Edit ▸ Undo mirrors the visits' steps (R40)
 
     public init(core: VixenCore, model app: AppModel, onClose: @escaping (Bool) -> Void) {
         _model = State(initialValue: FaceNodeSelectModel(select: core.faceNodeSelect()))
+        _studio = State(initialValue: StudioFaceMappingVisits(core: core)) // STUDIO: each Face Setup visit is one step on the shared Undo (R40)
         self.app = app
         self.onClose = onClose
     }
@@ -53,23 +56,28 @@ public struct FaceMappingNodeSelectSheet: View {
                 )
                 .border(.separator)
             }
+            // STUDIO-BEGIN face-mapping-live: choosing changes nothing; Set Up Faces… opens Face Setup, and Done closes (R40)
             HStack {
                 Spacer()
-                Button("Cancel") { finish(false) }
+                Button("Done") { finish(studio.changed) }
                     .keyboardShortcut(.cancelAction)
-                Button("OK") { ok() }
+                Button("Set Up Faces…") { ok() }
                     .keyboardShortcut(.defaultAction)
+                    .disabled(model.studioChosenCount == 0)
             }
+            // STUDIO-END face-mapping-live
         }
         .padding(16)
         .frame(minWidth: 560, idealWidth: 675, maxWidth: 1000, minHeight: 320, idealHeight: 433, maxHeight: 800)
         .sheet(isPresented: $model.showingFaceSetup) {
             SetupHelperSheet(helper: .faceMapping, nodes: model.faceNodes, model: app) { saved in
                 model.showingFaceSetup = false
-                if saved {
-                    model.rendered = Int(model.select.faceSetupFinished())
+                // STUDIO-BEGIN face-mapping-visit: the visit is one step on the shared Undo; the sheet stays up for more (R40)
+                _ = saved
+                if let outcome = studio.finish() {
+                    model.rendered = Int(outcome.rendered)
                 }
-                finish(saved)
+                // STUDIO-END face-mapping-visit
             }
         }
         .task { await model.load() }
@@ -77,7 +85,9 @@ public struct FaceMappingNodeSelectSheet: View {
             // The sequencer presents this sheet too, without ever opening MarksTestScene.
             FaceNodeSelectTestHooks.install()
             FaceNodeSelectTestHooks.current = model
+            StudioFaceMappingTestHooks.install() // STUDIO: the visits' Undo for test scripts (R40)
         }
+        .onChange(of: undoManager, initial: true) { studio.attach(undoManager) } // STUDIO: the sheet's Edit ▸ Undo (R40)
     }
 
     private func ok() {
@@ -86,6 +96,7 @@ public struct FaceMappingNodeSelectSheet: View {
         if model.faceNodes.isEmpty {
             finish(false)
         } else {
+            studio.begin(nodes: model.faceNodes) // STUDIO: the visit becomes one step on the shared Undo (R40)
             model.showingFaceSetup = true
         }
     }
@@ -119,6 +130,7 @@ final class FaceNodeSelectModel {
     var showingFaceSetup = false
     var faceNodes: [String] = []
     var rendered: Int?
+    var studioChosenCount = 0 // STUDIO: Set Up Faces… needs a chosen element (R40)
 
     init(select: FaceNodeSelect) {
         self.select = select
@@ -163,6 +175,7 @@ final class FaceNodeSelectModel {
         Task {
             await chosenHandle.reload(roots: true) { _ in false }
             chosenSelection = chosenHandle.selection.ids
+            studioChosenCount = chosenHandle.rowCount // STUDIO: Set Up Faces… needs a chosen element (R40)
         }
     }
 

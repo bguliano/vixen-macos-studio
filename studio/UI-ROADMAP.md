@@ -230,7 +230,12 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   (`studio_phoneme_mappings.rs`), and the Lyric Converter window mirrors the step into its Edit ▸ Undo; Breakdown Word's
   mapping is the same step, undone from the show window. MCP: `phoneme_mapping_set`, `phoneme_mapping_remove`,
   `phoneme_mapping_list`. Harness: `scripts/check_studio_lyric_map_word.py` with `scripts/ui/studio-lyric-map-word.json`.
-  *Remaining:* Face Mapping node selection (backlog).
+  *Done for Edit Element Face Mapping (B23):* choosing elements changes nothing, so the node select sheet confirms with Set Up
+  Faces… and closes with Done; Face Setup (already live, B9) writes the Face properties as it's used, and each visit is one
+  step on the profile's shared history ("Edit Face Mapping") that renders LipSync effects again without rebuilding the output
+  (`studio_face_mapping.rs`). The sheet stays up for more visits and mirrors each step into its Edit ▸ Undo. MCP:
+  `face_mapping_set`, `face_mapping_list`. Harness: `scripts/check_studio_face_mapping_live.py` with
+  `scripts/ui/studio-face-mapping-live.json`. R40 is done.
 
 - **Preview designer (R41).** *Done:* the designer's sheets no longer commit through OK/Cancel. Linked Elements changes the
   shape as it's used (drop, double-click, Copy, Reverse, Set) and closes with Done; everything done while it's open is one

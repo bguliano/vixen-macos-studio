@@ -223,6 +223,15 @@ fn real_music_thirty_second_show_via_stdio_only() {
     assert!(call("phoneme_mapping_list", json!({}))["mappings"].as_array().unwrap().iter().any(|m| m["word"] == "ZORBLEPLEX"));
     call("display_undo", json!({}));
     assert_eq!(call("phoneme_mapping_list", json!({})), before);
+    // Face mapping: an element's Face property set, listed, and the step undone off the shared history.
+    let faces = call("face_mapping_list", json!({}));
+    let face_target = elements["items"].as_array().unwrap().iter().find(|e| e["elementId"].is_string()).and_then(|e| e["id"].as_str()).unwrap().to_string();
+    let set = call("face_mapping_set", json!({"nodeIds":[face_target],"phonemes":["AI","MBP"],"components":["Outlines"]}));
+    assert_eq!(set["result"]["elements"][0]["phonemes"], json!(["AI","MBP"]), "{set}");
+    let listed = call("face_mapping_list", json!({}));
+    assert!(listed["elements"].as_array().unwrap().iter().any(|e| e["id"] == face_target.as_str() && e["components"] == json!(["Outlines"])), "{listed}");
+    call("display_undo", json!({}));
+    assert_eq!(call("face_mapping_list", json!({}))["elements"], faces["elements"]);
     if let Some(preview) = previews["items"].as_array().unwrap().first() {
         let prop = call(
             "preview_prop_create",

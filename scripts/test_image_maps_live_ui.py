@@ -55,10 +55,13 @@ def main():
             + edit() + [click("OK"),wait()] + observe() + [click("OK"),wait(2)] + observe() \
             + capture("accepted") + [{"action":"menu","path":["Sequence","Save"]},wait()] + finish
     elif args.stage.startswith("face-"):
+        # STUDIO-BEGIN face-mapping-check: OK is Set Up Faces… (R40), clicked where it sits; Studio's own check is check_studio_face_mapping_live.py
         steps = start + [{"action":"menu","path":["Tools","LipSync","Edit Element Face Mapping"]},wait(),
-                hook("faceNodes","selectTree","Face Mouth"),hook("faceNodes","add"),click("OK"),wait()] \
+                hook("faceNodes","selectTree","Face Mouth"),hook("faceNodes","add"),wait(),
+                {"action":"mouse","x":485,"y":292},wait()] \
             + capture("before-face") + [{"action":"mouse","x":165,"y":172},wait()] + capture("face-checked") \
             + [{"action":"mouse","x":810 if args.stage=="face-cancel" else 748,"y":388},wait(2),hook("faceNodes","state")] + observe() + capture("after-face") + finish
+        # STUDIO-END face-mapping-check
     else:
         steps = start + maps() + key("escape") + [{"action":"windows"}] + maps() + key("return") + [{"action":"windows"}] + maps() \
             + [hook("imageMaps","beginRename","Rename Me"),wait(),{"action":"key","key":"a","modifiers":["cmd"]},

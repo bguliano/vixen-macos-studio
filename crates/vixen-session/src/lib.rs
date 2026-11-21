@@ -112,5 +112,6 @@ pub mod studio_props; // STUDIO: shared native preview prop commands
 pub mod studio_previews; // STUDIO: the Previews pane's live preview list edits, list and thumbnails
 pub mod studio_lipsync; // STUDIO: the Image Maps sheet's live LipSync library edits, with their pictures on the shared undo
 pub mod studio_phoneme_mappings; // STUDIO: the Text Conversion Failure sheet's word mappings, with the user dictionary on the shared undo
+pub mod studio_face_mapping; // STUDIO: Edit Element Face Mapping's Face Setup and face_mapping_set, one step each on the shared undo
 
 pub mod studio_schema; // STUDIO: validate the shared published command schemas
