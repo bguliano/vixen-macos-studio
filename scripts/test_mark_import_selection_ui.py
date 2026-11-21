@@ -39,13 +39,12 @@ def main():
         {"action": "focus", "window": "Mark Import Verification"},
         hook("sequencer.activate", "Mark Import Verification"), hook("sequencer.resize", "1400", "900"),
         hook("sequencer.panel", "Mark Collections"), wait(), hook("marksRows", "initial")]
+    # STUDIO-BEGIN marks-import-menu-check: Studio's Import is a menu of file types (R40), not the Import Type dialog
     def begin_import():
-        # OCR "Import" also matches the sequence title. These are the two observed
-        # offscreen dock layouts; once a hit opens the 280pt sheet, the second
-        # point is outside that sheet and does not target another control.
-        return [hook("marksNextFile", str(source)), {"action": "mouse", "x": 1107, "y": 110}, wait(),
-                {"action": "mouse", "x": 997, "y": 110}, wait(),
-                click("Vixen 3")] + key("return") + [wait(), {"action": "focus", "window": "Mark Import Verification"}]
+        # The panel toolbar's Import menu, where scripts/ui/studio-marks-live.json finds it in a 1400x900 sequencer.
+        return [hook("marksNextFile", str(source)), {"action": "popup", "x": 1107, "y": 117, "label": "Vixen 3"},
+                wait(), {"action": "focus", "window": "Mark Import Verification"}]
+    # STUDIO-END marks-import-menu-check
     space = lambda: [hook("sequencer.keyEvent", "space"), wait()]
     select = lambda name: [{"action": "selectRow", "label": name}, wait()]
     steps = opening + begin_import() + capture("all-checked") + space() + capture("first-space")

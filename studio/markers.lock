@@ -131,9 +131,21 @@
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "1ac6603fc819de34"
  },
+ "block:lipsync-default-undo": {
+  "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
+  "hash": "c41d515c8424d48c"
+ },
+ "block:lipsync-live-image-maps": {
+  "file": "app/Sources/VixenSequencer/SequencerLipSync.swift",
+  "hash": "49eea8b2488965f3"
+ },
  "block:marks-header-label": {
   "file": "crates/vixen-ffi/src/marks.rs",
   "hash": "b7e9ee301464fc5a"
+ },
+ "block:marks-import-menu-check": {
+  "file": "scripts/test_mark_import_selection_ui.py",
+  "hash": "624f171adad45f2e"
  },
  "block:marks-live-offset": {
   "file": "crates/vixen-ffi/src/marks.rs",
@@ -1063,6 +1075,10 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "93ed0d08cbaecfb0"
  },
+ "line:crates/vixen-ffi/src/lib.rs:a85bb0a3316758d8": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "a85bb0a3316758d8"
+ },
  "line:crates/vixen-ffi/src/lib.rs:bb7099cad7b0e281": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "bb7099cad7b0e281"
@@ -1234,6 +1250,10 @@
  "line:crates/vixen-session/src/lib.rs:54e1cfc535d64c95": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "54e1cfc535d64c95"
+ },
+ "line:crates/vixen-session/src/lib.rs:6043f0579981bcfa": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "6043f0579981bcfa"
  },
  "line:crates/vixen-session/src/lib.rs:71eeca2dd233139f": {
   "file": "crates/vixen-session/src/lib.rs",

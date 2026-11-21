@@ -22,7 +22,10 @@ extension SequencerModel {
     }
 
     func setDefaultLipSyncMap(_ name: String) {
-        guard let shell, shell.setDefaultLipsyncMap(name: name) else { return }
+        // STUDIO-BEGIN lipsync-default-undo: Default Image Map is one step on the shared history, as the live Image Maps sheet's Make Default
+        guard let core = app.core, let json = try? String(data: JSONSerialization.data(withJSONObject: ["name": name]), encoding: .utf8) else { return }
+        guard (try? core.studioDisplayCommand(command: "image_map_set_default", argumentsJson: json)) != nil else { return }
+        // STUDIO-END lipsync-default-undo
         reloadLipSyncMaps()
         refresh()
     }
@@ -49,15 +52,17 @@ extension SequencerModel {
     func openImageMaps() {
         #if canImport(VixenMarks)
         guard let window, let core = app.core else { return }
+        // STUDIO-BEGIN lipsync-live-image-maps: the live Image Maps sheet, each change one step on the shared history, closed with Done (rest of R40)
         KitSheet.present(on: window) { dismiss in
-            ImageMapsSheet(core: core) { [weak self] changed in
+            StudioImageMapsSheet(core: core, onChange: { [weak self] in
+                self?.reloadLipSyncMaps()
+                self?.refresh()
+            }, onClose: { [weak self] in
                 dismiss()
                 self?.reloadLipSyncMaps()
-                if changed {
-                    self?.refresh()
-                }
-            }
+            })
         }
+        // STUDIO-END lipsync-live-image-maps
         #endif
     }
 

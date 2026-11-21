@@ -1,0 +1,307 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Tools",
+        "LipSync",
+        "Edit Image Maps"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "01-library"
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "new"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "editorName",
+        "Singer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "editorNotes",
+        "Lead singer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "picture",
+        "AI",
+        "{PICTURE}"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "picture",
+        "REST",
+        "-"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "map",
+        "Singer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "editorImage"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "02-editor"
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "sendUndo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "map",
+        "Singer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "sendRedo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "map",
+        "Singer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "closeEditor"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "clone",
+        "Singer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "default",
+        "Singer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "delete",
+        "@clone"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "04-library-after"
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "undoMenu"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "sendUndo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studioImageMaps",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "return"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

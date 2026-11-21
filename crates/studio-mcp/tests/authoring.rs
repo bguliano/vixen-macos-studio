@@ -203,6 +203,14 @@ fn real_music_thirty_second_show_via_stdio_only() {
         .unwrap()
         .iter()
         .any(|item| item["showId"] == show["result"]["showId"] && item["enabled"] == false && item["startTime"] == "18:00"));
+    // Image maps through the bridge: a new map with notes, listed, then undone off the shared history.
+    let map = call("image_map_create", json!({"name":"MCP test mouths"}));
+    call("image_map_update", json!({"name":map["result"]["name"],"notes":"From the bridge"}));
+    let maps = call("image_map_list", json!({}));
+    assert!(maps["maps"].as_array().unwrap().iter().any(|m| m["name"] == "MCP test mouths" && m["notes"] == "From the bridge" && m["editable"] == true), "{maps}");
+    call("display_undo", json!({}));
+    call("display_undo", json!({}));
+    assert!(!call("image_map_list", json!({}))["maps"].as_array().unwrap().iter().any(|m| m["name"] == "MCP test mouths"));
     if let Some(preview) = previews["items"].as_array().unwrap().first() {
         let prop = call(
             "preview_prop_create",

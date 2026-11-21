@@ -19,6 +19,8 @@ struct Entry {
     label: String,
     system: SystemData,
     kind: Kind,
+    /// An image map step's picture folders as they were (`studio_lipsync`).
+    pictures: Option<crate::studio_lipsync::Pictures>,
 }
 /// What a step changed, which decides how undoing it publishes.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -29,6 +31,8 @@ enum Kind {
     Preview,
     /// Only shows and schedules (`studio_schedule`): republished without rebuilding the output.
     Schedule,
+    /// Only the LipSync image map library and its pictures (`studio_lipsync`): republished without rebuilding the output.
+    LipSync,
 }
 impl Kind {
     fn of(command: &str) -> Kind {
@@ -36,6 +40,8 @@ impl Kind {
             Kind::Preview
         } else if crate::studio_schedule::is_command(command) {
             Kind::Schedule
+        } else if crate::studio_lipsync::is_command(command) {
+            Kind::LipSync
         } else {
             Kind::Display
         }
@@ -248,6 +254,7 @@ impl StudioDisplay {
         let name = match Kind::of(command) {
             Kind::Preview => crate::studio_previews::label(command, args),
             Kind::Schedule => crate::studio_schedule::label(command, args),
+            Kind::LipSync => crate::studio_lipsync::label(command),
             Kind::Display => command,
         };
         let label = format!("{}{}", name, if agent { " (Agent)" } else { "" });
@@ -266,14 +273,18 @@ impl StudioDisplay {
                     state.redo.pop()
                 }
                 .ok_or("Nothing to undo/redo")?;
+                let pictures =
+                    entry.pictures.as_ref().map(|p| p.restore(&crate::studio_lipsync::lipsync_dir(core)));
                 let inverse = Entry {
                     label: entry.label.clone(),
                     system: before,
                     kind,
+                    pictures,
                 };
                 match kind {
                     Kind::Preview => crate::studio_previews::publish(core, entry.system),
                     Kind::Schedule => crate::studio_schedule::publish(core, entry.system),
+                    Kind::LipSync => crate::studio_lipsync::publish(core, entry.system),
                     Kind::Display => core.apply_display(entry.system),
                 }
                 if command == "display_undo" {
@@ -295,6 +306,7 @@ impl StudioDisplay {
                     label,
                     system: before,
                     kind: Kind::Preview,
+                    pictures: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -314,6 +326,31 @@ impl StudioDisplay {
                     label,
                     system: before,
                     kind: Kind::Schedule,
+                    pictures: None,
+                });
+                if state.undo.len() > HISTORY_LIMIT {
+                    state.undo.remove(0);
+                }
+                state.redo.clear();
+            }
+            _ if crate::studio_lipsync::is_command(command) => {
+                let mut system = before.clone();
+                let (value, changed, pictures) = crate::studio_lipsync::edit(
+                    &mut system,
+                    &crate::studio_lipsync::lipsync_dir(core),
+                    command,
+                    args,
+                )?;
+                result = value;
+                if !changed {
+                    return Ok(json!({"changed":false,"revision":actual,"result":result}));
+                }
+                crate::studio_lipsync::publish(core, system);
+                state.undo.push(Entry {
+                    label,
+                    system: before,
+                    kind: Kind::LipSync,
+                    pictures: Some(pictures),
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -339,6 +376,7 @@ impl StudioDisplay {
                     label,
                     system: before,
                     kind: Kind::Display,
+                    pictures: None,
                 });
                 if state.undo.len() > HISTORY_LIMIT {
                     state.undo.remove(0);
@@ -433,6 +471,7 @@ impl StudioDisplay {
             label: label.into(),
             system: before,
             kind: Kind::Display,
+            pictures: None,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -474,6 +513,7 @@ impl StudioDisplay {
             label: label.into(),
             system: before,
             kind: Kind::Preview,
+            pictures: None,
         });
         if state.undo.len() > HISTORY_LIMIT {
             state.undo.remove(0);
@@ -759,6 +799,7 @@ pub fn command_tools() -> Vec<Value> {
     tools.extend(crate::studio_schedule::tools());
     tools.extend(crate::studio_props::tools());
     tools.extend(crate::studio_previews::tools());
+    tools.extend(crate::studio_lipsync::tools());
     tools
 }
 

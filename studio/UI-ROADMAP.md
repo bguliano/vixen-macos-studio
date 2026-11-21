@@ -216,10 +216,16 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   Offset Time is a live popover on the row (its changes are one Undo step); Import is a menu of file types, so the Import
   Type dialog is gone; a single-colour Pangolin import comes in white and is recoloured from the row; the selection and
   export sheets confirm with verbs (Import, Export…). MCP: `marks_collection_edit`, `marks_collection_delete`,
-  `marks_import`. Harness: `scripts/check_studio_marks_live.py` with `scripts/ui/studio-marks-live.json`. *Remaining:* the
-  LipSync library editors in VixenMarks (Edit Image Maps and its map editor and Image Mapper, the Lyric Converter's
-  unknown-word mapping, Face Mapping node selection), which edit the profile's LipSync library rather than the sequence and
-  need the show window's shared history for Undo (backlog).
+  `marks_import`. Harness: `scripts/check_studio_marks_live.py` with `scripts/ui/studio-marks-live.json`. *Done for Edit Image Maps
+  (B7):* the library, a map's editor and the Image Mapper apply each change at once (New, Rename, Clone, Delete, Make
+  Default, a picture from File, a drop or another app, Clear, the notes, the name) as one step on the profile's shared
+  history, labelled in words ("Change Image Map"); each step keeps the picture folders it changed, so Undo puts the pictures
+  back as well as the library (`studio_lipsync.rs`). The sheets mirror that history into their window's Edit ▸ Undo and
+  close with Done; the Image Mapper confirms with Map Pictures, as one step. Tools ▸ LipSync ▸ Default Image Map is a step
+  too. MCP: `image_map_list`, `image_map_create`, `image_map_rename`, `image_map_clone`, `image_map_delete`,
+  `image_map_update`, `image_map_set_default`. Harness: `scripts/check_studio_lipsync_live.py` with
+  `scripts/ui/studio-lipsync-live.json`. *Remaining:* the Lyric Converter's unknown-word mapping and Face Mapping node
+  selection (backlog).
 
 - **Preview designer (R41).** *Done:* the designer's sheets no longer commit through OK/Cancel. Linked Elements changes the
   shape as it's used (drop, double-click, Copy, Reverse, Set) and closes with Done; everything done while it's open is one

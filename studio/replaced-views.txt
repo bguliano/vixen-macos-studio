@@ -8,3 +8,4 @@ app/Sources/VixenSetup/Window/SetupPanels.swift  ->  app/Sources/VixenSetup/Wind
 app/Sources/VixenAdmin/SetupPreviewsSheet.swift  ->  app/Sources/VixenAdmin/StudioPreviewsPane.swift
 app/Sources/VixenScheduler/SchedulesWindow.swift  ->  app/Sources/VixenAdmin/StudioSchedulePane.swift
 app/Sources/VixenScheduler/ShowsWindow.swift  ->  app/Sources/VixenAdmin/StudioSchedulePane.swift (and ShowEditorSheet.swift)
+app/Sources/VixenMarks/ImageMapsSheet.swift  ->  app/Sources/VixenMarks/StudioImageMapsSheet.swift (ImageMapsSheet, ImageMapEditorSheet, ImageMapperSheet; vanilla's stays in the marks test scene)
