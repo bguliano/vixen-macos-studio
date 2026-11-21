@@ -71,10 +71,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header('Connection', 'close'); self.end_headers()
         self.wfile.write(body)
     def log_message(self, *args): pass
+class Server(http.server.ThreadingHTTPServer):
+    request_queue_size = 64  # Python's default of 5 makes macOS reset the tests' concurrent connections
 records = []; lock = threading.Lock()
 (root/'requests.json').write_text('[]')
 for label in ['http', 'tls']:
-    server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    server = Server(('127.0.0.1', 0), Handler)
     server.label = label
     if label == 'tls':
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
