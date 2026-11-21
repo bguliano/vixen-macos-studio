@@ -1,0 +1,80 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "menus",
+   "name": "menus-admin"
+  },
+  {
+   "action": "studioSection",
+   "name": "previews"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioPreviewSelect",
+   "name": "Christmas Tree 2019"
+  },
+  {
+   "action": "studioPreviewEditLayout"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "designing"
+  },
+  {
+   "action": "menus",
+   "name": "menus-pane"
+  },
+  {
+   "action": "studioPreviewLeaveDesigner"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "left"
+  },
+  {
+   "action": "menus",
+   "name": "menus-left"
+  },
+  {
+   "action": "previewTarget",
+   "text": "Christmas Tree 2019"
+  },
+  {
+   "action": "window",
+   "id": "preview-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "designerOnScreen"
+  },
+  {
+   "action": "menus",
+   "name": "menus-window"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}
