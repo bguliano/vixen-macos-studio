@@ -251,8 +251,15 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   Configure Filter… too); the designer's arrows nudge the Tab-selected prop as before. `sequence_effects` gives agents
   the same `label`. Verified by `scripts/check_studio_access.py` (`scripts/ui/studio-access.json`, hook
   `studio.access`). The designer's arrow nudge isn't on Undo yet, as upstream (backlog).
-- Regression guards in the test suite: sequence open time, memory per agent edit (the e8a531dbc class of bug), preview
-  frame pacing.
+- **Regression guards (R44).** *Done:* three checks in the test suite, each on `target/show-copy` (skipped without it).
+  `crates/studio-mcp/tests/regression_guards.rs` drives the real MCP server: opening and rendering the sample show's
+  busiest sequence (Wizards in Winter, 1,440 effects, about 50 ms) must take under 1 s, and 150 back-to-back
+  `effect_add` calls on a 200-light megatree must add under 1 MB of resident memory each (about 180 KB healthy) and
+  schedule every effect exactly once. `crates/vixen-session/tests/studio_preview_pacing.rs` plays two-second Pulse ramps
+  on the show's display into a headless live preview of its largest preview (2,309 lights) and checks the engine keeps
+  its 10 ms update interval and the drawn frames keep up (gap p50 under 12.5 ms, p95 under 20, none over 50; healthy is
+  10.0 / 13.5 / 19). Each failed on a deliberate regression: e8a531dbc's dedupe turned off (13.6 MB per edit), 1 ms
+  added per applied render (2.2 s open), 15 ms added per drawn frame (203 frames in 4 s instead of 400).
 
 ## Suggested order
 
