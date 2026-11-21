@@ -119,7 +119,31 @@ public final class OutlineHandle {
         for _ in 0..<500 where coordinator == nil {
             try? await Task.sleep(for: .milliseconds(2))
         }
-        await coordinator?.loadRoots()
+        // A tree being replaced can still be the one attached when this starts; if its successor took over during the
+        // fetch, that one loads too, so the rows end up in the tree on screen.
+        for _ in 0..<4 {
+            guard let target = coordinator else { return }
+            await target.loadRoots()
+            if coordinator === target { return }
+        }
+    }
+
+    /// A new tree takes over. When the one it replaces is still alive with rows loaded, `loadRoots` may already have gone
+    /// there, so the new tree loads its own.
+    fileprivate func attach(_ next: OutlineView.Coordinator) {
+        guard coordinator !== next else { return }
+        let previous = coordinator
+        coordinator = next
+        if previous?.hasRoots == true {
+            Task { await next.loadRoots() }
+        }
+    }
+
+    /// A tree leaving lets go, so calls made before its successor arrives wait for that one.
+    fileprivate func detach(_ leaving: OutlineView.Coordinator) {
+        if coordinator === leaving {
+            coordinator = nil
+        }
     }
 
     /// Fetches again the children of the roots if `roots`, and of every loaded row that `parents` says yes to, keeping expansion, scroll position and whatever is still selected.
@@ -306,14 +330,14 @@ public struct OutlineView: NSViewRepresentable {
         scroll.drawsBackground = false
         context.coordinator.outline = outline
         context.coordinator.lastRevision = revision
-        handle?.coordinator = context.coordinator
+        handle?.attach(context.coordinator)
         return scroll
     }
 
     public func updateNSView(_ scroll: NSScrollView, context: Context) {
         let c = context.coordinator
         c.parent = self
-        handle?.coordinator = c
+        handle?.attach(c)
         // Everything below is the plain form. A tree with a handle has nothing to do on SwiftUI's update.
         guard handle == nil else { return }
         if c.lastRevision != revision {
@@ -321,6 +345,10 @@ public struct OutlineView: NSViewRepresentable {
             c.reloadAll()
         }
         c.applySelection(selection)
+    }
+
+    public static func dismantleNSView(_ scroll: NSScrollView, coordinator: Coordinator) {
+        coordinator.parent.handle?.detach(coordinator)
     }
 
     @MainActor
@@ -367,6 +395,9 @@ public struct OutlineView: NSViewRepresentable {
         }
 
         private var usesHandle: Bool { parent.handle != nil }
+
+        /// Whether the roots have been fetched into this tree.
+        var hasRoots: Bool { roots != nil }
 
         private func makeBoxes(_ rows: [OutlineRow]) -> [Box] {
             var out: [Box] = []
