@@ -248,11 +248,6 @@ struct StudioControllersSection: View {
         guard let session = model.session, let core = model.app.core else { return }
         let text = await offMain { core.studioControllerOverview(session: session) }
         guard let next = try? JSONDecoder().decode(StudioControllerOverview.self, from: Data(text.utf8)) else { return }
-        // When the working copy reopens (after Undo or another writer's edit), the hidden tree under this section can be
-        // built after its first load went to the tree it replaced; it then shows nothing, and the selection can't reach it.
-        if !next.controllers.isEmpty, model.controllerTree.rowCount == 0 {
-            await model.controllerTree.loadRoots()
-        }
         var loaded = next
         loaded.loaded = true
         if loaded != overview {
@@ -277,6 +272,23 @@ struct StudioControllersSection: View {
             guard ids.count == names.count else { return (false, "no controller named \(step.name ?? "")") }
             selection = ids
             return (true, nil)
+        }
+        // Reopens the working copy `name` times, as Undo and other writers' edits do, and fails if the tree under this
+        // section comes back empty: the new tree must get its rows even while the one it replaces is still alive.
+        UITestHarness.customActions["studioControllersReopen"] = { step in
+            var counts: [Int] = []
+            for _ in 0..<(Int(step.name ?? "") ?? 10) {
+                model.studioCloseLive()
+                model.studioOpenLive()
+                for _ in 0..<1000 where model.session == nil {
+                    try? await Task.sleep(for: .milliseconds(5))
+                }
+                for _ in 0..<150 where model.controllerTree.rowCount == 0 {
+                    try? await Task.sleep(for: .milliseconds(20))
+                }
+                counts.append(model.controllerTree.rowCount)
+            }
+            return (!counts.contains(0), "treeRows " + counts.map(String.init).joined(separator: ","))
         }
         // A context menu item, by title, on the selected rows: SwiftUI's table menus can't be opened by a script.
         UITestHarness.customActions["studioControllersMenu"] = { step in

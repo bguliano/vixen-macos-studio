@@ -253,6 +253,18 @@
    "name": "found-elements"
   },
   {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersReopen",
+   "name": "25"
+  },
+  {
    "action": "quit"
   }
  ]
