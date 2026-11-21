@@ -1,0 +1,50 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "menus",
+   "name": "menus-admin"
+  },
+  {
+   "action": "window",
+   "id": "custom-prop-editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "focus",
+   "window": "Custom Prop Editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-prop-editor"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-closed"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}
