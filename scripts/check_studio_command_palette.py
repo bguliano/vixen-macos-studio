@@ -8,7 +8,8 @@ Checks, from the harness's own menu dumps (written by code independent of the pa
 - the palette's check step passed in both windows: every visible command found by searching its own title, every
   disabled one with a reason;
 - every palette entry is a real menu item at that path, and the sequencer lists its own Sequence menu, the show window not;
-- ⌘K opens the palette, typing and Return run the best match (Scheduler ▸ Shows opens its window) and close it;
+- palette runs reach Studio's panes: Scheduler ▸ Schedules shows the show window's Schedule pane, no Scheduler window;
+- ⌘K opens the palette, typing and Return run the best match (Scheduler ▸ Shows, the Schedule pane again) and close it;
 - running a command from the palette really runs it (Sequence ▸ Playback ▸ Loop becomes checked).
 """
 import json
@@ -50,9 +51,11 @@ def check(root: Path) -> None:
     assert len(passes) == 2 and passes[0].startswith("PASS show:") and passes[1].startswith("PASS sequencer:"), passes
 
     windows = [d for s, d in zip(steps, details) if s["action"] == "windows"]
-    assert "Scheduler" in windows[0], windows[0]  # palette run: Scheduler ▸ Schedules
+    sections = [d for s, d in zip(steps, details) if s["action"] == "studioSectionNow"]
+    assert sections == ["schedule", "schedule"], sections  # both runs left Sequences for the Schedule pane
+    assert "Scheduler" not in windows[0] and "Shows " not in windows[0], windows[0]  # palette run: Scheduler ▸ Schedules
     assert "Command Palette…" in windows[1], windows[1]  # ⌘K opened it
-    assert "Shows" in windows[2] and "Command Palette…" not in windows[2], windows[2]  # typed "shows", Return
+    assert "Command Palette…" not in windows[2] and "Shows " not in windows[2], windows[2]  # typed "shows", Return
 
     for kind, dump in (("show", "menus-show.txt"), ("sequencer", "menus-after-run.txt")):
         rows = palette(root, kind)

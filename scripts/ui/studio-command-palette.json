@@ -13,6 +13,10 @@
       "name": "menus-show"
     },
     {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
       "action": "hook",
       "name": "studio.palette",
       "path": [
@@ -56,7 +60,15 @@
       "seconds": 1
     },
     {
+      "action": "studioSectionNow",
+      "name": "after-palette-run"
+    },
+    {
       "action": "windows"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
     },
     {
       "action": "focus",
@@ -90,6 +102,10 @@
     },
     {
       "action": "windows"
+    },
+    {
+      "action": "studioSectionNow",
+      "name": "after-return"
     },
     {
       "action": "window",
