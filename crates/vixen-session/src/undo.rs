@@ -96,6 +96,9 @@ pub enum UndoAction {
     // STUDIO-BEGIN sequence-settings-undo: shared reversible document length and layer configuration
     StudioSettings { label: String, length: TimeSpan, layers: vixen_core::layer::SequenceLayers },
     // STUDIO-END sequence-settings-undo
+    // STUDIO-BEGIN sequence-inspector-undo: the sequence inspector's mark collection visibility, as (collection, lines, bar) to go back to
+    StudioMarkVisibility { label: String, flags: Vec<(Uuid, bool, bool)> },
+    // STUDIO-END sequence-inspector-undo
     /// Undoing removes these.
     EffectsAdded { kind: AddRemoveKind, ids: Vec<EffectId> },
     /// Undoing puts these back.
@@ -137,6 +140,7 @@ impl UndoAction {
     pub fn description(&self) -> String {
         match self {
             UndoAction::StudioSettings {label,..} => label.clone(), // STUDIO: document settings share the same undo menu
+            UndoAction::StudioMarkVisibility { label, .. } => label.clone(), // STUDIO: the sequence inspector's mark visibility
             UndoAction::EffectsAdded { kind, ids } => added_removed_text(*kind, ids.len(), true),
             UndoAction::EffectsRemoved { kind, effects } => added_removed_text(*kind, effects.len(), false),
             UndoAction::TimesChanged { kind, times } => {

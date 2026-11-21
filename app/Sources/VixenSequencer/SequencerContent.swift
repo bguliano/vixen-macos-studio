@@ -391,6 +391,15 @@ struct PanelContent: View {
                     model.refresh()
                     return true
                 }
+                // STUDIO-BEGIN sequence-inspector: with no effect selected, the inspector shows the sequence; the editor stays underneath so its pending edits still flush
+                .accessibilityHidden(model.editorSelection.isEmpty)
+                .overlay {
+                    if model.editorSelection.isEmpty {
+                        StudioSequenceInspector(model: model)
+                            .background(.background)
+                    }
+                }
+                // STUDIO-END sequence-inspector
             }
             #else
             PanelPlaceholder(title: "Effect Editor", detail: "The effect's properties show here, from the VixenEffectEditor module.", symbol: "slider.horizontal.3")

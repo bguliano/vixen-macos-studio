@@ -1075,6 +1075,20 @@ impl SequenceSession {
                 self.set_length(length);self.document_mut().layers=layers;self.layers_changed();inverse
             }
             // STUDIO-END sequence-settings-inverse
+            // STUDIO-BEGIN sequence-inspector-inverse: swap each collection's lines and bar back, leaving its marks alone
+            UndoAction::StudioMarkVisibility { label, flags } => {
+                let mut current = Vec::with_capacity(flags.len());
+                for (id, lines, bar) in flags {
+                    if let Some(c) = self.document.marks.iter_mut().find(|c| c.id == id) {
+                        current.push((id, c.show_grid_lines, c.show_marks));
+                        c.show_grid_lines = lines;
+                        c.show_marks = bar;
+                    }
+                }
+                self.shared.marks = Arc::new(self.document.marks.clone());
+                UndoAction::StudioMarkVisibility { label, flags: current }
+            }
+            // STUDIO-END sequence-inspector-inverse
             UndoAction::EffectsAdded { kind, ids } => {
                 let snapshots = self.remove_effects(&ids);
                 UndoAction::EffectsRemoved { kind, effects: snapshots }

@@ -24,6 +24,8 @@ mod step_effects;
 pub mod library;
 #[path = "studio_window_chrome.rs"]
 pub mod window_chrome;
+#[path = "studio_sequence_inspector.rs"]
+pub mod inspector;
 
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
@@ -531,7 +533,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             return crate::studio_preview::frame(core, &mut s, uuid(a, "previewId")?, time, &path);
         }
         "sequence_length" => {
-            let length=ms(a,"lengthMs")?;
+            let length=if a.get("length").is_some() {inspector::parse_length(string(a,"length")?).ok_or("length must be a time such as 2:46.500, 2:46 or 166.5 (seconds)")?} else {ms(a,"lengthMs")?};
             if length<25.0||s.effects().any(|e|e.end().total_ms()>length){return Err("Length must contain all effects and be at least 25ms".into())}
             let old=UndoAction::StudioSettings{label:"Sequence length".into(),length:s.length(),layers:s.document().layers.clone()};
             s.set_length(TimeSpan::from_ms(length));record(&mut s,"Sequence length",old,agent);json!({})
@@ -569,6 +571,11 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "sequence_stop"=>{core.playback.stop_session(s.playback_id());json!({})}
         "sequence_seek"=>{if core.playback.hardware_allowed(){confirm(a)?;if !crate::studio_live::allowed(core)||std::env::var("VIXEN_MUTE").is_ok_and(|v|v=="1"){return Err("Live seeking requires local output permission and no mute override".into())}}core.playback.seek_session(s.playback_id(),TimeSpan::from_ms(ms(a,"timeMs")?));json!({})}
         "sequence_marks" => collections_json(s.marks()),
+        "sequence_overview" => {
+            s.apply_finished_renders();
+            inspector::overview(&s, &core.paths.media_dir())
+        }
+        "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
         "marks_create" => {
             let times = a["timesMs"]
                 .as_array()
@@ -1139,7 +1146,7 @@ pub fn tools() -> Vec<Value> {
     let boolean = json!({"type":"boolean"});
     let entries=vec![
         ("effect_parameters","Read current typed effect parameter values and writable schemas. Native gradient stop positions are reported separately from the evenly-spaced write format.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0}}),vec!["sequenceId","effectId"],true),
-        ("sequence_length","Set length without truncating effects, with shared undo.",json!({"sequenceId":string,"lengthMs":number}),vec!["sequenceId","lengthMs"],false),
+        ("sequence_length","Set length without truncating effects, with shared undo. Give lengthMs, or length as text the inspector's field takes: m:ss.fff, m:ss or seconds.",json!({"sequenceId":string,"lengthMs":number,"length":string}),vec!["sequenceId"],false),
         ("sequence_layers","List layers and mixing filters.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("layer_create","Create a highest-value mixing layer with undo.",json!({"sequenceId":string,"name":string}),vec!["sequenceId","name"],false),
         ("layer_rename","Rename a layer with undo.",json!({"sequenceId":string,"layerId":string,"name":string}),vec!["sequenceId","layerId","name"],false),
@@ -1181,6 +1188,7 @@ pub fn tools() -> Vec<Value> {
     ];
     let mut entries=entries;
     entries.extend(library::tools());
+    entries.extend(inspector::tools());
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 

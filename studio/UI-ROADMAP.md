@@ -138,6 +138,15 @@ command, edits are live with Undo, and each change is verified with harness runs
    counts. MCP `sequence_status` reports the same title, subtitle, song, songMissing, rendering and renderingPercent.
    Harness: `scripts/ui/studio-window-chrome.json` (hook `sequencer.chrome`).
 2. Inspector, when nothing is selected, shows the sequence: length, audio, marks collections, layers, render state.
+   *Done:* with no effect selected, the Effect Editor tab shows the sequence instead of an empty placeholder
+   (`StudioSequenceInspector.swift`, `studio_sequence_inspector.rs`): a Length field (m:ss.fff, m:ss or seconds), the
+   song with its length, a missing-audio warning, Fit Length to Song and Change Audio…, every mark collection with its
+   mark count and a switch that shows or hides its lines and bar, the layers with their effect counts (renamed in place,
+   Add Layer), and the render progress. Length, mark visibility and layer edits are each one step on the window's Undo
+   (mark visibility through the new `StudioMarkVisibility` undo action); changing the song is still the Audio menu's,
+   without Undo, as in vanilla. MCP `sequence_overview` reads the same, `marks_visibility` toggles collections, and
+   `sequence_length` also takes the field's text as `length`. Harness: `scripts/ui/studio-sequence-inspector.json`
+   (hook `sequencer.inspector`).
 3. Marks draw as coloured ticks in the ruler and waveform, with full-height lines only for the selected collection.
 4. Compact / regular row height (View menu), remembered per sequence.
 5. Replace the vanilla dock tab with the native window tab bar.

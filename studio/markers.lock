@@ -167,6 +167,18 @@
   "file": "crates/vixen-session/src/scheduler/run.rs",
   "hash": "2761ec86f185e10e"
  },
+ "block:sequence-inspector": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "6f9e513ccb52afdb"
+ },
+ "block:sequence-inspector-inverse": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "c6093986631352c5"
+ },
+ "block:sequence-inspector-undo": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "4541d6f49b4871db"
+ },
  "block:sequence-settings-inverse": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "0c305a2618fe618e"
@@ -818,6 +830,10 @@
  "line:crates/vixen-session/src/setup/mod.rs:f5c5db0718a20319": {
   "file": "crates/vixen-session/src/setup/mod.rs",
   "hash": "f5c5db0718a20319"
+ },
+ "line:crates/vixen-session/src/undo.rs:68f9eacc46d03920": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "68f9eacc46d03920"
  },
  "line:crates/vixen-session/src/undo.rs:bca77e0e22b11298": {
   "file": "crates/vixen-session/src/undo.rs",

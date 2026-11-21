@@ -1,0 +1,190 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "snapshot",
+      "name": "sequence-inspector"
+    },
+    {
+      "action": "dump",
+      "name": "sequence-inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector",
+      "path": [
+        "visible",
+        "Beats Beat #2",
+        "off"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "snapshot",
+      "name": "hidden"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Hide Mark Collection"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector",
+      "path": [
+        "length",
+        "3:00"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "snapshot",
+      "name": "length"
+    },
+    {
+      "action": "menus",
+      "name": "menus-after-length"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Sequence length"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "mouse",
+      "x": 1353,
+      "y": 612
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "snapshot",
+      "name": "clicked-toggle"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Hide Mark Collection"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "mouse",
+      "x": 900,
+      "y": 340
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Select All Elements"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.dropEffect",
+      "path": [
+        "Pulse",
+        "0"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "snapshot",
+      "name": "effect-selected"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}
