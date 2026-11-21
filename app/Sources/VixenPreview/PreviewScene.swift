@@ -11,6 +11,7 @@ public struct PreviewScene: Scene {
         self.model = model
         LivePreviewCoordinator.start(model: model)
         PreviewHarness.install(model: model)
+        StudioDesignerPane.install(model: model) // STUDIO: designer-in-pane registers the designer for the show window's Previews pane
     }
 
     public var body: some Scene {

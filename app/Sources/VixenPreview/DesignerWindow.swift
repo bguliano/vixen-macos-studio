@@ -45,7 +45,7 @@ struct DesignerWindowRoot: View {
     }
 }
 
-private struct DesignerContent: View {
+struct DesignerContent: View { // STUDIO: designer-in-pane shows this in the show window's Previews pane
     @Bindable var model: PreviewDesignerModel
 
     var body: some View {

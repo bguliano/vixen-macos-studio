@@ -255,7 +255,7 @@ final class PreviewDesignerModel {
             apply(opened.takeInitialChange())
             refreshSettings()
             backgroundAlpha = Double(settings?.backgroundAlpha ?? 255)
-            restoreBounds(window)
+            if studioInPane { window.makeFirstResponder(canvas) } else { restoreBounds(window) } // STUDIO: designer-in-pane keeps the show window's bounds and gives the canvas the keyboard
             DesignerRegistry.shared.opened(self)
             if let message = opened.takeVerifyMessage() {
                 alert("Invalid Prop Locations", message)
@@ -844,7 +844,61 @@ final class PreviewDesignerModel {
         return false
     }
 
+    // STUDIO-BEGIN designer-in-pane: the prompts and write-back are shared with leaving the designer in the show window's Previews pane
     private func confirmClose(_ designer: PreviewDesigner) async {
+        guard await confirmAndCommit(designer) else {
+            closing = false
+            return
+        }
+        allowedToClose = true
+        window?.performClose(nil)
+    }
+
+    /// Set when the show window's Previews pane hosts this designer instead of a window of its own.
+    @ObservationIgnored var studioInPane = false
+
+    /// The pane's back button: the close prompts and the write-back, then the designer goes and the show window gets its
+    /// own delegate and responders back. False: the user kept editing.
+    func studioLeave() async -> Bool {
+        guard let designer else {
+            app.previewDesignerClosed(id: previewID)
+            return true
+        }
+        guard !closing else { return false }
+        closing = true
+        guard await confirmAndCommit(designer) else {
+            closing = false
+            return false
+        }
+        studioDetach()
+        windowWillClose()
+        return true
+    }
+
+    /// Quitting with the designer in the pane: the write-back without the prompts.
+    func studioFlush() async {
+        guard let designer, !closing else { return }
+        closing = true
+        await Task.detached { designer.commit() }.value
+        studioDetach()
+        windowWillClose()
+    }
+
+    private func studioDetach() {
+        guard let window else { return }
+        if let windowDelegate, window.delegate === windowDelegate {
+            window.delegate = windowDelegate.studioOriginal
+        }
+        if let responder, window.nextResponder === responder {
+            window.nextResponder = responder.nextResponder
+        }
+        windowDelegate = nil
+        responder = nil
+        DesignerMenuBar.nameUndo(undo: nil, redo: nil)
+    }
+
+    /// F4's prompts and F21's write-back. False when the user chose to keep editing.
+    private func confirmAndCommit(_ designer: PreviewDesigner) async -> Bool {
         let invalid = designer.invalidLinkShapes()
         if !invalid.isEmpty {
             apply(designer.selectShapes(shapes: invalid))
@@ -854,8 +908,7 @@ final class PreviewDesignerModel {
                 ["Close Anyway", "Keep Editing"]
             )
             if answer != "Close Anyway" {
-                closing = false
-                return
+                return false
             }
         }
         if designer.fixturesWithoutOpenGl() {
@@ -870,9 +923,9 @@ final class PreviewDesignerModel {
         }
         // F21: off the main thread, since a big show has many pixels. The window is on its way out by then, so nothing here waits.
         await Task.detached { designer.commit() }.value
-        allowedToClose = true
-        window?.performClose(nil)
+        return true
     }
+    // STUDIO-END designer-in-pane
 
     /// The window is going. SwiftUI's own delegate still runs after this.
     func windowWillClose() {
@@ -934,6 +987,7 @@ final class DesignerWindowDelegate: NSObject, NSWindowDelegate {
     private weak var model: PreviewDesignerModel?
     /// Set once, before any window message can arrive.
     nonisolated(unsafe) private weak var original: NSWindowDelegate?
+    var studioOriginal: NSWindowDelegate? { original } // STUDIO: designer-in-pane hands the show window its delegate back
     private var boundsSave: Task<Void, Never>?
 
     init(model: PreviewDesignerModel, original: NSWindowDelegate?) {
@@ -958,7 +1012,7 @@ final class DesignerWindowDelegate: NSObject, NSWindowDelegate {
 
     /// F5: the same four fields upstream writes, top left and y down, so the file stays compatible.
     private func reportBounds(_ window: NSWindow) {
-        guard !UITestHarness.isActive else { return }
+        guard !UITestHarness.isActive, model?.studioInPane != true else { return } // STUDIO: designer-in-pane doesn't save the show window's frame as the preview's
         let frame = window.frame
         let top = PreviewCoordinates.topLeft(ofFrame: frame)
         model?.designer?.setSetupBounds(left: top.x, top: top.y, width: Int32(frame.width), height: Int32(frame.height))

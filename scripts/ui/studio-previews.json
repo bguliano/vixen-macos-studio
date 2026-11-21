@@ -203,23 +203,111 @@
    "name": "windows-designer"
   },
   {
-   "action": "focus",
-   "window": "Preview Configuration"
+   "action": "studioPreviewState",
+   "name": "designing"
+  },
+  {
+   "action": "designerInfo"
   },
   {
    "action": "snapshot",
-   "name": "designer"
+   "name": "designer-in-pane"
   },
   {
-   "action": "closeWindow"
+   "action": "studioPreviewLeaveDesigner"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "designer-closed"
+  },
+  {
+   "action": "studioPreviewEditLayout"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "designerCommand",
+   "text": "selectAll"
+  },
+  {
+   "action": "designerCommand",
+   "text": "increaseBulb"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "designer-edited"
+  },
+  {
+   "action": "studioPreviewMenuUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "studioPreviewMenuRedo"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "designerInfo"
+  },
+  {
+   "action": "studioSection",
+   "name": "sequences"
   },
   {
    "action": "wait",
    "seconds": 3
   },
   {
-   "action": "focus",
-   "window": "Vixen Studio"
+   "action": "studioSectionNow",
+   "name": "left-designer"
+  },
+  {
+   "action": "studioSection",
+   "name": "previews"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "designer-written-back"
+  },
+  {
+   "action": "studioPreviewMenuUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "studioPreviewState",
+   "name": "layout-undone"
+  },
+  {
+   "action": "studioPreviewMenuRedo"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
   },
   {
    "action": "studioPreviewState",
@@ -246,8 +334,8 @@
    "name": "previews-output-off"
   },
   {
-   "action": "click",
-   "label": "Live Output Off"
+   "action": "studioLiveOutput",
+   "name": "on"
   },
   {
    "action": "wait",

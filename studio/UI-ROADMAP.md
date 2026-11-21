@@ -82,8 +82,13 @@ command, edits are live with Undo, and each change is verified with harness runs
    a thumbnail of its layout (background and lights, redrawn on every change), an On switch (`DisabledDevices`: an on
    preview shows whenever Live Output is on), double-click rename, Duplicate, Delete and Add Preview, each one step on
    the shared undo history (Edit ▸ Undo and the pane's Undo button) and saved at once; they publish without rebuilding
-   the output graph, so they work with Live Output on. Edit Layout opens the designer in its own window, and its
-   write-back is one undo step, "Edit Preview Layout" (opening it in place is #58). System ▸ Setup Previews shows the
+   the output graph, so they work with Live Output on. Edit Layout swaps the pane to the designer
+   (`StudioDesignerPane.swift`, registered through `StudioPreviewDesignerPane` in VixenKit) with a back button to the list:
+   the designer attaches to the show window, so Edit ▸ Undo and the Edit actions reach it down the window's responder
+   chain, its menus (File, View, Edit, Settings, Help) follow it while it shows, and its alerts, sheets and floating panels
+   attach there; the show window's frame isn't saved as the preview's. Leaving it (the back button or another section) asks
+   what closing its window asked (invalid links, OpenGL) and writes the layout back as one undo step, "Edit Preview
+   Layout"; quitting writes it back without asking. System ▸ Setup Previews shows the
    section; the sheet is gone. Live windows leave "(OpenGL)" out of the title, and the frame rate shows only after
    Show Frame Rate in the window's menu. MCP `preview_create`, `preview_rename`, `preview_duplicate`, `preview_delete`,
    `preview_enable`; `preview_list` reports `enabled`. Harness: `scripts/ui/studio-previews.json` with

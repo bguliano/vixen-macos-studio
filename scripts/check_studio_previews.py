@@ -9,7 +9,11 @@ Checks, from the pane's state after each step and from the saved profile:
 - Duplicate copies it as "<name> copy"; its On switch turns it off; Delete removes it; each is one undo step, labelled;
 - Edit ▸ Undo (the window's undo manager), the pane's Undo button and Edit ▸ Redo walk those steps;
 - System ▸ System Configuration ▸ Setup Previews shows this section, not a sheet;
-- opening and closing the designer without changes adds no undo step;
+- Edit Layout swaps the pane to the designer (no Preview Configuration window), the designer runs in the show window, and
+  its back button returns to the list; untouched, it adds no undo step;
+- while it shows, Edit ▸ Undo and Redo (sent down the show window's responder chain, as the menu sends them with no
+  sequencer in front) walk the designer's own steps; leaving the section writes the layout
+  back as one shared step, "Edit Preview Layout", which Edit ▸ Undo and Redo then walk;
 - Live Output off closes every preview window, on opens the previews that are on, titled without "(OpenGL)", without FPS;
 - the profile on disk has the renamed preview and the copy saved as off.
 
@@ -26,7 +30,8 @@ def check(out: Path, profile: Path) -> None:
     states = [s["detail"] for s in steps if s["action"] == "studioPreviewState"]
     windows = [s["detail"] for s in steps if s["action"] == "windows"]
     section = [s["detail"] for s in steps if s["action"] == "studioSectionNow"]
-    assert len(states) == 12, states
+    designer = [s["detail"] for s in steps if s["action"] == "designerInfo"]
+    assert len(states) == 17, states
 
     def rows(state: str) -> str:
         return state.split(" | ")[0]
@@ -34,7 +39,8 @@ def check(out: Path, profile: Path) -> None:
     def field(state: str, name: str) -> str:
         return re.search(rf"\b{name}=(.*?)(?= \w+=|$)", state).group(1)
 
-    initial, added, renamed, duplicated, off, deleted, undo_menu, undo_button, redo, designed, output_off, output_on = states
+    (initial, added, renamed, duplicated, off, deleted, undo_menu, undo_button, redo, designing, designed, edited,
+     written_back, layout_undone, layout_redone, output_off, output_on) = states
     assert rows(initial) == "Christmas Tree 2019=off; Christmas Tree 2022 (OpenGL)=on,showing", initial
     assert rows(added).endswith("; New Preview=on,showing") and field(added, "renaming") == "yes", added
     assert field(added, "undo") == "Add Preview", added
@@ -46,10 +52,20 @@ def check(out: Path, profile: Path) -> None:
     assert rows(undo_menu) == rows(off) and field(undo_menu, "redo") == "Delete Preview", undo_menu
     assert rows(undo_button) == rows(duplicated) and field(undo_button, "redo") == "Turn Off Preview", undo_button
     assert rows(redo) == rows(off) and field(redo, "undo") == "Turn Off Preview", redo
-    assert section == ["previews"], section
+    assert section == ["previews", "sequences"], section
     assert "Setup Previews" not in windows[0], windows[0]
-    assert "Preview Configuration" in windows[1], windows[1]
+    assert "Preview Configuration" not in windows[1], windows[1]  # the designer is in the pane
+    assert field(designing, "designing") == "Christmas Tree 2022 (OpenGL)", designing
+    assert "shapes=" in designer[0] and "shapes=0 " not in designer[0], designer[0]
+    assert field(designed, "designing") == "-", designed
     assert field(designed, "undo") == "Turn Off Preview", designed  # the untouched designer added no step
+    # Edit ▸ Undo is the designer's while it shows: the menu names its step, undoing it empties its list, redo restores it.
+    assert field(edited, "designing") != "-", edited
+    assert "undo=[]" in designer[1], designer[1]
+    assert "undo=[]" not in designer[2], designer[2]
+    assert field(written_back, "designing") == "-" and field(written_back, "undo") == "Edit Preview Layout", written_back
+    assert field(layout_undone, "redo") == "Edit Preview Layout" and field(layout_undone, "undo") == "Turn Off Preview", layout_undone
+    assert field(layout_redone, "undo") == "Edit Preview Layout", layout_redone
     assert "Christmas Tree 2022" not in windows[2] and "Roof Line" not in windows[2], windows[2]
     assert "showing" not in rows(output_off), output_off
     for title in ("Christmas Tree 2022 ", "Roof Line "):
@@ -64,7 +80,7 @@ def check(out: Path, profile: Path) -> None:
     assert set(previews) == {"Christmas Tree 2019", "Christmas Tree 2022 (OpenGL)", "Roof Line", "Roof Line copy"}, previews
     disabled = set(re.findall(r'<Device id="([^"]*)"', config.split("<DisabledDevices>")[1]))
     assert previews["Roof Line copy"] in disabled and previews["Roof Line"] not in disabled, disabled
-    print("PASS: Previews pane add, rename, duplicate, on/off, delete, undo/redo, designer, live windows and save")
+    print("PASS: Previews pane add, rename, duplicate, on/off, delete, undo/redo, designer in the pane, live windows and save")
 
 
 if __name__ == "__main__":

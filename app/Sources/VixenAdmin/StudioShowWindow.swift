@@ -50,7 +50,7 @@ struct StudioShowWindow: View {
         .navigationTitle(admin.profileName ?? "Vixen Studio")
         .navigationSubtitle(admin.version.versionName)
         .toolbar { toolbar }
-        .frame(minWidth: selection.editsDisplay && StudioDisplayPane.make != nil ? 1060 : 860, minHeight: 520)
+        .frame(minWidth: minWidth, minHeight: selection == .previews && StudioPreviewsModel.shared.designing != nil ? 600 : 520)
         .background(WindowReader { admin.attach(window: $0) })
         .background(StudioWindowOpenerRegistration())
         .alerts(from: admin.alerts)
@@ -80,6 +80,11 @@ struct StudioShowWindow: View {
                     return (true, nil)
                 }
                 UITestHarness.customActions["studioSectionNow"] = { _ in (true, selection.rawValue) }
+                // `{ "action": "studioLiveOutput", "name": "on" }`: the toolbar toggle, for frames where finding its text fails.
+                UITestHarness.customActions["studioLiveOutput"] = { step in
+                    step.name == "on" ? admin.startExecution() : admin.stopExecution()
+                    return (true, nil)
+                }
             }
         }
         .task { await admin.start() }
@@ -111,10 +116,23 @@ struct StudioShowWindow: View {
         .safeAreaInset(edge: .bottom) { sidebarFooter }
     }
 
+    /// The Display pane and the preview designer need the room their windows had.
+    private var minWidth: CGFloat {
+        if selection == .previews, StudioPreviewsModel.shared.designing != nil { return 1160 }
+        return selection.editsDisplay && StudioDisplayPane.make != nil ? 1060 : 860
+    }
+
     /// Display Setup gets a say before the window leaves it, since its edits wait for Apply Changes. Display and Controllers
-    /// share its working copy, so moving between those two doesn't ask.
+    /// share its working copy, so moving between those two doesn't ask. The preview designer writes its layout back first,
+    /// after the prompts closing it asks.
     private func choose(_ new: StudioSection) {
         guard new != selection else { return }
+        if selection == .previews, StudioPreviewsModel.shared.designing != nil {
+            Task {
+                if await StudioPreviewsModel.shared.leaveDesigner() { selection = new }
+            }
+            return
+        }
         guard selection.editsDisplay, !new.editsDisplay, let confirmLeave = StudioDisplayPane.confirmLeave else {
             selection = new
             return

@@ -43,6 +43,10 @@
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "e5e2645a9d25b03a"
  },
+ "block:designer-in-pane": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "cdf10d3bf61cca20"
+ },
  "block:designer-live-dialogs": {
   "file": "crates/vixen-ffi/src/preview.rs",
   "hash": "e2b3b0d9774cbd13"
@@ -607,6 +611,10 @@
   "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
   "hash": "960cd06ce1f0f7ce"
  },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:0f33d74b0dc11041": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "0f33d74b0dc11041"
+ },
  "line:app/Sources/VixenPreview/DesignerModel.swift:282ab4d5689f13f8": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "282ab4d5689f13f8"
@@ -615,13 +623,25 @@
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "332f7e143c445a9d"
  },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:5e72de168580c9f2": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "5e72de168580c9f2"
+ },
  "line:app/Sources/VixenPreview/DesignerModel.swift:83848c4af573afc9": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "83848c4af573afc9"
  },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:f1faaba4f077ca7b": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "f1faaba4f077ca7b"
+ },
  "line:app/Sources/VixenPreview/DesignerModel.swift:fc58c90e3aa5b9fc": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "fc58c90e3aa5b9fc"
+ },
+ "line:app/Sources/VixenPreview/DesignerWindow.swift:f70f8144064d98d8": {
+  "file": "app/Sources/VixenPreview/DesignerWindow.swift",
+  "hash": "f70f8144064d98d8"
  },
  "line:app/Sources/VixenPreview/LivePreviewWindow.swift:6f72f0ae0897a032": {
   "file": "app/Sources/VixenPreview/LivePreviewWindow.swift",
@@ -646,6 +666,10 @@
  "line:app/Sources/VixenPreview/PreviewScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenPreview/PreviewScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenPreview/PreviewScene.swift:94ce45082770203f": {
+  "file": "app/Sources/VixenPreview/PreviewScene.swift",
+  "hash": "94ce45082770203f"
  },
  "line:app/Sources/VixenScheduler/ElementMapperSheet.swift:cd834aa34c5042c1": {
   "file": "app/Sources/VixenScheduler/ElementMapperSheet.swift",

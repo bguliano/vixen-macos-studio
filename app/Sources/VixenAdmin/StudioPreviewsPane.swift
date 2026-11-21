@@ -6,7 +6,7 @@ import VixenKit
 
 /// The show window's Previews section: every preview with a thumbnail of its layout, an On switch, inline rename, duplicate
 /// and delete, all live edits on the profile's shared undo history (the one Display edits and agents use), and Edit Layout
-/// to open the designer. Replaces Setup Previews' OK/Cancel sheet. The edits are the `preview_*` display commands
+/// to swap the pane to the designer, with a back button to the list. Replaces Setup Previews' OK/Cancel sheet. The edits are the `preview_*` display commands
 /// (`studio_previews.rs`), so an agent's changes show here at once and the profile saves after each one.
 struct StudioPreviewsPane: View {
     /// The shared history's event revision, which moves whenever anyone (an agent, the designer, Undo) changes the display.
@@ -17,9 +17,16 @@ struct StudioPreviewsPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            content
-            Divider()
-            statusBar
+            if let id = model.designing, let make = StudioPreviewDesignerPane.make {
+                designerBar(id)
+                Divider()
+                make(id)
+                    .id(id)
+            } else {
+                content
+                Divider()
+                statusBar
+            }
         }
         .background(StudioPreviewsWindowReader())
         .toolbar { toolbar }
@@ -108,31 +115,58 @@ struct StudioPreviewsPane: View {
         .padding(.vertical, StudioMetrics.spacingS)
     }
 
+    /// Over the designer: the way back to the list, which writes the layout back as one undo step.
+    private func designerBar(_ id: String) -> some View {
+        HStack(spacing: StudioMetrics.spacingM) {
+            Button { Task { _ = await model.leaveDesigner() } } label: {
+                Label("Previews", systemImage: "chevron.backward")
+            }
+            .help("Back to the previews. The layout becomes one step on Edit ▸ Undo.")
+            .disabled(model.leaving)
+            Text(model.rows.first { $0.id == id }?.title ?? "Preview")
+                .font(.headline)
+                .lineLimit(1)
+            Spacer()
+            if model.leaving {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .labelStyle(.titleAndIcon)
+        .padding(.horizontal, StudioMetrics.spacingM)
+        .padding(.vertical, StudioMetrics.spacingS)
+        .background(.bar)
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            let selected = model.selectedRow
-            Button { if let selected { editLayout(selected) } } label: {
-                Label("Edit Layout…", systemImage: "square.and.pencil")
-            }
-            .help(selected.map { "Lay out the props in \($0.title)" } ?? "Select a preview to lay out its props")
-            .disabled(selected == nil || model.working)
-            Button { if let selected { perform { await model.duplicate(id: selected.id, core: $0) } } } label: {
-                Label("Duplicate", systemImage: "plus.square.on.square")
-            }
-            .help("Duplicate the selected preview with its layout")
-            .disabled(selected == nil || model.working)
-            Button { if let selected { perform { await model.delete(id: selected.id, core: $0) } } } label: {
-                Label("Delete", systemImage: "trash")
-            }
-            .help(selected.map { model.isDesigning($0.id) ? "Close its layout designer first" : "Delete the selected preview. Undo brings it back." } ?? "Select a preview to delete")
-            .disabled(selected == nil || model.working || selected.map { model.isDesigning($0.id) } == true)
-            Button { perform { await model.add(core: $0) } } label: {
-                Label("Add Preview", systemImage: "plus")
-            }
-            .help("Add an empty preview")
-            .disabled(model.working || !model.loaded)
+            if model.designing == nil { listButtons }
         }
+    }
+
+    @ViewBuilder
+    private var listButtons: some View {
+        let selected = model.selectedRow
+        Button { if let selected { editLayout(selected) } } label: {
+            Label("Edit Layout…", systemImage: "square.and.pencil")
+        }
+        .help(selected.map { "Lay out the props in \($0.title)" } ?? "Select a preview to lay out its props")
+        .disabled(selected == nil || model.working)
+        Button { if let selected { perform { await model.duplicate(id: selected.id, core: $0) } } } label: {
+            Label("Duplicate", systemImage: "plus.square.on.square")
+        }
+        .help("Duplicate the selected preview with its layout")
+        .disabled(selected == nil || model.working)
+        Button { if let selected { perform { await model.delete(id: selected.id, core: $0) } } } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        .help(selected.map { model.isDesigning($0.id) ? "Close its layout designer first" : "Delete the selected preview. Undo brings it back." } ?? "Select a preview to delete")
+        .disabled(selected == nil || model.working || selected.map { model.isDesigning($0.id) } == true)
+        Button { perform { await model.add(core: $0) } } label: {
+            Label("Add Preview", systemImage: "plus")
+        }
+        .help("Add an empty preview")
+        .disabled(model.working || !model.loaded)
     }
 
     private func perform(_ action: @escaping (VixenCore) async -> Void) {
@@ -142,13 +176,18 @@ struct StudioPreviewsPane: View {
 
     private func editLayout(_ row: StudioPreviewRow) {
         guard let core = admin.app.core else { return }
-        model.beginDesign(row: row, core: core)
-        openWindow(id: WindowID.previewSetup, value: row.id)
+        if !model.beginDesign(row: row, core: core) {
+            openWindow(id: WindowID.previewSetup, value: row.id)
+        }
     }
 
     /// Cards aren't reachable by a script's click: `studioPreviewSelect` picks one by name, `studioPreviewRename` starts
     /// renaming the selected one as a double-click does, and `studioPreviewEditLayout` opens its designer.
     private func installTestActions() {
+        func chain(_ action: Selector) -> (Bool, String?) {
+            let done = model.window?.firstResponder?.tryToPerform(action, with: nil) ?? false
+            return (done, done ? "\(action) taken" : "nothing took \(action)")
+        }
         UITestHarness.customActions["studioPreviewSelect"] = { step in
             guard let row = model.rows.first(where: { $0.name == step.name }) else { return (false, "no preview \(step.name ?? "")") }
             model.selection = row.id
@@ -164,15 +203,22 @@ struct StudioPreviewsPane: View {
             editLayout(row)
             return (true, nil)
         }
+        UITestHarness.customActions["studioPreviewLeaveDesigner"] = { _ in
+            let left = await model.leaveDesigner()
+            return (left, left ? nil : "still designing")
+        }
         // Edit ▸ Undo and Redo send undo: and redo: to the key window, which hands them to its undo manager. A test window is
-        // never key, so these call that undo manager as the menu items would.
+        // never key, so these call that undo manager as the menu items would. With the designer showing, they go down the
+        // window's responder chain from the canvas, as the menu sends them, to the designer.
         UITestHarness.customActions["studioPreviewMenuUndo"] = { _ in
+            if model.designing != nil { return chain(Selector(("undo:"))) }
             guard let manager = model.window?.undoManager, manager.canUndo else { return (false, "Edit ▸ Undo is off") }
             let title = manager.undoMenuItemTitle
             manager.undo()
             return (true, title)
         }
         UITestHarness.customActions["studioPreviewMenuRedo"] = { _ in
+            if model.designing != nil { return chain(Selector(("redo:"))) }
             guard let manager = model.window?.undoManager, manager.canRedo else { return (false, "Edit ▸ Redo is off") }
             let title = manager.redoMenuItemTitle
             manager.redo()
@@ -180,7 +226,7 @@ struct StudioPreviewsPane: View {
         }
         UITestHarness.customActions["studioPreviewState"] = { _ in
             (true, model.rows.map { "\($0.name)=\($0.enabled ? "on" : "off")\($0.running ? ",showing" : "")" }.joined(separator: "; ")
-                + " | selected=\(model.selectedRow?.name ?? "-") renaming=\(model.renaming == nil ? "no" : "yes") undo=\(model.undoLabel ?? "-") redo=\(model.redoLabel ?? "-") menu=\(model.window?.undoManager?.undoMenuItemTitle ?? "-")/\(model.window?.undoManager?.redoMenuItemTitle ?? "-") status=\(model.status) notice=\(model.notice ?? "-")")
+                + " | selected=\(model.selectedRow?.name ?? "-") renaming=\(model.renaming == nil ? "no" : "yes") designing=\(model.designing.flatMap { id in model.rows.first { $0.id == id }?.name } ?? "-") undo=\(model.undoLabel ?? "-") redo=\(model.redoLabel ?? "-") menu=\(model.window?.undoManager?.undoMenuItemTitle ?? "-")/\(model.window?.undoManager?.redoMenuItemTitle ?? "-") status=\(model.status) notice=\(model.notice ?? "-")")
         }
     }
 }
@@ -363,6 +409,9 @@ final class StudioPreviewsModel {
     private(set) var undoLabel: String?
     private(set) var redoLabel: String?
     private(set) var working = false
+    /// The preview whose designer the pane shows in place of the list.
+    private(set) var designing: String?
+    private(set) var leaving = false
     private var undoPreviewOnly = false
     private var redoPreviewOnly = false
     /// Previews whose designer is open. Undo waits for them, since the designer writes its copy back when it closes.
@@ -376,6 +425,7 @@ final class StudioPreviewsModel {
     @ObservationIgnored private var stoppedForDesign = Set<String>()
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var saveAgain = false
+    @ObservationIgnored private var closeTask: Task<Void, Never>?
 
     private final class UndoTarget: NSObject {}
 
@@ -482,21 +532,46 @@ final class StudioPreviewsModel {
 
     // MARK: The designer
 
-    func beginDesign(row: StudioPreviewRow, core: VixenCore) {
+    /// True when the pane shows the designer itself; false in a build without it, where the caller opens its window.
+    func beginDesign(row: StudioPreviewRow, core: VixenCore) -> Bool {
+        guard !designers.contains(row.id) else { return designing == row.id }
         selection = row.id
         designers.insert(row.id)
         if row.running, core.setupSetPreviewRunning(id: row.id, running: false) == false {
             stoppedForDesign.insert(row.id)
         }
+        guard StudioPreviewDesignerPane.make != nil else { return false }
+        // The designer's own history drives Edit ▸ Undo while it shows.
+        releaseUndo()
+        renaming = nil
+        designing = row.id
+        return true
+    }
+
+    /// The back button, and the show window leaving the section: the designer's prompts, then its write-back. False when the
+    /// user kept editing.
+    func leaveDesigner() async -> Bool {
+        guard designing != nil else { return true }
+        guard !leaving else { return false }
+        leaving = true
+        defer { leaving = false }
+        guard await StudioPreviewDesignerPane.leave?() ?? true else { return false }
+        // `designerClosed` normally clears it; a designer that never opened doesn't call it.
+        designing = nil
+        return true
     }
 
     /// The designer wrote its layout back as one undo step ("Edit Preview Layout"); start its preview again and save.
     func designerClosed(id: String, core: VixenCore) {
         designers.remove(id)
+        if designing == id {
+            designing = nil
+            takeOverUndo()
+        }
         if stoppedForDesign.remove(id) != nil, rows.first(where: { $0.id == id })?.enabled == true {
             _ = core.setupSetPreviewRunning(id: id, running: true)
         }
-        Task {
+        closeTask = Task {
             await refreshHistory(core: core, mode: .rebuild)
             scheduleSave(core: core)
             await reload(core: core)
@@ -544,6 +619,7 @@ final class StudioPreviewsModel {
     /// The window's Edit ▸ Undo walks the shared history while this pane shows. The Display pane rebuilds its own steps
     /// when it comes back.
     func takeOverUndo() {
+        guard designing == nil else { return }
         window?.undoManager?.removeAllActions()
         history = ""
         if let core = StudioPreviewsCore.current {
@@ -552,6 +628,7 @@ final class StudioPreviewsModel {
     }
 
     func releaseUndo() {
+        guard designing == nil else { return }
         window?.undoManager?.removeAllActions(withTarget: undoTarget)
         history = ""
     }
@@ -577,7 +654,8 @@ final class StudioPreviewsModel {
         redoLabel = decoded.redo.first
         undoPreviewOnly = decoded.undoPreviewOnly
         redoPreviewOnly = decoded.redoPreviewOnly
-        guard paneVisible, text != history, let manager = window?.undoManager else { return }
+        // While the designer shows, the window's undo manager is the designer's.
+        guard paneVisible, designing == nil, text != history, let manager = window?.undoManager else { return }
         history = text
         guard manager.groupingLevel == 0, !manager.isUndoing, !manager.isRedoing else {
             history = ""
@@ -661,6 +739,8 @@ final class StudioPreviewsModel {
 
     /// Waits for a save in flight. The app awaits it before shutting down.
     func flush() async {
+        await StudioPreviewDesignerPane.flush?()
+        await closeTask?.value
         await saveTask?.value
     }
 }
