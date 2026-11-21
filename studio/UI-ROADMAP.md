@@ -175,6 +175,17 @@ command, edits are live with Undo, and each change is verified with harness runs
    not the document, so there is no command or Undo for them (agents still open sequences with `sequence_open`).
    Harness: `scripts/ui/studio-window-tabs.json` with `scripts/check_studio_window_tabs.py` (hook `sequencer.tabs`).
 6. Effects library: favourites and recently used at the top.
+   *Done:* Favorites and Recently Used sit above the categories (`StudioEffectsLibrary.swift`,
+   `studio_effects_library.rs`). Each effect's row has a star: pressing it pins the effect to Favorites (in the order
+   pinned) and pressing it again unpins it; an empty Favorites says to click a star. Recently Used lists the five newest
+   effects placed in the sequencer window (a drop on a row, Add Effect or a drag drawn in Draw mode), leaving out
+   favorites, with Clear to empty it; agents' effects don't count, so a script can't push out what the user reached for.
+   Both are hidden while searching. They belong to the user, not the show: kept in `Studio Effects Library.json` in the
+   user's Vixen settings folder, so they survive relaunch and follow the user from show to show. The star and Clear run
+   `effects_library`, as an agent does, and the window follows changes from agents or placements on its poll. Like row
+   height they are the user's view rather than an edit to the sequence, so they aren't on Undo: the star, pressed again,
+   reverses a pin. Harness: `scripts/ui/studio-effects-library.json` then
+   `scripts/ui/studio-effects-library-relaunch.json` with the same `VIXEN_UI_TEST_OUT` (hook `sequencer.effectsLibrary`).
 7. Agent edits flash briefly on the timeline, matching the toolbar's agent activity.
 
 ## Phase 4: retire the remaining modals

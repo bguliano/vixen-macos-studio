@@ -531,6 +531,10 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "0ee1277f8dce3946"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:685eb9f4b209e04e": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "685eb9f4b209e04e"
+ },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:6b9eda5eb466fb37": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "6b9eda5eb466fb37"
@@ -839,6 +843,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "3f8cc9b14ed9d558"
  },
+ "line:crates/vixen-session/src/lib.rs:490209645eeceaa4": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "490209645eeceaa4"
+ },
  "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "52a77d70c765b2b0"
@@ -895,6 +903,10 @@
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "278a68c0b8de1c3d"
  },
+ "line:crates/vixen-session/src/sequencer/state.rs:0a47ae48bfb5d66b": {
+  "file": "crates/vixen-session/src/sequencer/state.rs",
+  "hash": "0a47ae48bfb5d66b"
+ },
  "line:crates/vixen-session/src/setup/controllers.rs:88bcc4063efca1e8": {
   "file": "crates/vixen-session/src/setup/controllers.rs",
   "hash": "88bcc4063efca1e8"
@@ -906,6 +918,10 @@
  "line:crates/vixen-session/src/setup/mod.rs:f5c5db0718a20319": {
   "file": "crates/vixen-session/src/setup/mod.rs",
   "hash": "f5c5db0718a20319"
+ },
+ "line:crates/vixen-session/src/timeline/host.rs:4e3391cb6ec64608": {
+  "file": "crates/vixen-session/src/timeline/host.rs",
+  "hash": "4e3391cb6ec64608"
  },
  "line:crates/vixen-session/src/timeline/marks.rs:50a86cacddd5b615": {
   "file": "crates/vixen-session/src/timeline/marks.rs",

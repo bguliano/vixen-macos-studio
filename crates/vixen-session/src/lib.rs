@@ -11,6 +11,7 @@ pub mod studio_commission; // STUDIO: commissioning tests (moving pixel, color b
 pub mod studio_palette; // STUDIO: the ⌘K command palette's search, disabled reasons and MCP tool
 pub mod studio_mark_ticks; // STUDIO: marks as ruler and waveform ticks, lines across the grid for the active collection
 pub mod studio_row_height; // STUDIO: View ▸ Row Height, compact or regular, remembered per sequence (R36)
+pub mod studio_effects_library; // STUDIO: the Effects library's Favorites and Recently Used, per user (R38)
 pub mod archive;
 pub mod boot;
 pub mod compare;

@@ -1,0 +1,125 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "empty"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "snapshot",
+      "name": "stars"
+    },
+    {
+      "action": "mouse",
+      "x": 165,
+      "y": 327
+    },
+    {
+      "action": "wait",
+      "seconds": 0.8
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "one-pinned"
+    },
+    {
+      "action": "mouse",
+      "x": 165,
+      "y": 424
+    },
+    {
+      "action": "wait",
+      "seconds": 0.8
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.dropEffect",
+      "path": [
+        "Spin",
+        "1"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.dropEffect",
+      "path": [
+        "Twinkle",
+        "2"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "pinned-and-recent"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

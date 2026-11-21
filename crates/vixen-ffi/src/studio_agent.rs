@@ -149,6 +149,11 @@ impl VixenCore {
     pub fn studio_set_allow_agents_live_output(&self, allowed: bool) {
         vixen_session::studio_live::set_allowed_locally(&self.inner, allowed);
     }
+    /// Changes whenever the Effects library's favorites or recents do (`effects_library`, the star, a placement), so the
+    /// sequencer's poll reads them again only then. No locks, no file access.
+    pub fn studio_effects_library_revision(&self) -> u64 {
+        vixen_session::studio_effects_library::revision()
+    }
 }
 
 #[uniffi::export]

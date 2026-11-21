@@ -308,6 +308,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name.starts_with("library_") {
         return library::execute(core, name, a);
     }
+    if name == "effects_library" {
+        return crate::studio_effects_library::execute(a);
+    }
     if name == "sequence_open" || name == "sequence_create" {
         let mut reloaded = false;
         let mut session = if name == "sequence_open" {
@@ -1191,10 +1194,16 @@ pub fn tools() -> Vec<Value> {
     entries.extend(library::tools());
     entries.extend(inspector::tools());
     entries.extend(crate::studio_row_height::tools());
+    entries.extend(crate::studio_effects_library::tools());
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {
+    // The user's favorites and recents touch no document, so they neither wait for the sequence gate (the window reads
+    // them while an agent's long batch holds it) nor report a document change.
+    if name == "effects_library" {
+        return execute_inner(core, name, args, agent);
+    }
     let guard = core.studio_display.sequence_gate.lock();
     if core.studio_display.is_stopped() {
         return Err("Profile is closing".into());

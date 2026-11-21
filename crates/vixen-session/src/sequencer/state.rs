@@ -1116,6 +1116,7 @@ impl SequencerState {
         let id = session.add_new_effect(type_id, summary.node, &summary.name, start, duration)?;
         session.record_undo(UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids: vec![id] });
         drop(session);
+        crate::studio_effects_library::used(type_id); // STUDIO: the Effects library's Recently Used (R38)
         self.grid.effects_added(&[id]);
         if select {
             self.grid.set_selection(&[id]);

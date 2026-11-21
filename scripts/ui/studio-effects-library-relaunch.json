@@ -1,0 +1,109 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "relaunched"
+    },
+    {
+      "action": "mouse",
+      "x": 86,
+      "y": 677
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "mouse",
+      "x": 700,
+      "y": 347,
+      "toX": 900,
+      "toY": 427
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "drawn"
+    },
+    {
+      "action": "mouse",
+      "x": 165,
+      "y": 261
+    },
+    {
+      "action": "wait",
+      "seconds": 0.8
+    },
+    {
+      "action": "mouse",
+      "x": 165,
+      "y": 197
+    },
+    {
+      "action": "wait",
+      "seconds": 0.8
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.effectsLibrary"
+    },
+    {
+      "action": "snapshot",
+      "name": "unpinned-and-cleared"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

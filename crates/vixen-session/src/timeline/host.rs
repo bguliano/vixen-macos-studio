@@ -54,7 +54,7 @@ impl TimelineHost for SequenceSession {
     }
 
     fn add_effect(&mut self, type_id: Uuid, target: Uuid, name: &str, start: TimeSpan, span: TimeSpan) -> Option<ElementId> {
-        self.add_new_effect(type_id, target, name, start, span)
+        self.add_new_effect(type_id, target, name, start, span).inspect(|_| crate::studio_effects_library::used(type_id)) // STUDIO: Recently Used (R38)
     }
 
     fn remove_effects(&mut self, ids: &[ElementId]) -> Vec<EffectSnapshot> {
