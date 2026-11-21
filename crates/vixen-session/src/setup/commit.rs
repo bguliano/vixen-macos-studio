@@ -53,6 +53,13 @@ impl AppCore {
         sessions.push(Arc::downgrade(session));
     }
 
+    /// Its window closed. The window's views can keep the session alive a while after that, and a closed sequence must not render again for a display
+    /// change or be found as open.
+    pub fn unregister_sequence_session(&self, session: &Arc<Mutex<SequenceSession>>) {
+        let mut sessions = self.display.sessions.lock();
+        sessions.retain(|s| s.strong_count() > 0 && !std::ptr::eq(s.as_ptr(), Arc::as_ptr(session)));
+    }
+
     /// The sequences open now.
     pub fn open_sequence_sessions(&self) -> Vec<Arc<Mutex<SequenceSession>>> {
         self.display.sessions.lock().iter().filter_map(Weak::upgrade).collect()
@@ -294,6 +301,21 @@ mod tests {
 
     fn open(core: &AppCore) -> SetupSession {
         SetupSession::open(core)
+    }
+
+    #[test]
+    fn a_closed_sequence_is_no_longer_open_while_something_still_holds_it() {
+        let core = temp_core("unregister");
+        let first = Arc::new(Mutex::new(SequenceSession::new_untitled(&core.session_environment())));
+        let second = Arc::new(Mutex::new(SequenceSession::new_untitled(&core.session_environment())));
+        core.register_sequence_session(&first);
+        core.register_sequence_session(&second);
+        assert_eq!(core.open_sequence_sessions().len(), 2);
+
+        core.unregister_sequence_session(&first);
+        let open = core.open_sequence_sessions();
+        assert_eq!(open.len(), 1);
+        assert!(Arc::ptr_eq(&open[0], &second));
     }
 
     #[test]

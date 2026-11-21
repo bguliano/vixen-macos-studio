@@ -1049,7 +1049,9 @@ impl SequencerShell {
 
     /// `EditorClosing`. Returns a problem for the log.
     pub fn finish_close(&self) -> Option<String> {
-        self.state.lock().finish_close()
+        let problem = self.state.lock().finish_close();
+        self.session.core.unregister_sequence_session(&self.session.session);
+        problem
     }
 
     // Undo
