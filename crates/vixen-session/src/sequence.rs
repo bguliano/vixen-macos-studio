@@ -761,6 +761,17 @@ impl SequenceSession {
     }
 
     /// `MarkCollectionsChanged`: each effect sees the new list, and those that read marks render again.
+    // STUDIO-BEGIN marks-panel-params: what a Mark Collections panel undo step keeps of the effects that read marks
+    /// The parameters of every effect that reads mark collections: deleting a collection clears their references to it, and Undo puts them back.
+    pub fn studio_mark_reader_params(&self) -> Vec<(EffectId, Params)> {
+        self.effects
+            .iter()
+            .filter(|(_, e)| e.descriptor.is_some_and(|d| reads_marks(d.params)))
+            .map(|(id, e)| (*id, e.node.params.clone()))
+            .collect()
+    }
+    // STUDIO-END marks-panel-params
+
     fn mark_effects_using_marks_dirty(&mut self) {
         let tree = Arc::clone(&self.shared.tree);
         let marks = Arc::clone(&self.shared.marks);
@@ -1091,6 +1102,25 @@ impl SequenceSession {
                 UndoAction::StudioMarkVisibility { label, flags: current }
             }
             // STUDIO-END sequence-inspector-inverse
+            // STUDIO-BEGIN marks-panel-inverse: swap the whole collection list back, then the mark-reading effects' parameters a delete normalised
+            UndoAction::StudioMarkCollections { label, marks, params } => {
+                let current_params = self.studio_mark_reader_params();
+                let current = std::mem::take(&mut self.document.marks);
+                let same_marks = current.len() == marks.len()
+                    && current.iter().zip(&marks).all(|(a, b)| a.id == b.id && a.marks == b.marks);
+                if same_marks {
+                    // Only names, flags, colours or links: nothing that effects read changes.
+                    self.set_marks_quietly(marks);
+                    self.touch();
+                } else {
+                    self.set_marks(marks);
+                }
+                for (id, p) in params {
+                    self.set_params(id, p);
+                }
+                UndoAction::StudioMarkCollections { label, marks: current, params: current_params }
+            }
+            // STUDIO-END marks-panel-inverse
             UndoAction::EffectsAdded { kind, ids } => {
                 let snapshots = self.remove_effects(&ids);
                 UndoAction::EffectsRemoved { kind, effects: snapshots }

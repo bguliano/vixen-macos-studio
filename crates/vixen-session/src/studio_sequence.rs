@@ -26,6 +26,8 @@ pub mod library;
 pub mod window_chrome;
 #[path = "studio_sequence_inspector.rs"]
 pub mod inspector;
+#[path = "studio_marks_panel.rs"]
+pub mod marks_panel;
 
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
@@ -582,6 +584,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             inspector::overview(&s, &core.paths.media_dir())
         }
         "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
+        "marks_collection_edit" | "marks_collection_delete" | "marks_import" => return marks_panel::execute(&mut s, name, a, agent),
         "sequence_row_height" => return crate::studio_row_height::execute(&mut s, a),
         "marks_create" => {
             let times = a["timesMs"]
@@ -1200,9 +1203,10 @@ pub fn tools() -> Vec<Value> {
     let mut entries=entries;
     entries.extend(library::tools());
     entries.extend(inspector::tools());
+    entries.extend(marks_panel::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {

@@ -99,6 +99,9 @@ pub enum UndoAction {
     // STUDIO-BEGIN sequence-inspector-undo: the sequence inspector's mark collection visibility, as (collection, lines, bar) to go back to
     StudioMarkVisibility { label: String, flags: Vec<(Uuid, bool, bool)> },
     // STUDIO-END sequence-inspector-undo
+    // STUDIO-BEGIN marks-panel-undo: a Mark Collections panel edit, as the whole list and the mark-reading effects' parameters to go back to
+    StudioMarkCollections { label: String, marks: Vec<MarkCollection>, params: Vec<(EffectId, Params)> },
+    // STUDIO-END marks-panel-undo
     /// Undoing removes these.
     EffectsAdded { kind: AddRemoveKind, ids: Vec<EffectId> },
     /// Undoing puts these back.
@@ -141,6 +144,7 @@ impl UndoAction {
         match self {
             UndoAction::StudioSettings {label,..} => label.clone(), // STUDIO: document settings share the same undo menu
             UndoAction::StudioMarkVisibility { label, .. } => label.clone(), // STUDIO: the sequence inspector's mark visibility
+            UndoAction::StudioMarkCollections { label, .. } => label.clone(), // STUDIO: Mark Collections panel edits on the shared undo
             UndoAction::EffectsAdded { kind, ids } => added_removed_text(*kind, ids.len(), true),
             UndoAction::EffectsRemoved { kind, effects } => added_removed_text(*kind, effects.len(), false),
             UndoAction::TimesChanged { kind, times } => {

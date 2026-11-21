@@ -10,6 +10,11 @@ extension SequencerModel {
         refreshStudioRowHeight()
         refreshStudioEffectsLibrary()
         refreshStudioAgentFlash()
+        // Edits made outside the timeline (the Mark Collections panel, agents) don't change what `poll` watches once the sequence is
+        // already modified, so follow the edit counter too: the Edit menu then names the newest step to undo (R40).
+        if let shell, shell.editCount() != editRevision {
+            refresh()
+        }
         guard let session else { return }
         let chrome = session.studioWindowChrome()
         guard chrome != studioChrome else { return }

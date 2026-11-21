@@ -170,7 +170,7 @@ struct ImportSelectionSheet: View {
             }
             HStack {
                 Spacer()
-                Button("OK") {
+                Button("Import") { // STUDIO: a verb, the import is one step on Edit ▸ Undo (R40)
                     onFinish(checked.indices.filter { checked[$0] }.map { UInt32($0) })
                 }
                 .keyboardShortcut(.defaultAction)
@@ -287,7 +287,7 @@ struct ExportMarksSheet: View {
             }
             HStack {
                 Spacer()
-                Button("OK") {
+                Button("Export…") { // STUDIO: a verb; the save panel follows (R40)
                     let chosen = rows.indices.filter { included[$0] }.map { rows[$0].id }
                     let text = rows.indices.filter { textIncluded[$0] }.map { rows[$0].id }
                     onFinish(ExportChoice(format: format, included: chosen, textIncluded: text))

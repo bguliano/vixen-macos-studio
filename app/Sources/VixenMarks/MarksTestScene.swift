@@ -211,6 +211,24 @@ enum MarksTestHooks {
             case "rename":
                 guard args.count > 1, let index = Int(args[1]), model.rows.indices.contains(index) else { return "FAIL unknown row" }
                 model.beginRename(model.rows[index])
+            // STUDIO-BEGIN marks-panel-test-edits: open the live Offset popover, drive it as its field does, and delete a row (R40)
+            case "offset", "offsetLive", "delete":
+                guard args.count > 1, let index = Int(args[1]), model.rows.indices.contains(index) else { return "FAIL unknown row" }
+                let row = model.rows[index]
+                if args[0] == "offset" {
+                    model.offsetting = row.id
+                    // Popovers have no title; name it so Studio Capture can find it.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        NSApp.windows.first { String(describing: type(of: $0)).contains("Popover") && $0.isVisible }?.title = "Offset Time"
+                    }
+                }
+                else if args[0] == "delete" { model.delete(row) }
+                else {
+                    guard args.count > 3, let ms = Int32(args[2]) else { return "FAIL offsetLive needs a row, milliseconds and continuing" }
+                    model.offsetLive(row, total: ms, continuing: args[3] == "true")
+                }
+                return "rows=\(model.rows.count) offsetting=\(model.offsetting ?? "") undo=\(MarksTestHooks.session?.undoDescriptions().first ?? "")"
+            // STUDIO-END marks-panel-test-edits
             default: return "FAIL unknown edit"
             }
             return "rows=\(model.rows.count) editing=\(model.editingID ?? "")"

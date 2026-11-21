@@ -73,6 +73,20 @@ impl From<MarkHeaderKind> for logic::MarkHeader {
     }
 }
 
+// STUDIO-BEGIN marks-header-label: a header toggle's name on the shared Undo (R40)
+impl MarkHeaderKind {
+    fn studio_label(self) -> &'static str {
+        use vixen_session::studio_sequence::marks_panel::flag_label;
+        flag_label(match self {
+            MarkHeaderKind::Lines => logic::MarkFlag::Lines,
+            MarkHeaderKind::TailLines => logic::MarkFlag::TailLines,
+            MarkHeaderKind::Bar => logic::MarkFlag::Bar,
+            MarkHeaderKind::Lock => logic::MarkFlag::Lock,
+        })
+    }
+}
+// STUDIO-END marks-header-label
+
 /// A row's checkboxes and check menu items.
 #[derive(uniffi::Enum, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum MarkFlagKind {
@@ -294,6 +308,7 @@ pub struct MarksPanel {
     data_root: PathBuf,
     header: Mutex<logic::HeaderFlags>,
     pending: Mutex<Pending>,
+    studio_offset: Mutex<Option<Vec<MarkCollection>>>, // STUDIO: the live offset field's starting marks (R40)
 }
 
 #[uniffi::export]
@@ -310,6 +325,7 @@ impl SequencerSession {
             data_root: self.core.paths.root().to_path_buf(),
             header: Mutex::new(header),
             pending: Mutex::new(Pending::None),
+            studio_offset: Mutex::new(None), // STUDIO: the live offset field's starting marks (R40)
         })
     }
 }
@@ -339,20 +355,19 @@ fn row_info(r: logic::MarkRow) -> MarkRowInfo {
 }
 
 impl MarksPanel {
-    /// Runs one edit on a copy of the list and hands the result to the session as the change requires.
-    fn edit(&self, f: impl FnOnce(&mut Vec<MarkCollection>) -> logic::MarksChange) -> logic::MarksChange {
+    // STUDIO-BEGIN marks-panel-undo-ffi: every panel edit is one step on the sequence's Undo, named by `label` (R40)
+    /// Runs one edit on a copy of the list, hands the result to the session as the change requires, and records it on the shared Undo.
+    fn edit(&self, label: &str, f: impl FnOnce(&mut Vec<MarkCollection>) -> logic::MarksChange) -> logic::MarksChange {
         let mut session = self.session.lock();
-        let mut marks = session.marks().to_vec();
-        let change = f(&mut marks);
-        logic::publish(&mut session, marks, change);
-        change
+        vixen_session::studio_sequence::marks_panel::apply(&mut session, label, false, f)
     }
 
-    fn edit_row(&self, id: &str, f: impl FnOnce(&mut Vec<MarkCollection>, Uuid) -> logic::MarksChange) {
+    fn edit_row(&self, label: &str, id: &str, f: impl FnOnce(&mut Vec<MarkCollection>, Uuid) -> logic::MarksChange) {
         if let Some(id) = id_of(id) {
-            self.edit(|marks| f(marks, id));
+            self.edit(label, |marks| f(marks, id));
         }
     }
+    // STUDIO-END marks-panel-undo-ffi
 
     fn options(&self, candidates: &[MarkCollection]) -> Vec<MarkImportOption> {
         let session = self.session.lock();
@@ -404,7 +419,7 @@ impl MarksPanel {
     /// F4. Returns the new collection's id.
     pub fn add_collection(&self) -> String {
         let mut id = Uuid::nil();
-        self.edit(|marks| {
+        self.edit("Add Mark Collection", |marks| { // STUDIO: undo label
             id = logic::add_collection(marks);
             logic::MarksChange::Collections
         });
@@ -413,23 +428,23 @@ impl MarksPanel {
 
     /// F17.
     pub fn delete_collection(&self, id: String) {
-        self.edit_row(&id, |marks, id| logic::delete_collection(marks, id));
+        self.edit_row("Delete Mark Collection", &id, |marks, id| logic::delete_collection(marks, id)); // STUDIO: undo label
     }
 
     /// F9.
     pub fn set_active(&self, id: String) {
-        self.edit_row(&id, |marks, id| logic::set_active(marks, id));
+        self.edit_row("Set Active Mark Collection", &id, |marks, id| logic::set_active(marks, id)); // STUDIO: undo label
     }
 
     /// F10 to F13, F19, F20.
     pub fn set_flag(&self, id: String, flag: MarkFlagKind, on: bool) {
-        self.edit_row(&id, |marks, id| logic::set_flag(marks, id, flag.into(), on));
+        self.edit_row(vixen_session::studio_sequence::marks_panel::flag_label(flag.into()), &id, |marks, id| logic::set_flag(marks, id, flag.into(), on)); // STUDIO: undo label
     }
 
     /// F8. Returns whether any row changed.
     pub fn click_header(&self, header: MarkHeaderKind) -> bool {
         let mut flags = self.header.lock();
-        self.edit(|marks| flags.click(header.into(), marks)) != logic::MarksChange::None
+        self.edit(header.studio_label(), |marks| flags.click(header.into(), marks)) != logic::MarksChange::None // STUDIO: undo label
     }
 
     /// The value a header's next click sets, for tests.
@@ -447,7 +462,7 @@ impl MarksPanel {
     pub fn end_rename(&self, id: String, text: String) -> MarkRenameEnd {
         let Some(id) = id_of(&id) else { return MarkRenameEnd::Restored };
         let mut end = logic::RenameEnd::Restored;
-        self.edit(|marks| {
+        self.edit("Rename Mark Collection", |marks| { // STUDIO: undo label
             end = logic::end_rename(marks, id, &text);
             if end == logic::RenameEnd::Renamed {
                 logic::MarksChange::Properties
@@ -465,22 +480,33 @@ impl MarksPanel {
 
     /// F18.
     pub fn offset_time(&self, id: String, ms: i32) {
-        self.edit_row(&id, |marks, id| logic::offset_time(marks, id, ms));
+        self.edit_row(vixen_session::studio_sequence::marks_panel::OFFSET_LABEL, &id, |marks, id| logic::offset_time(marks, id, ms)); // STUDIO: undo label
     }
+
+    // STUDIO-BEGIN marks-live-offset: the Offset Time popover applies its total as it changes, one Undo step per showing (R40)
+    /// The live Offset Time field: `total_ms` from the marks as the field found them. `continuing` is false for its first change; later
+    /// changes extend the same "Offset Marks" step while it's still the newest.
+    pub fn studio_offset_live(&self, id: String, total_ms: i32, continuing: bool) {
+        let Some(id) = id_of(&id) else { return };
+        let mut base = self.studio_offset.lock();
+        let mut session = self.session.lock();
+        vixen_session::studio_sequence::marks_panel::offset_live(&mut session, id, total_ms, continuing, &mut base);
+    }
+    // STUDIO-END marks-live-offset
 
     /// F21.
     pub fn set_color(&self, id: String, argb: u32) {
-        self.edit_row(&id, |marks, id| logic::set_color(marks, id, Color::from_argb_u32(argb)));
+        self.edit_row("Mark Collection Color", &id, |marks, id| logic::set_color(marks, id, Color::from_argb_u32(argb))); // STUDIO: undo label
     }
 
     /// F22.
     pub fn set_level(&self, id: String, level: i32) {
-        self.edit_row(&id, |marks, id| logic::set_level(marks, id, level));
+        self.edit_row("Mark Collection Weight", &id, |marks, id| logic::set_level(marks, id, level)); // STUDIO: undo label
     }
 
     /// F23.
     pub fn set_kind(&self, id: String, kind: MarkKind) {
-        self.edit_row(&id, |marks, id| logic::set_kind(marks, id, kind.into()));
+        self.edit_row("Mark Collection Type", &id, |marks, id| logic::set_kind(marks, id, kind.into())); // STUDIO: undo label
     }
 
     /// F24's submenu, built as it opens. Nil hides it.
@@ -493,7 +519,7 @@ impl MarksPanel {
     /// F24's choice; nil is `None`.
     pub fn set_link(&self, id: String, parent: Option<String>) {
         let parent = parent.as_deref().and_then(id_of);
-        self.edit_row(&id, |marks, id| logic::set_link(marks, id, parent));
+        self.edit_row("Link Mark Collection", &id, |marks, id| logic::set_link(marks, id, parent)); // STUDIO: undo label
     }
 
     /// A collection's mark start times in milliseconds, in order: for checks, not for drawing.
@@ -546,7 +572,7 @@ impl MarksPanel {
         let chosen: Vec<MarkCollection> =
             candidates.into_iter().enumerate().filter(|(i, _)| selected.contains(&(*i as u32))).map(|(_, c)| c).collect();
         let count = chosen.len() as u32;
-        self.edit(|marks| if logic::commit_import(marks, chosen) { logic::MarksChange::Collections } else { logic::MarksChange::None });
+        self.edit("Import Marks", |marks| if logic::commit_import(marks, chosen) { logic::MarksChange::Collections } else { logic::MarksChange::None }); // STUDIO: undo label
         count
     }
 

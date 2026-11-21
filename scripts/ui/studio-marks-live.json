@@ -1,0 +1,306 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.panel",
+      "path": [
+        "Mark Collections"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-start"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "01-panel"
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "new"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "menus",
+      "name": "02-after-add"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Add Mark Collection"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-undo-add"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "offset",
+        "1"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "focus",
+      "window": "Offset Time"
+    },
+    {
+      "action": "snapshot",
+      "name": "03-offset-popover"
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "dump",
+      "name": "03-offset-popover"
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "offsetLive",
+        "1",
+        "100",
+        "false"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "offsetLive",
+        "1",
+        "250",
+        "true"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "offsetLive",
+        "1",
+        "-40",
+        "true"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-offset"
+      ]
+    },
+    {
+      "action": "menus",
+      "name": "04-after-offset"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Offset Marks"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "menus",
+      "name": "05-after-undo-offset"
+    },
+    {
+      "action": "hook",
+      "name": "marksEdit",
+      "path": [
+        "delete",
+        "0"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-delete"
+      ]
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Delete Mark Collection"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-undo-delete"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "marksNextFile",
+      "path": [
+        "{IMPORT_FILE}"
+      ]
+    },
+    {
+      "action": "popup",
+      "x": 1107,
+      "y": 117,
+      "label": "Audacity Beats"
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "dump",
+      "name": "07-import-selection"
+    },
+    {
+      "action": "snapshot",
+      "name": "07-import-selection"
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "mouse",
+      "x": 477,
+      "y": 372
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-import"
+      ]
+    },
+    {
+      "action": "menus",
+      "name": "08-after-import"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Import Marks"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.6
+    },
+    {
+      "action": "hook",
+      "name": "marksRows",
+      "path": [
+        "rows-after-undo-import"
+      ]
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

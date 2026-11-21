@@ -79,6 +79,7 @@ final class MarksPanelModel {
     var sheet: MarksSheet?
     var alert: MarksAlert?
     var askPangolin = false
+    var offsetting: String? // STUDIO: the row whose live Offset Time popover is open (R40)
     /// Colours shown while the system colour panel is open, before they're committed.
     var liveColors: [String: UInt32] = [:]
     @ObservationIgnored private var seenRevision: UInt64 = .max
@@ -299,7 +300,7 @@ final class MarksPanelModel {
         case .some(true):
             handle(panel.importPangolin(groupByColor: true, argb: 0))
         case .some(false):
-            sheet = .pangolinColor
+            handle(panel.importPangolin(groupByColor: false, argb: 0xFFFF_FFFF)) // STUDIO: white, recoloured live from the row afterwards (R40)
         case .none:
             panel.cancelImport()
         }
@@ -393,7 +394,7 @@ struct MarksToolbar: View {
     var body: some View {
         HStack(spacing: 2) {
             toolButton("plus", label: "New") { model.addCollection() }
-            toolButton("square.and.arrow.down", label: "Import") { model.beginImport() }
+            StudioImportMenu(model: model) // STUDIO: a menu of file types instead of the Import Type dialog (R40)
             toolButton("square.and.arrow.up", label: "Export") { model.beginExport() }
                 .disabled(model.rows.isEmpty)
             Spacer()
@@ -477,6 +478,11 @@ struct MarkRowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: MarksColumns.rowHeight)
+        // STUDIO-BEGIN marks-live-offset-popover: Offset Time is a live popover on the row, with Undo, not an OK/Cancel dialog (R40)
+        .popover(isPresented: Binding(get: { model.offsetting == row.id }, set: { if !$0 { model.offsetting = nil } }), arrowEdge: .leading) {
+            StudioOffsetPopover(model: model, row: row, prompt: markOffsetPrompt())
+        }
+        // STUDIO-END marks-live-offset-popover
     }
 
     private func check(_ value: Bool, flag: MarkFlagKind, label: String) -> some View {
@@ -553,7 +559,7 @@ struct MarkRowMenu: View {
 
     var body: some View {
         Button("Delete", systemImage: "trash", role: .destructive) { model.delete(row) }
-        Button("Offset Time…", systemImage: "clock.arrow.circlepath") { model.sheet = .offset(row) }
+        Button("Offset Time…", systemImage: "clock.arrow.circlepath") { model.offsetting = row.id } // STUDIO: live popover (R40)
         Toggle("Solid Line", isOn: Binding(get: { row.solid }, set: { model.setFlag(row, .solidLine, $0) }))
         Toggle("Bold", isOn: Binding(get: { row.bold }, set: { model.setFlag(row, .bold, $0) }))
         Button("Color…", systemImage: "paintpalette") { model.chooseColor(row) }

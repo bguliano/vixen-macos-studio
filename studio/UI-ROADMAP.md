@@ -203,6 +203,17 @@ command, edits are live with Undo, and each change is verified with harness runs
 Work through the 71 OK/Cancel flows in order of use: Marks (23), Scheduler (14, mostly gone after Phase 2), Tools (9),
 Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet with Undo; confirmations use verbs on buttons.
 
+- **Marks (R40).** *Done for the Mark Collections panel:* every edit (New, Delete, rename, the checkboxes and header toggles,
+  Color, Weight, Type, Linked To, Offset Time, Import) and Beats and Bars detection is one step on the sequence's Undo
+  (`studio_marks_panel.rs`), which restores the whole collection list and the effects that read a deleted collection.
+  Offset Time is a live popover on the row (its changes are one Undo step); Import is a menu of file types, so the Import
+  Type dialog is gone; a single-colour Pangolin import comes in white and is recoloured from the row; the selection and
+  export sheets confirm with verbs (Import, Export…). MCP: `marks_collection_edit`, `marks_collection_delete`,
+  `marks_import`. Harness: `scripts/check_studio_marks_live.py` with `scripts/ui/studio-marks-live.json`. *Remaining:* the
+  LipSync library editors in VixenMarks (Edit Image Maps and its map editor and Image Mapper, the Lyric Converter's
+  unknown-word mapping, Face Mapping node selection), which edit the profile's LipSync library rather than the sequence and
+  need the show window's shared history for Undo (backlog).
+
 ## Phase 5: polish and guards
 
 - Replace fixed widths with adaptive layout; check every window at its minimum size and in light mode.

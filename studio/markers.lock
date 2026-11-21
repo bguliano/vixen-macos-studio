@@ -19,6 +19,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "eb0cf2722f73d5b1"
  },
+ "block:beats-undo": {
+  "file": "crates/vixen-session/src/marks/beats.rs",
+  "hash": "582982158f932b0e"
+ },
  "block:command-palette": {
   "file": "app/Sources/VixenApp/VixenApp.swift",
   "hash": "4068e4b09abec6a6"
@@ -58,6 +62,38 @@
  "block:inspector-title": {
   "file": "app/Sources/VixenEffectEditor/EffectEditorPane.swift",
   "hash": "1ac6603fc819de34"
+ },
+ "block:marks-header-label": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "b7e9ee301464fc5a"
+ },
+ "block:marks-live-offset": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "77a4826de5e2594a"
+ },
+ "block:marks-live-offset-popover": {
+  "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
+  "hash": "f07e0a0a45e2cb17"
+ },
+ "block:marks-panel-inverse": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "88bf4c4c8bc6e71e"
+ },
+ "block:marks-panel-params": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "fd4aa1de4d16524a"
+ },
+ "block:marks-panel-test-edits": {
+  "file": "app/Sources/VixenMarks/MarksTestScene.swift",
+  "hash": "52ad6aedfa07572f"
+ },
+ "block:marks-panel-undo": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "d6bdd2f337f6128b"
+ },
+ "block:marks-panel-undo-ffi": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "f48ea483368b7a39"
  },
  "block:mcp-app-start": {
   "file": "crates/vixen-ffi/src/admin.rs",
@@ -443,6 +479,30 @@
   "file": "app/Sources/VixenKit/UITestHarness.swift",
   "hash": "e0b2a61395d4fade"
  },
+ "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:6b58c7212dc91dc5": {
+  "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
+  "hash": "6b58c7212dc91dc5"
+ },
+ "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:711630608ad2fa4b": {
+  "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
+  "hash": "711630608ad2fa4b"
+ },
+ "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:a8f138bfa13a966a": {
+  "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
+  "hash": "a8f138bfa13a966a"
+ },
+ "line:app/Sources/VixenMarks/MarkCollectionsPanel.swift:dddbf04594d16be7": {
+  "file": "app/Sources/VixenMarks/MarkCollectionsPanel.swift",
+  "hash": "dddbf04594d16be7"
+ },
+ "line:app/Sources/VixenMarks/MarksSheets.swift:99f1f77c1952f705": {
+  "file": "app/Sources/VixenMarks/MarksSheets.swift",
+  "hash": "99f1f77c1952f705"
+ },
+ "line:app/Sources/VixenMarks/MarksSheets.swift:baccfba9a6af3a9e": {
+  "file": "app/Sources/VixenMarks/MarksSheets.swift",
+  "hash": "baccfba9a6af3a9e"
+ },
  "line:app/Sources/VixenMarks/MarksTestScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"
@@ -787,6 +847,62 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "d1100fa74313d8ae"
  },
+ "line:crates/vixen-ffi/src/marks.rs:0b02a6fb1052dbce": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "0b02a6fb1052dbce"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:32bd26ce8720b70d": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "32bd26ce8720b70d"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:4d93f55b722411fb": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "4d93f55b722411fb"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:590dd30e3b7b42e0": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "590dd30e3b7b42e0"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:60fd0763843109f7": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "60fd0763843109f7"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:6f42f2a237410b0a": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "6f42f2a237410b0a"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:85c89d97ae2f3896": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "85c89d97ae2f3896"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:a4729a502bba1cf6": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "a4729a502bba1cf6"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:ae88c6d0041f682e": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "ae88c6d0041f682e"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:b05df9d7a6e64e57": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "b05df9d7a6e64e57"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:dae252c3abc2d0bd": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "dae252c3abc2d0bd"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:ed6a9c5b3a8edd4a": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "ed6a9c5b3a8edd4a"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:eefa6c61b3c8c1de": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "eefa6c61b3c8c1de"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:fa1c8aa25ba9b528": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "fa1c8aa25ba9b528"
+ },
  "line:crates/vixen-ffi/src/scheduler.rs:51a6beb21bb227be": {
   "file": "crates/vixen-ffi/src/scheduler.rs",
   "hash": "51a6beb21bb227be"
@@ -1006,6 +1122,10 @@
  "line:crates/vixen-session/src/undo.rs:bca77e0e22b11298": {
   "file": "crates/vixen-session/src/undo.rs",
   "hash": "bca77e0e22b11298"
+ },
+ "line:crates/vixen-session/src/undo.rs:fc6becddd58ee393": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "fc6becddd58ee393"
  },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",

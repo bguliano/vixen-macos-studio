@@ -145,9 +145,9 @@ impl BeatDetection {
             let job = match analysis.do_beat_bar_detection(&mut new, &settings, &mut progress, &cancel) {
                 Ok(()) => {
                     let mut s = session.lock();
-                    let mut marks = s.marks().to_vec();
-                    let change = apply_beat_collections(&mut marks, new, &settings);
-                    publish(&mut s, marks, change);
+                    // STUDIO-BEGIN beats-undo: the generated collections are one step on the sequence's Undo (R40)
+                    crate::studio_sequence::marks_panel::apply(&mut s, "Beats and Bars", false, |marks| apply_beat_collections(marks, new, &settings));
+                    // STUDIO-END beats-undo
                     BeatJob::Finished
                 }
                 Err(AnalysisError::Cancelled) => {
