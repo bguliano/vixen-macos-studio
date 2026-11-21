@@ -773,9 +773,10 @@ pub fn read_package(bytes: &[u8]) -> Result<Prop, PropError> {
     let mut image_index = None;
     for index in 0..archive.len() {
         let entry = archive.by_index_raw(index).map_err(zip_failed)?;
-        let name = entry.name().to_string();
+        let unsafe_name = || invalid("The package contains an unsafe or unexpected entry name.");
+        let name = entry.name().map_err(|_| unsafe_name())?.into_owned();
         if !names.insert(name.clone()) || (name != JSON_ENTRY && name != IMAGE_ENTRY) {
-            return Err(invalid("The package contains an unsafe or unexpected entry name."));
+            return Err(unsafe_name());
         }
         let (length, compressed) = (entry.size(), entry.compressed_size());
         if length < 1 || compressed < 1 || length > MAXIMUM_IMAGE_BYTES || length / compressed > MAXIMUM_COMPRESSION_RATIO {

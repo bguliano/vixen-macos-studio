@@ -140,7 +140,7 @@ pub fn inspect(path: &Path) -> Result<PackageIndex, SessionError> {
     let mut names = HashSet::new();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).map_err(error)?;
-        let parts = safe_parts(entry.name())?;
+        let parts = safe_parts(&entry.name().map_err(error)?)?;
         if entry
             .unix_mode()
             .is_some_and(|mode| mode & 0o170000 == 0o120000)
@@ -568,7 +568,7 @@ fn extract_media(
             return Ok(());
         }
         let mut entry = zip.by_index(i).map_err(error)?;
-        let parts = safe_parts(entry.name())?;
+        let parts = safe_parts(&entry.name().map_err(error)?)?;
         if parts.len() < 4
             || parts[0] != "SequenceData"
             || parts[1] != name

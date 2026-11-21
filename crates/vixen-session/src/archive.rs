@@ -440,7 +440,7 @@ mod tests {
             return Vec::new();
         };
         let archive = zip::ZipArchive::new(file).expect("a valid zip");
-        let mut names: Vec<String> = archive.file_names().map(str::to_string).collect();
+        let mut names: Vec<String> = archive.file_names().map(|n| n.unwrap().into_owned()).collect();
         names.sort();
         names
     }

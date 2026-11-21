@@ -612,7 +612,7 @@ fn excluded_audio_does_not_discover_or_validate_media_aliases() {
     assert!(result.errors.is_empty());
     let mut z = ZipArchive::new(File::open(output).unwrap()).unwrap();
     let mut names = (0..z.len())
-        .map(|i| z.by_index(i).unwrap().name().to_owned())
+        .map(|i| z.by_index(i).unwrap().name().unwrap().into_owned())
         .collect::<Vec<_>>();
     names.sort();
     assert_eq!(

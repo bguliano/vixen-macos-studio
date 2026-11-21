@@ -222,7 +222,7 @@ mod tests {
                     let mut file = archive.by_index(i).unwrap();
                     let mut bytes = Vec::new();
                     file.read_to_end(&mut bytes).unwrap();
-                    inside.push((file.name().to_string(), bytes));
+                    inside.push((file.name().unwrap().into_owned(), bytes));
                 }
                 uploaded.push((name.to_string(), inside));
                 Ok(())

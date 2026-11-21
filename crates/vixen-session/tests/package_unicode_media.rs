@@ -229,7 +229,7 @@ fn package_keeps_loadable_unicode_media_and_reference_spelling() {
         assert!(!result.cancelled && result.errors.is_empty());
         let mut zip = zip::ZipArchive::new(File::open(&output).unwrap()).unwrap();
         let mut names = (0..zip.len())
-            .map(|i| zip.by_index(i).unwrap().name().to_owned())
+            .map(|i| zip.by_index(i).unwrap().name().unwrap().into_owned())
             .collect::<Vec<_>>();
         names.sort();
         let mut raw = Vec::new();
