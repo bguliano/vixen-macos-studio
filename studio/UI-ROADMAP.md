@@ -187,6 +187,16 @@ command, edits are live with Undo, and each change is verified with harness runs
    reverses a pin. Harness: `scripts/ui/studio-effects-library.json` then
    `scripts/ui/studio-effects-library-relaunch.json` with the same `VIXEN_UI_TEST_OUT` (hook `sequencer.effectsLibrary`).
 7. Agent edits flash briefly on the timeline, matching the toolbar's agent activity.
+   *Done:* effects an MCP agent adds or changes in an open sequence light up once on the grid, outlined and filled in
+   purple, and fade over about a second and a half (`StudioAgentFlash.swift`, `studio_agent_flash.rs`). Every agent edit
+   notes the effects it added, moved, resized, re-layered or re-parameterised where it goes on the Undo stack, so no
+   command can forget it; the window asks for what's new on its poll, once its grid shows the edit, and flashes those
+   tiles in one layer. The user's own edits, Undo and Redo don't flash, and opening a sequence an agent edited earlier
+   flashes nothing. Effects in collapsed rows or out of view count but have no tile to light. Like the toolbar's activity
+   it is the window's view of the document, so there is no command or Undo for it; agents see their edits in
+   `sequence_status` and `sequence_effects` as before. Harness: `scripts/ui/studio-agent-flash.json`, driven by
+   `scripts/check_studio_agent_flash.py`, which plays the agent through the app's MCP helper and captures the window
+   while it flashes (hook `sequencer.agentFlash`).
 
 ## Phase 4: retire the remaining modals
 

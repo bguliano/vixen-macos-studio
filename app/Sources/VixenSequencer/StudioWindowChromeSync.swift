@@ -9,6 +9,7 @@ extension SequencerModel {
     func refreshStudioChrome() {
         refreshStudioRowHeight()
         refreshStudioEffectsLibrary()
+        refreshStudioAgentFlash()
         guard let session else { return }
         let chrome = session.studioWindowChrome()
         guard chrome != studioChrome else { return }

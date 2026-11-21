@@ -42,6 +42,17 @@ pub struct TimelineStudioRowHeight {
 }
 // STUDIO-END row-height-record
 
+// STUDIO-BEGIN agent-flash-record: agent edits flash on the timeline (R39)
+#[derive(uniffi::Record, Clone)]
+pub struct TimelineStudioAgentFlash {
+    /// Ask from this next time.
+    pub revision: u64,
+    /// Canvas rectangles of the effects agents added or changed since the revision asked from.
+    pub rects: Vec<TimelineRect>,
+    pub effects: u32,
+}
+// STUDIO-END agent-flash-record
+
 #[derive(uniffi::Record, Copy, Clone)]
 pub struct TimelineMods {
     pub shift: bool,
@@ -1078,6 +1089,30 @@ impl TimelineController {
         TimelineStudioRowHeight { mode: t.studio_row_height().name().to_string(), height_pt: t.rows.row_height, rows_in_view: t.studio_rows_in_view() as u32 }
     }
     // STUDIO-END row-height-mode
+
+    // STUDIO-BEGIN agent-flash: agent edits flash on the timeline (R39)
+    /// What agents added or changed in this document after `since`, where it shows on the grid
+    /// (`studio_agent_flash`). No `since`, a window's first look, answers with nothing, so opening a sequence an agent
+    /// edited earlier doesn't flash it. While the session is busy, or this grid hasn't caught up with it yet, the answer
+    /// keeps `since`, so the effects flash on a later call once they are on the grid.
+    pub fn studio_agent_flash(&self, since: Option<u64>) -> TimelineStudioAgentFlash {
+        let t = self.timeline.lock();
+        let Some(s) = self.session.session.try_lock() else {
+            return TimelineStudioAgentFlash { revision: since.unwrap_or(0), rects: Vec::new(), effects: 0 };
+        };
+        let flash = s.studio_agent_flash();
+        let Some(since) = since else {
+            return TimelineStudioAgentFlash { revision: flash.revision(), rects: Vec::new(), effects: 0 };
+        };
+        if self.seen_edits.load(Ordering::Relaxed) != self.session_counters_edits() {
+            return TimelineStudioAgentFlash { revision: since, rects: Vec::new(), effects: 0 };
+        }
+        let (revision, ids) = flash.since(since);
+        drop(s);
+        let rects = if ids.is_empty() { Vec::new() } else { t.studio_flash_rects(&ids) };
+        TimelineStudioAgentFlash { revision, rects: rects.iter().map(|r| TimelineRect { x: r.x, y: r.y, w: r.w, h: r.h }).collect(), effects: ids.len() as u32 }
+    }
+    // STUDIO-END agent-flash
 
     /// F141 for a span of the canvas.
     pub fn waveform_frame(&self, first_column: i32, columns: i32, time_per_pixel: i64) -> TimelineWaveformFrame {

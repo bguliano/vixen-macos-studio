@@ -149,6 +149,7 @@ pub struct SequenceSession {
     cancel: Arc<AtomicBool>,
     /// See [`UndoAction::RowsRestored`].
     rows_restored: Vec<EffectId>,
+    pub(crate) studio_agent_flash: crate::studio_agent_flash::AgentFlash, // STUDIO: R39, the effects agent edits touched
 }
 
 struct RenderResult {
@@ -295,6 +296,7 @@ impl SequenceSession {
             problems,
             cancel,
             rows_restored: Vec::new(),
+            studio_agent_flash: Default::default(), // STUDIO: R39
         }
     }
 

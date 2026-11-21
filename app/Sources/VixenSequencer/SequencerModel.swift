@@ -27,6 +27,8 @@ final class SequencerModel: OpenEditor {
     var studioChrome: StudioWindowChrome? // STUDIO: window-chrome title, song, unsaved dot and render ring (StudioWindowChromeSync.swift)
     var studioRowHeight: String? // STUDIO: View ▸ Row Height's checkmark, "compact" or "regular" (StudioRowHeight.swift)
     var studioEffectsLibraryRevision: UInt64 = 0 // STUDIO: the Effects library's favorites and recents changed (StudioEffectsLibrary.swift)
+    var studioAgentFlashRevision: UInt64? // STUDIO: the agent edits the timeline last flashed (StudioAgentFlash.swift)
+    var studioAgentFlashes: [TimelineStudioAgentFlash] = [] // STUDIO: R39 flashes, kept for the harness only
     private(set) var toolbars: ShellToolbars?
     private(set) var panels: ShellPanels?
     /// Updated at display rate only while playing, on its own, so only the label redraws.

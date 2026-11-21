@@ -17,7 +17,7 @@ final class GridCanvasView: TimelineSurface {
     let planes: [TilePlane]
     private let pictures: PictureStore
     /// Scrolls with the tiles.
-    private let overlayHost = plainLayer()
+    let overlayHost = plainLayer() // STUDIO: R39's agent flash draws in it too (StudioAgentFlash.swift)
     private var occurrences: [OccurrenceKey: OccurrenceLayer] = [:]
     private var pool: [OccurrenceLayer] = []
     private let rubberBand = plainLayer()

@@ -163,6 +163,9 @@ fn document_json(s: &SequenceSession, already_open: bool) -> Value {
     json!({"sequenceId":document_id(s).to_string(),"sessionId":s.playback_id().to_string(),"alreadyOpen":already_open,"name":s.name(),"file":s.path().and_then(|p|p.file_name()).map(|n|n.to_string_lossy().into_owned()),"path":s.path(),"modified":s.is_modified()})
 }
 fn record(s: &mut SequenceSession, label: &str, action: UndoAction, agent: bool) {
+    if agent {
+        s.studio_agent_flash.note(&action); // R39: an open window flashes what the agent touched
+    }
     s.record_undo(UndoAction::Group {
         label: format!("{label}{}", if agent { " (Agent)" } else { "" }),
         actions: vec![action],
@@ -1066,10 +1069,14 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
         let effects = s.remove_effects(&deleting);
         actions.push(UndoAction::EffectsRemoved { kind: AddRemoveKind::AddedOrRemoved, effects });
     }
-    s.record_undo(UndoAction::Group {
+    let batch = UndoAction::Group {
         label: format!("Batch edit{}", if agent { " (Agent)" } else { "" }),
         actions,
-    });
+    };
+    if agent {
+        s.studio_agent_flash.note(&batch);
+    }
+    s.record_undo(batch);
     s.render_all_dirty();
     Ok(json!({"effectIds":added,"removed":removed,"changed":changed,"effects":s.effect_count()}))
 }
@@ -1517,6 +1524,51 @@ mod tests {
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_dir_all(outside);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn agent_edits_note_the_effects_an_open_window_flashes() {
+        let root = std::env::temp_dir().join(format!("studio-flash-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let tree = core.studio_display
+            .execute(&core, "element_template", &json!({"kind":"megatree","name":"Tree","count":4,"pixels":10}), false)
+            .unwrap()["result"]["id"]
+            .clone();
+        let agent = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let user = |name: &str, args: Value| execute(&core, name, &args, false).unwrap();
+        let id = agent("sequence_create", json!({"lengthMs":10_000}))["sequenceId"].clone();
+        let session = find(&core, Uuid::parse_str(id.as_str().unwrap()).unwrap()).unwrap();
+        let flashing = |since: u64| {
+            let (revision, ids) = session.lock().studio_agent_flash().since(since);
+            (revision, ids.iter().map(|e| e.0).collect::<Vec<_>>())
+        };
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().type_id.to_string();
+        let add = |run: &dyn Fn(&str, Value) -> Value, start: u64| {
+            run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":tree,"startMs":start,"durationMs":200}))["effectId"].as_u64().unwrap()
+        };
+
+        // The user's own edits never flash.
+        let mine = add(&user, 0);
+        assert_eq!(flashing(0), (0, vec![]));
+        // An agent's added effect flashes, and so does one it changes.
+        let theirs = add(&agent, 400);
+        assert_eq!(flashing(0), (1, vec![theirs]));
+        agent("effect_timing", json!({"sequenceId":id,"effectId":mine,"startMs":1000,"durationMs":300}));
+        assert_eq!(flashing(1), (2, vec![mine]));
+        // A batch notes every effect it adds or changes, as one revision; deleted ones have nothing to flash.
+        let batch = agent("effects_batch", json!({"sequenceId":id,"ops":[
+            {"op":"add","typeId":pulse,"targetId":tree,"startMs":2000,"durationMs":200},
+            {"op":"timing","effectId":theirs,"startMs":500,"durationMs":200},
+            {"op":"delete","effectId":mine}],"confirm":true}));
+        let mut expected = vec![batch["effectIds"][0].as_u64().unwrap(), theirs];
+        expected.sort_unstable();
+        assert_eq!(flashing(2), (3, expected));
+        // Undo is the user's, so it notes nothing.
+        user("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(flashing(3), (3, vec![]));
+        drop(session);
+        drop(core);
         let _ = std::fs::remove_dir_all(root);
     }
 

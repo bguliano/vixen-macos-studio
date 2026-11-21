@@ -1,0 +1,28 @@
+{
+  "steps": [
+    { "action": "wait", "seconds": 4 },
+    { "action": "focus", "window": "Vixen Studio" },
+    { "action": "studioSection", "name": "sequences" },
+    { "action": "wait", "seconds": 1 },
+    { "action": "studioDropFiles", "text": "Sequence/Christmas Can-Can.tim" },
+    { "action": "wait", "seconds": 0.4 },
+    { "action": "focus", "window": "Christmas Can-Can" },
+    { "action": "hook", "name": "sequencer.resize", "path": ["1400", "900"] },
+    { "action": "wait", "seconds": 1 },
+    { "action": "hook", "name": "sequencer.agentFlash" },
+    { "action": "mouse", "x": 900, "y": 340 },
+    { "action": "menu", "path": ["Edit", "Select All Elements"] },
+    { "action": "hook", "name": "sequencer.dropEffect", "path": ["Pulse", "0"] },
+    { "action": "wait", "seconds": 1 },
+    { "action": "hook", "name": "sequencer.agentFlash" },
+    { "action": "wait", "seconds": 30 },
+    { "action": "hook", "name": "sequencer.agentFlash" },
+    { "action": "hook", "name": "sequencer.chrome" },
+    { "action": "snapshot", "name": "after-agent" },
+    { "action": "hook", "name": "sequencer.keyEvent", "path": ["z", "cmd"] },
+    { "action": "wait", "seconds": 1 },
+    { "action": "hook", "name": "sequencer.agentFlash" },
+    { "action": "hook", "name": "sequencer.chrome" },
+    { "action": "quit" }
+  ]
+}
