@@ -2176,6 +2176,192 @@
   },
   {
    "action": "hook",
+   "name": "studio.monitor",
+   "path": [
+    "open",
+    "dummy"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "monitor-dummy-dark",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "monitor-dummy-light",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Dummy Lighting Controller"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.monitor",
+   "path": [
+    "open",
+    "debug"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "monitor-debug-dark",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "monitor-debug-light",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Debug Controller Output"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.monitor",
+   "path": [
+    "close"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
    "name": "studio.layout",
    "path": [
     "appearance",

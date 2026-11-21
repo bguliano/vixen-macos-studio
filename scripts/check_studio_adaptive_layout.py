@@ -6,7 +6,7 @@ Harness script: scripts/ui/studio-adaptive-layout.json, run on a copy of target/
 
 The script opens each window (the show window's five sections, About, Installed Modules, Release Notes,
 Instrumentation, Display Setup, the sequence package and export wizards, a sequencer, the preview designer, the Custom
-Prop Editor and Settings) and the sheets (Place Effect on Marks, Export Sequence, a controller's and an element
+Prop Editor, the Dummy Lighting and Debugging Values output windows, and Settings) and the sheets (Place Effect on Marks, Export Sequence, a controller's and an element
 property's setup), shrinks each to its minimum with the `studio.layout` hook (a sheet keeps the size its content asks for),
 snapshots it in dark and light, and has the hook check its accessibility tree. Checks:
 - every step passed, so no window has a control or scroll view reaching past its edge, overlapping a sibling, or a
@@ -16,12 +16,15 @@ snapshots it in dark and light, and has the hook check its accessibility tree. C
   the window grows, and only a dragged divider changes those widths (a window resize used to save squeezed panes);
 - the show window's Display sections keep their wider minimum;
 - About no longer insists on 900 x 800, and fits a small display;
+- the Controller Output monitors open on sample data through the `studio.monitor` hook (the harness keeps output muted,
+  so no controller runs by itself; the hook starts only controllers with no hardware) and close when stopped; the Dummy
+  Lighting window keeps a minimum (it had none and shrank to 1 x 32, its title-bar buttons outside it) and the Debugging
+  Values window keeps upstream's 538 x 405;
 - the Custom Prop Editor keeps its 740-point minimum, and there its toolbar folds the arranging tools into one menu
   rather than scrolling Undo and Redo out of sight;
 - every window was checked in both appearances, and the user's own appearance setting was put back.
 Look at the PNGs as well: the hook can't see text a view truncates without saying so, nor most controls in a SwiftUI
-sheet. The Controller Output monitors
-aren't in the run: they open only for a controller that really runs, and the harness keeps output muted.
+sheet.
 """
 import json
 import sys
@@ -30,7 +33,7 @@ from pathlib import Path
 WINDOWS = [
     "Vixen Studio", "About Vixen Studio", "Installed Modules", "Vixen Release Notes", "Instrumentation",
     "Display Setup", "Sequence Package Export", "Sequence Package Import", "Export Wizard", "Christmas Can-Can",
-    "Preview Configuration", "Custom Prop Editor", "@settings",
+    "Preview Configuration", "Custom Prop Editor", "Dummy Lighting Controller", "Debug Controller Output", "@settings",
 ]
 # Sheets have no titles: the run names each by its snapshot.
 SHEETS = ["place-on-marks", "export-sequence", "controller-setup", "property-setup"]
@@ -55,8 +58,13 @@ def check(out: Path) -> None:
     appearance = None
     shot = None
     sheets = {}
+    monitors = []
     for spec, result in zip(script, steps):
         path = spec.get("path") or []
+        if spec.get("name") == "studio.monitor":
+            monitors.append(result["detail"])
+        elif spec["action"] == "windows" and monitors and monitors[-1].startswith("stopped"):
+            monitors.append("closed" if "Controller" not in result["detail"] else result["detail"])
         if spec.get("name") != "studio.layout" or not path:
             continue
         if path[0] == "appearance":
@@ -98,13 +106,21 @@ def check(out: Path) -> None:
     toolbar = (out / "layout-Custom Prop Editor.txt").read_text()
     # ViewThatFits picked the compact row, so all of it fits (SwiftUI leaves the icon-only buttons out of the tree).
     assert '"Arrange selected lights"' in toolbar and '"Align selected lights"' not in toolbar, toolbar
+    # Both monitors opened under their own titles, and stopping their controllers closed both windows.
+    assert monitors == ["Dummy Lighting Controller", "Debug Controller Output", "stopped 2", "closed"], monitors
+    dummy = minimums["Dummy Lighting Controller"]
+    assert all(w >= 160 and h >= 120 for w, h in dummy), dummy
+    debug = minimums["Debug Controller Output"]
+    # Upstream's 538 x 405 content, under a 32-point title bar.
+    assert debug == {(538, 437)}, debug
     show = minimums["Vixen Studio"]
     assert {w for w, _ in show} == {860, 1060}, show
 
     assert script[-1].get("path") == ["restore"] and steps[-1]["ok"], "the user's appearance wasn't restored"
     for name in ["show-controllers-dark", "show-display-light", "sequencer-light", "sequencer-regrown", "settings-light",
                  "place-on-marks-dark", "export-sequence-light", "controller-setup-dark", "property-setup-light",
-                 "preview-designer-dark", "prop-editor-light", "prop-editor-wide"]:
+                 "preview-designer-dark", "prop-editor-light", "prop-editor-wide", "monitor-dummy-dark",
+                 "monitor-debug-light"]:
         assert (out / f"{name}.png").stat().st_size > 10_000, name
 
 

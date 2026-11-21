@@ -58,6 +58,7 @@ final class ControllerMonitorCenter {
     func start(model: AppModel, openWindow: OpenWindowAction) {
         self.model = model
         self.openWindow = openWindow
+        StudioMonitorHarness.installHarnessHook(model: model) // STUDIO: the layout audit opens monitors on sample data (B25)
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             // A Foundation run-loop callback is not a Swift actor task. Hop explicitly rather than asking the

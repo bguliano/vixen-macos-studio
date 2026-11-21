@@ -151,7 +151,9 @@ before launching.
 (`size <w> <h> <title>`), reports a split view's pane widths (`panes`), and checks the window's accessibility tree for
 controls reaching past its edge, overlapping siblings and truncated one-line labels (`check <title>`). `@settings` names
 the Settings window and `@sheet` the sheet showing, checked at the size its content asks for. `scripts/ui/studio-adaptive-layout.json` runs it over every window, checked by
-`scripts/check_studio_adaptive_layout.py`; add a window there when you add one, and look at its snapshots. Size panes
+`scripts/check_studio_adaptive_layout.py`; add a window there when you add one, and look at its snapshots. The Controller Output monitors open only while their controller runs, and the harness keeps output muted: the
+`studio.monitor` hook (`StudioMonitorHarness.swift`) opens one with `open dummy|debug`, starting only a controller with no
+hardware on a sample frame, and `close` stops them. Size panes
 with `minWidth`/`idealWidth` rather than fixed widths, and keep a window's minimum the sum of its panes' minimums.
 
 **Canvases (VoiceOver and keys):** the timeline grid, the patching graph and the preview designer conform to

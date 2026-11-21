@@ -727,6 +727,10 @@
   "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenDialogs/ControllerMonitors.swift:5cf17093c4934421": {
+  "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",
+  "hash": "5cf17093c4934421"
+ },
  "line:app/Sources/VixenDialogs/ControllerSheets.swift:399aad2c3c2d8529": {
   "file": "app/Sources/VixenDialogs/ControllerSheets.swift",
   "hash": "399aad2c3c2d8529"
