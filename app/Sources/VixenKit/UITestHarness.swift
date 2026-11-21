@@ -655,6 +655,7 @@ private final class Runner {
                 if !item.keyEquivalent.isEmpty { line += " [\(item.keyEquivalent)]" }
                 if item.state == .on { line += " (checked)" }
                 if !item.isEnabled { line += " (disabled)" }
+                if item.isHidden { line += " (hidden)" }
                 lines.append(line)
                 if let sub = item.submenu { walk(sub, depth + 1) }
             }

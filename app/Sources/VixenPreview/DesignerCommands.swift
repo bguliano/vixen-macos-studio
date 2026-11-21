@@ -10,14 +10,14 @@ struct PreviewDesignerCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        // Only with a designer in front: File is the Administration window's menu otherwise, and a sequencer's Save is in its Sequence menu.
         CommandGroup(after: .newItem) {
-            let model = registry.active
-            Button("Save") { model?.save() }
-                .keyboardShortcut(model == nil ? nil : KeyboardShortcut("s", modifiers: .command))
-                .disabled(model == nil)
-            Divider()
-            Button("Import Prop") { model?.importProp() }
-                .disabled(model == nil)
+            if let model = registry.active {
+                Button("Save") { model.save() }
+                    .keyboardShortcut("s", modifiers: .command)
+                Divider()
+                Button("Import Prop") { model.importProp() }
+            }
         }
         CommandGroup(after: .toolbar) {
             let model = registry.active
