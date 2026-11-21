@@ -1693,10 +1693,10 @@ impl DesignSession {
             Key::L if only_ctrl => return self.lock_selected(),
             Key::U if only_ctrl => return self.unlock_selected(false),
             Key::N if only_ctrl => return self.unlock_selected(true),
-            Key::Up => self.nudge_selected(0, -1, &mut ch),
-            Key::Down => self.nudge_selected(0, 1, &mut ch),
-            Key::Right => self.nudge_selected(1, 0, &mut ch),
-            Key::Left => self.nudge_selected(-1, 0, &mut ch),
+            Key::Up => self.studio_nudge(0, -1, &mut ch), // STUDIO: designer-live-undo
+            Key::Down => self.studio_nudge(0, 1, &mut ch), // STUDIO: designer-live-undo
+            Key::Right => self.studio_nudge(1, 0, &mut ch), // STUDIO: designer-live-undo
+            Key::Left => self.studio_nudge(-1, 0, &mut ch), // STUDIO: designer-live-undo
             Key::Escape => self.key_escape(&mut ch),
             Key::Plus if only_ctrl && self.zoom < 4.0 => return self.set_zoom(self.zoom + 0.25),
             Key::Minus if only_ctrl && self.zoom > 0.25 => return self.set_zoom(self.zoom - 0.25),

@@ -367,7 +367,7 @@ fn nudging_moves_by_one() {
     assert_eq!(left_top(&s, b), (100, 151));
     assert_eq!(left_top(&s, c), (100, 201));
     assert_eq!(left_top(&s, a), (100, 100));
-    assert_eq!(s.num_undoable(), 0, "the C# has no undo for nudging");
+    assert_eq!(s.num_undoable(), 2, "each run of nudges is one Move step"); // STUDIO: designer-live-undo
     assert_scene_fresh(&s);
 }
 

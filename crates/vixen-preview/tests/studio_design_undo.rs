@@ -1,14 +1,14 @@
 //! Studio: the designer's live dialogs (Linked Elements, Link Element, Location Offset, Resize Background) are steps on the
-//! designer's undo stack.
+//! designer's undo stack, as is a run of arrow-key nudges.
 
 use std::sync::Arc;
 use vixen_core::ElementTree;
 use vixen_preview::data::PreviewData;
 use vixen_preview::link::ElementLinker;
 use vixen_preview::point::PreviewPoint;
-use vixen_preview::session::DesignSession;
+use vixen_preview::session::{DesignSession, Key};
 use vixen_preview::shape::properties::PropertyValue;
-use vixen_preview::shape::{Shape, StringType};
+use vixen_preview::shape::{Modifiers, Shape, StringType};
 
 fn pixel_line() -> Shape {
     let mut line = Shape::new_line(PreviewPoint::new(100, 100), PreviewPoint::new(200, 100), 11, None, 1.0);
@@ -135,4 +135,45 @@ fn props_read_their_kind_lights_and_links_and_tab_walks_them() {
     assert_eq!(s.selected_item(), Some(b));
     assert!(s.studio_access_items()[1].selected);
     assert_eq!(s.num_undoable(), 0, "selecting is not an edit");
+}
+
+#[test]
+fn a_run_of_nudges_is_one_move_step() {
+    let mut d = PreviewData::new();
+    let a = d.add_shape(pixel_line());
+    let b = d.add_shape(Shape::new_line(PreviewPoint::new(100, 300), PreviewPoint::new(200, 300), 11, None, 1.0));
+    let mut s = DesignSession::new(d, None);
+    let at = |s: &DesignSession, id| {
+        let shape = &s.item(id).unwrap().shape;
+        (shape.left(), shape.top())
+    };
+    let start = at(&s, a);
+    let key = |s: &mut DesignSession, k| s.key_down(k, Modifiers::NONE);
+
+    s.select_items(&[a]);
+    assert!(key(&mut s, Key::Right).undo_changed, "the first nudge adds the step");
+    assert!(!key(&mut s, Key::Right).undo_changed && !key(&mut s, Key::Right).undo_changed, "the rest join it");
+    key(&mut s, Key::Up);
+    assert_eq!(at(&s, a), (start.0 + 3, start.1 - 1));
+    assert_eq!(s.undo_descriptions(), ["Move 1 "]);
+
+    s.undo();
+    assert_eq!(at(&s, a), start, "Undo takes the whole run back");
+    s.redo();
+    assert_eq!(at(&s, a), (start.0 + 3, start.1 - 1));
+    s.undo();
+
+    // A change the stack doesn't hold, or another selection, starts a new run.
+    key(&mut s, Key::Down);
+    s.set_shape_property(a, "Name", PropertyValue::Text("Roof".into())).unwrap();
+    key(&mut s, Key::Down);
+    s.clear_selection();
+    s.select_items(&[b]);
+    key(&mut s, Key::Left);
+    assert_eq!(s.undo_descriptions(), ["Move 1 ", "Move 1 ", "Move 1 "]);
+
+    // Nothing selected moves nothing and adds nothing.
+    s.clear_selection();
+    assert!(!key(&mut s, Key::Left).undo_changed);
+    assert_eq!(s.num_undoable(), 3);
 }

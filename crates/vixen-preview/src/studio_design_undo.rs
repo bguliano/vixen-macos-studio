@@ -1,6 +1,7 @@
 //! Studio: the designer edits that upstream commits through OK/Cancel dialogs (Linked Elements, a fixture's Link Element,
-//! Location Offset, Resize Background) are live in Studio, so each is a step on the designer's own undo stack. A child module
-//! of `session`, so it reaches the session's undo stack and shape swapping without widening them.
+//! Location Offset, Resize Background) are live in Studio, so each is a step on the designer's own undo stack, as is a run of
+//! arrow-key nudges. A child module of `session`, so it reaches the session's undo stack and shape swapping without widening
+//! them.
 use super::{Change, DesignSession, UndoAction};
 use crate::data::{ShapeId, Vector3D};
 use crate::shape::Shape;
@@ -14,6 +15,9 @@ pub(super) enum StudioUndo {
     LocationOffset { saved: Vector3D },
     /// The background image's file name and size beforehand, and every shape if the resize scaled them.
     Background { file: Option<String>, size: Option<(i32, i32)>, saved: Vec<(ShapeId, Shape)> },
+    /// A run of arrow-key nudges: the shapes as they were before the first, and as saved after the last, so the next nudge
+    /// joins the run only when nothing else has changed them since.
+    Nudge { saved: Vec<(ShapeId, Shape)>, after: Vec<String> },
 }
 
 impl StudioUndo {
@@ -22,6 +26,7 @@ impl StudioUndo {
             StudioUndo::Shapes { label, .. } => (*label).to_string(),
             StudioUndo::LocationOffset { .. } => "Location Offset".to_string(),
             StudioUndo::Background { .. } => "Resize Background".to_string(),
+            StudioUndo::Nudge { saved, .. } => format!("Move {} ", saved.len()),
         }
     }
 }
@@ -29,7 +34,7 @@ impl StudioUndo {
 impl DesignSession {
     pub(super) fn apply_studio_undo(&mut self, action: &mut StudioUndo, ch: &mut Change) {
         match action {
-            StudioUndo::Shapes { saved, .. } => self.swap_places(saved, ch),
+            StudioUndo::Shapes { saved, .. } | StudioUndo::Nudge { saved, .. } => self.swap_places(saved, ch),
             StudioUndo::LocationOffset { saved } => std::mem::swap(&mut self.data.location_offset, saved),
             StudioUndo::Background { file, size, saved } => {
                 std::mem::swap(&mut self.data.background_file_name, file);
@@ -61,6 +66,50 @@ impl DesignSession {
             self.push_undo(UndoAction::Studio(StudioUndo::Shapes { saved: vec![(id, before)], label }), &mut ch);
         }
         ch
+    }
+
+    /// An arrow-key nudge (upstream records none). The first nudge of the selection goes on the undo stack as a Move step;
+    /// the next ones join it while the same shapes are selected and nothing else has changed them in between.
+    pub(super) fn studio_nudge(&mut self, dx: i32, dy: i32, ch: &mut Change) {
+        let ids = self.studio_nudge_targets();
+        let joins = match self.undoable.front() {
+            Some(UndoAction::Studio(StudioUndo::Nudge { saved, after })) => {
+                saved.iter().map(|(id, _)| *id).eq(ids.iter().copied()) && self.shapes_xml(&ids) == *after
+            }
+            _ => false,
+        };
+        let saved: Option<Vec<(ShapeId, Shape)>> =
+            (!joins).then(|| ids.iter().filter_map(|id| self.item(*id).map(|i| (*id, i.shape.clone()))).collect());
+        self.nudge_selected(dx, dy, ch);
+        let after = self.shapes_xml(&ids);
+        match saved {
+            Some(saved) => {
+                if saved.iter().map(|(_, s)| shape_xml(s)).ne(after.iter().cloned()) {
+                    self.push_undo(UndoAction::Studio(StudioUndo::Nudge { saved, after }), ch);
+                }
+            }
+            None => {
+                if let Some(UndoAction::Studio(StudioUndo::Nudge { after: last, .. })) = self.undoable.front_mut() {
+                    *last = after;
+                }
+            }
+        }
+    }
+
+    /// The shapes `nudge_selected` moves: the selected item, or every visible shape sharing bounds with the multi-selection.
+    fn studio_nudge_targets(&self) -> Vec<ShapeId> {
+        if let Some(id) = self.selected_item.filter(|id| self.index_of(*id).is_some()) {
+            return vec![id];
+        }
+        if self.selected_items.is_empty() {
+            return Vec::new();
+        }
+        let keys = self.selected_keys();
+        self.data.display_items.iter().filter(|i| keys.contains(&i.shape.bounds_key()) && self.visible(&i.shape)).map(|i| i.id).collect()
+    }
+
+    fn shapes_xml(&self, ids: &[ShapeId]) -> Vec<String> {
+        ids.iter().filter_map(|id| self.item(*id)).map(|i| shape_xml(&i.shape)).collect()
     }
 
     /// The Location Offset fields, each change one undo step. The same values add nothing.

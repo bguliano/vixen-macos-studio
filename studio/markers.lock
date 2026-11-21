@@ -1583,13 +1583,33 @@
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "1f2140749feeef34"
  },
+ "line:crates/vixen-preview/src/session.rs:4d435e3d19a6feb4": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "4d435e3d19a6feb4"
+ },
  "line:crates/vixen-preview/src/session.rs:54aaeff4dbbd79a0": {
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "54aaeff4dbbd79a0"
  },
+ "line:crates/vixen-preview/src/session.rs:5625c64f54caa4a0": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "5625c64f54caa4a0"
+ },
  "line:crates/vixen-preview/src/session.rs:6c993b35eb9b07bd": {
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "6c993b35eb9b07bd"
+ },
+ "line:crates/vixen-preview/src/session.rs:d88214aacb69823f": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "d88214aacb69823f"
+ },
+ "line:crates/vixen-preview/src/session.rs:e647a6726989d4eb": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "e647a6726989d4eb"
+ },
+ "line:crates/vixen-preview/tests/session.rs:145d38074d32bd58": {
+  "file": "crates/vixen-preview/tests/session.rs",
+  "hash": "145d38074d32bd58"
  },
  "line:crates/vixen-session/src/app.rs:b0bca46243531f1d": {
   "file": "crates/vixen-session/src/app.rs",
