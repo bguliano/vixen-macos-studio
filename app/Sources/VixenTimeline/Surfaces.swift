@@ -1157,7 +1157,8 @@ final class TimePanelView: NSView {
     }
 }
 
-/// The left pane and the right, with a divider. The left keeps its width when the window resizes. Minimum 100.
+/// The left pane and the right, with a divider. The left keeps its width when the window resizes (only the grid grows or shrinks); it gives way down to 100
+/// when the window is too narrow and grows back afterwards. Only a divider drag changes and saves the width.
 @MainActor
 public final class TimelineContainerView: NSView, NSSplitViewDelegate {
     private let split = NSSplitView()
@@ -1168,8 +1169,18 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
     private var didSetDivider = false
     /// F2's restore rule: this if it's above 0 and the control is wider, otherwise the default if the control is wider than that.
     var splitterDistance: CGFloat = 200
+    /// The width the row pane wants: the restored distance, then whatever the divider was last dragged to.
+    private var rowWidth: CGFloat = 200
+    /// What the last window resize gave the row pane, so its own resize notification isn't taken for a drag.
+    private var laidOutRowWidth: CGFloat = -1
+    private static let minimumPane: CGFloat = 100
 
     var dividerThickness: CGFloat { split.dividerThickness }
+    /// Where the grid starts: the row pane's actual width plus the divider.
+    public var gridLeft: CGFloat { timePanel.frame.minX }
+    /// For the UI test hooks: the row pane's width now, and a divider move the way a drag makes one.
+    var rowPaneWidth: CGFloat { rowPane.frame.width }
+    func moveDivider(to position: CGFloat) { split.setPosition(position, ofDividerAt: 0) }
 
     init(rowPane: RowPaneView, timePanel: TimePanelView) {
         self.rowPane = rowPane
@@ -1189,7 +1200,12 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
         splitObserver = NotificationCenter.default.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: split, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, self.didSetDivider else { return }
-                self.canvas?.controllerSplitterMoved(width: self.rowPane.bounds.width)
+                let width = self.rowPane.frame.width
+                guard width != self.laidOutRowWidth else { return }
+                // A divider drag: the new width is the one to keep.
+                self.rowWidth = width
+                self.laidOutRowWidth = width
+                self.canvas?.controllerSplitterMoved(width: width)
             }
         }
     }
@@ -1210,8 +1226,8 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
         split.frame = bounds
         if !didSetDivider, bounds.width > 0 {
             didSetDivider = true
-            let wanted = splitterDistance > 0 && bounds.width > splitterDistance ? splitterDistance : 200
-            split.setPosition(min(wanted, bounds.width - 100), ofDividerAt: 0)
+            rowWidth = splitterDistance > 0 && bounds.width > splitterDistance ? splitterDistance : 200
+            split.resizeSubviews(withOldSize: split.bounds.size)
         }
         split.layoutSubtreeIfNeeded()
         timePanel.needsLayout = true
@@ -1228,8 +1244,17 @@ public final class TimelineContainerView: NSView, NSSplitViewDelegate {
         canvas?.setDisplay(scale: window?.backingScaleFactor ?? 2, colorSpace: window?.colorSpace?.cgColorSpace ?? sRGBSpace)
     }
 
+    /// Window resizes go to the grid; the row pane keeps `rowWidth` while both panes can have at least 100.
+    public func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
+        let width = splitView.bounds.width, height = splitView.bounds.height, divider = splitView.dividerThickness
+        let row = max(Self.minimumPane, min(rowWidth, width - divider - Self.minimumPane))
+        laidOutRowWidth = row
+        rowPane.frame = CGRect(x: 0, y: 0, width: row, height: height)
+        timePanel.frame = CGRect(x: row + divider, y: 0, width: max(0, width - row - divider), height: height)
+    }
+
     public func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-        max(proposedMinimumPosition, 100)
+        max(proposedMinimumPosition, Self.minimumPane)
     }
 
     public func splitView(_ splitView: NSSplitView, canCollapseSubview subview: NSView) -> Bool {

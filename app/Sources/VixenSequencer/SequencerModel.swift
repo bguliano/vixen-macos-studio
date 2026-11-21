@@ -1011,10 +1011,9 @@ final class SequencerModel: OpenEditor {
         let container = canvas.view
         let point = testPointer.map { container.convert($0, from: nil) } ?? container.convert(window.mouseLocationOutsideOfEventStream, from: nil)
         let view = canvas.controller.view()
-        let settings = canvas.controller.settings()
         let bars = view.waveformHeight + view.rulerHeight + view.marksBarHeight
         let fromTop = container.isFlipped ? point.y : container.bounds.height - point.y
-        let left = CGFloat(settings.splitterDistance) + 1
+        let left = container.gridLeft
         shell.setGridPointer(x: Int32(point.x - left), y: Int32(fromTop) - bars)
         shell.setGridSize(width: Int32(container.bounds.width - left), height: Int32(container.bounds.height) - bars)
         #endif

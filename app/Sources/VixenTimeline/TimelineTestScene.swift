@@ -177,6 +177,17 @@ enum TimelineTestHooks {
             dump()
             return (try? String(contentsOf: outDir.appending(path: "timeline-state.json"), encoding: .utf8)) ?? "FAIL no timeline state"
         }
+        // `timelineSplit`: the row-name pane's width, where the grid starts and the saved splitter distance. `timelineSplitMove` with path [x]: a divider move.
+        UITestHarness.hooks["timelineSplit"] = { _ in
+            guard let canvas else { return "FAIL no timeline" }
+            let v = canvas.view
+            return "row=\(Int(v.rowPaneWidth)) gridLeft=\(Int(v.gridLeft)) width=\(Int(v.bounds.width)) saved=\(canvas.controller.settings().splitterDistance)"
+        }
+        UITestHarness.hooks["timelineSplitMove"] = { args in
+            guard let canvas, let x = args.first.flatMap(Double.init) else { return "FAIL needs a position" }
+            canvas.view.moveDivider(to: x)
+            return "moved"
+        }
         UITestHarness.hooks["timelineBenchmark"] = { _ in
             guard canvas != nil else { return "FAIL no timeline" }
             bench()
