@@ -113,3 +113,51 @@ impl PreviewLinker {
 pub(super) fn new_live_link() -> parking_lot::Mutex<LiveLink> {
     parking_lot::Mutex::new(LiveLink::default())
 }
+
+// Studio R43: the designer's props for VoiceOver, and Tab between them (`studio_access` in vixen-preview).
+
+/// One prop as an accessibility element, in the canvas's view coordinates (y down).
+#[derive(uniffi::Record, Clone)]
+pub struct DesignerStudioAccessItem {
+    pub shape: u32,
+    pub label: String,
+    pub selected: bool,
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+/// A keyboard or VoiceOver selection: what changed, and what VoiceOver should say (None when nothing was picked).
+#[derive(uniffi::Record)]
+pub struct DesignerStudioAccessMove {
+    pub change: DesignerChange,
+    pub announcement: Option<String>,
+}
+
+#[uniffi::export]
+impl PreviewDesigner {
+    /// Every prop the canvas shows, in the order Tab visits them.
+    pub fn studio_access_items(&self) -> Vec<DesignerStudioAccessItem> {
+        let host = self.host.lock();
+        host.session
+            .studio_access_items()
+            .into_iter()
+            .map(|i| DesignerStudioAccessItem { shape: i.id.0, label: i.label, selected: i.selected, x: i.x, y: i.y, w: i.w, h: i.h })
+            .collect()
+    }
+
+    /// Tab (1) and ⇧Tab (-1): the next or previous unlocked prop, wrapping around.
+    pub fn studio_access_step(&self, direction: i32) -> DesignerStudioAccessMove {
+        let mut host = self.host.lock();
+        let (change, said) = host.session.studio_access_step(direction);
+        DesignerStudioAccessMove { change: host.apply(change).into(), announcement: said }
+    }
+
+    /// VoiceOver's press on a prop: selects it alone, as a click does.
+    pub fn studio_access_select(&self, shape: u32) -> DesignerStudioAccessMove {
+        let mut host = self.host.lock();
+        let (change, said) = host.session.studio_access_select(design::ShapeId(shape));
+        DesignerStudioAccessMove { change: host.apply(change).into(), announcement: said }
+    }
+}

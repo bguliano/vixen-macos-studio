@@ -28,6 +28,10 @@ use vixen_xml::XElement;
 #[path = "studio_design_undo.rs"]
 mod studio_design_undo;
 // STUDIO-END designer-live-undo
+// STUDIO-BEGIN designer-access: the designer's props for VoiceOver, and Tab between them (R43)
+#[path = "studio_access.rs"]
+pub mod studio_access;
+// STUDIO-END designer-access
 
 /// `VixenPreviewControl.Tools`.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]

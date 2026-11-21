@@ -126,6 +126,7 @@ final class GraphCanvasController {
     private var token = 0
     private var resizeTask: Task<Void, Never>?
     private var lastWidth = 0
+    var studioSceneWidth: Int { lastWidth } // STUDIO: the width the shown scene was built for, so R43's labels match it (StudioGraphAccess.swift)
     /// F122's clipboard, of filter components. A cut filter can still be pasted, because its entry stays.
     private var clipboard: [UInt32] = []
     /// F117: what the next scene should leave selected, because it was just inserted.
@@ -1177,9 +1178,28 @@ final class GraphCanvasView: NSView {
         return menu
     }
 
+    // STUDIO-BEGIN graph-access-hooks: what R43's keyboard and VoiceOver reach inside the canvas (StudioGraphAccess.swift)
+    var studioSelectedShapeIDs: Set<UInt64> { selectedShapes }
+
+    /// Selects one shape alone, as a click on it does, and scrolls it into view.
+    func studioSelectShape(_ i: Int) {
+        selectedShapes = [scene.ids[i]]
+        selectedLines = []
+        needsDisplay = true
+        reportSelection()
+        scrollToVisible(scene.rects[i].insetBy(dx: -20, dy: -20))
+    }
+
+    func studioFirstFreeOutput(of i: Int) -> Int { firstFreeOutput(of: i) }
+
+    /// Where a menu shown from the keyboard pastes.
+    func studioSetMenuPoint(_ p: CGPoint) { lastPoint = p }
+    // STUDIO-END graph-access-hooks
+
     // MARK: Keyboard and Edit menu
 
     override func keyDown(with event: NSEvent) {
+        if studioAccessKeyDown(event) { return } // STUDIO: R43's Tab between shapes and Return for a shape's menu (StudioGraphAccess.swift)
         let key = event.charactersIgnoringModifiers?.unicodeScalars.first.map { Int($0.value) } ?? 0
         if key == 0x1B, cancelGesture() {
             return

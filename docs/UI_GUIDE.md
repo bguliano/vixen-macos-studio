@@ -154,6 +154,13 @@ the Settings window. `scripts/ui/studio-adaptive-layout.json` runs it over every
 `scripts/check_studio_adaptive_layout.py`; add a window there when you add one, and look at its snapshots. Size panes
 with `minWidth`/`idealWidth` rather than fixed widths, and keep a window's minimum the sum of its panes' minimums.
 
+**Canvases (VoiceOver and keys):** the timeline grid, the patching graph and the preview designer conform to
+`StudioAccessCanvas` (`StudioCanvasAccess.swift`): one `StudioCanvasItem` per visible item with words from Rust, Tab and
+⇧Tab inside, ⌃Tab out. A new canvas that draws its own contents does the same. The `studio.access` hook gives a canvas the
+keyboard (`focus timeline|graph|designer`), reports what VoiceOver would read (`report`, also written to
+`access-<canvas>.txt`), and lists or runs the selected item's menu (`menu`, `choose`); `scripts/check_studio_access.py`
+drives all three with keys only.
+
 Set `VIXEN_UI_TEST_TRACE=1` to log each step before and after it runs when diagnosing a stalled script. The in-process accessibility reader handles both plain and attributed text returned by SwiftUI; some offscreen icon controls are still absent from that tree, so use posted native pointer events and verify their resulting state when label lookup cannot reach them.
 
 Tests must not make sound or send anything to hardware or the network. The harness sets `VIXEN_MUTE=1`, and output controllers stay stopped unless a test starts them.

@@ -388,6 +388,7 @@ final class GridCanvasView: TimelineSurface {
     }
 
     override func keyDown(with event: NSEvent) {
+        if studioAccessKeyDown(event) { return } // STUDIO: R43's keyboard moves and announcements (StudioTimelineAccess.swift)
         guard !timelineKeyDown(event) else { return }
         super.keyDown(with: event)
     }

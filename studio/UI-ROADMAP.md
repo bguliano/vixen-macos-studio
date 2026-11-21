@@ -239,7 +239,18 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   The remaining fixed `.frame(width:)` sizes (about 300, mostly icons, swatches, sheets and form label columns) were left
   where the windows holding them pass the audit; sheets and the preview designer aren't in the audit yet. *Remaining:* the timeline's row-name column (inside the timeline) still shrinks
   in proportion with the window and saves that width, shared with vanilla (backlog).
-- Accessibility labels and full keyboard navigation on custom controls (timeline, patch graph).
+- **Accessibility on the custom canvases (R43).** *Done:* the timeline grid, the Display pane's graphical patching and
+  the preview designer are VoiceOver layout areas holding one labelled item per visible effect, shape or prop, with the
+  words built in Rust (`studio_access.rs` in vixen-session and vixen-preview): "Set Level on White Bottom, 0:00.476 to
+  0:01.497", "White Bottom, element, to Output 1", "Poly Line, 161 lights, linked to White Bottom". A press selects the
+  item as a click does; on the graph and designer VO-⇧-M opens its menu. Keys are the same on all three: Tab and ⇧Tab
+  select the next and previous item inside the canvas, ⌃Tab and ⌃⇧Tab move on, and a focus ring marks the canvas with
+  the keyboard. The timeline adds ← and → through the active row's effects (⇧ extends; the first key gives a grid with
+  no active row one), ⌥→ and ⌥← to open and close the row, and reads the row ↑ and ↓ move to; the graph's Return opens
+  the selected shape's menu, whose Connect To lists what a drag from its output port could reach (Expand/Collapse and
+  Configure Filter… too); the designer's arrows nudge the Tab-selected prop as before. `sequence_effects` gives agents
+  the same `label`. Verified by `scripts/check_studio_access.py` (`scripts/ui/studio-access.json`, hook
+  `studio.access`). The designer's arrow nudge isn't on Undo yet, as upstream (backlog).
 - Regression guards in the test suite: sequence open time, memory per agent edit (the e8a531dbc class of bug), preview
   frame pacing.
 

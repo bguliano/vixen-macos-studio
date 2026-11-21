@@ -1,0 +1,547 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "display"
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "hook",
+      "name": "setup.selectElements",
+      "path": [
+        "Relays"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.selectControllers",
+      "path": [
+        "c0"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.command",
+      "path": [
+        "graphical"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.graph"
+    },
+    {
+      "action": "dump",
+      "name": "graph-tree"
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "graph"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "menu",
+        "graph"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "graph-keyboard"
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "choose",
+        "graph",
+        "Connect To",
+        "Output 2"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "setup.graph"
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "displayMenuUndoRedo",
+      "text": "undo"
+    },
+    {
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "action": "hook",
+      "name": "setup.ready"
+    },
+    {
+      "action": "hook",
+      "name": "setup.selectElements",
+      "path": [
+        "Relays"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.selectControllers",
+      "path": [
+        "c0"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.command",
+      "path": [
+        "graphical"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.graph"
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "graph"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "shift"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 10
+    },
+    {
+      "action": "dump",
+      "name": "timeline-tree"
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "timeline"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "down"
+    },
+    {
+      "action": "key",
+      "key": "down"
+    },
+    {
+      "action": "key",
+      "key": "right"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "key",
+      "key": "right",
+      "modifiers": [
+        "shift"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "shift"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "up"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "left",
+      "modifiers": [
+        "option"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "right",
+      "modifiers": [
+        "option"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "snapshot",
+      "name": "timeline-keyboard"
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "closeWindow"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "window",
+      "id": "administration"
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "previewTarget",
+      "text": "Christmas Tree 2019"
+    },
+    {
+      "action": "window",
+      "id": "preview-setup"
+    },
+    {
+      "action": "wait",
+      "seconds": 3
+    },
+    {
+      "action": "designerOnScreen"
+    },
+    {
+      "action": "dump",
+      "name": "designer-tree"
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "designer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "key",
+      "key": "tab"
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "shift"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "right"
+    },
+    {
+      "action": "key",
+      "key": "right"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "designerInfo"
+    },
+    {
+      "action": "snapshot",
+      "name": "designer-keyboard"
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

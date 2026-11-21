@@ -414,6 +414,7 @@ final class DesignerCanvasView: NSView, NSMenuItemValidation {
     // MARK: Keyboard, F27
 
     override func keyDown(with event: NSEvent) {
+        if studioAccessKeyDown(event) { return } // STUDIO: R43's Tab between props (StudioDesignerAccess.swift)
         guard let model, let designer = model.designer else { return }
         let m = mods(event.modifierFlags)
         let key: DesignerKey?

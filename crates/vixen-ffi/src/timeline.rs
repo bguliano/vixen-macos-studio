@@ -25,6 +25,11 @@ use vixen_session::timeline::waveform::WaveformStyle;
 use vixen_session::timeline::{Button, CursorKind, DragState, ElementId, IRect, Mods, PointerEvent, RowId};
 use vixen_session::undo::{EffectSnapshot, UndoAction};
 
+// STUDIO-BEGIN timeline-access: VoiceOver elements and keyboard moves for the grid (R43)
+#[path = "studio_timeline_access.rs"]
+mod studio_timeline_access;
+// STUDIO-END timeline-access
+
 /// The profile setting keys are under this. `docs/spec/timeline.md`, Data and persistence.
 const FORM: &str = "TimedSequenceEditorForm";
 

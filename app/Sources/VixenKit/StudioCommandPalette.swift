@@ -10,6 +10,7 @@ public struct StudioCommandPaletteCommands: Commands {
     public init() {
         StudioCommandPalette.installHarnessHook()
         StudioLayoutAudit.installHarnessHook()
+        StudioCanvasAccess.installHarnessHook()
     }
 
     public var body: some Commands {

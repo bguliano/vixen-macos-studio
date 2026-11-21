@@ -36,6 +36,10 @@ pub mod scheduler;
 pub mod sequencer;
 #[cfg(feature = "setup")]
 pub mod setup;
+// STUDIO-BEGIN graph-access: the patching graph's VoiceOver labels and keyboard Connect To (R43)
+#[cfg(feature = "setup")]
+pub mod studio_graph_access;
+// STUDIO-END graph-access
 #[cfg(feature = "timeline")]
 pub mod timeline;
 #[cfg(feature = "tools")]

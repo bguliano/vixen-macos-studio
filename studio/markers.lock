@@ -39,6 +39,10 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:designer-access": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "e5e2645a9d25b03a"
+ },
  "block:designer-live-dialogs": {
   "file": "crates/vixen-ffi/src/preview.rs",
   "hash": "e2b3b0d9774cbd13"
@@ -94,6 +98,14 @@
  "block:exclusive-save-temp": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
+ },
+ "block:graph-access": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "15914399d3acc857"
+ },
+ "block:graph-access-hooks": {
+  "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
+  "hash": "cca3771f34f41dda"
  },
  "block:grid-wiring-moved": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
@@ -379,6 +391,10 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "7d9a2021d4af26f2"
  },
+ "block:timeline-access": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "6544d488c11d7599"
+ },
  "block:timeline-palette": {
   "file": "app/Sources/VixenTimeline/Painters.swift",
   "hash": "3e0c36890138a3fb"
@@ -563,6 +579,10 @@
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenPreview/DesignerCanvas.swift:1986b8b7dc6dfe23": {
+  "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
+  "hash": "1986b8b7dc6dfe23"
+ },
  "line:app/Sources/VixenPreview/DesignerDialogs.swift:4be024d1cee5f743": {
   "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
   "hash": "4be024d1cee5f743"
@@ -711,6 +731,10 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "298fade4d2d5b195"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:5bff260be09137af": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "5bff260be09137af"
+ },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:685eb9f4b209e04e": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "685eb9f4b209e04e"
@@ -798,6 +822,14 @@
  "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:f5d9c1de6e31cdb7": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "f5d9c1de6e31cdb7"
+ },
+ "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:78cd4d3f365b540e": {
+  "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
+  "hash": "78cd4d3f365b540e"
+ },
+ "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:c427641c18f17bcf": {
+  "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
+  "hash": "c427641c18f17bcf"
  },
  "line:app/Sources/VixenSetup/Window/SetupModel.swift:5e554bed8e4a260e": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
@@ -914,6 +946,10 @@
  "line:app/Sources/VixenTimeline/Surfaces.swift:b9642291a539a78f": {
   "file": "app/Sources/VixenTimeline/Surfaces.swift",
   "hash": "b9642291a539a78f"
+ },
+ "line:app/Sources/VixenTimeline/Surfaces.swift:cec13abd2360a844": {
+  "file": "app/Sources/VixenTimeline/Surfaces.swift",
+  "hash": "cec13abd2360a844"
  },
  "line:app/Sources/VixenTimeline/TimelinePane.swift:dee5b47040e123bc": {
   "file": "app/Sources/VixenTimeline/TimelinePane.swift",
@@ -1138,6 +1174,10 @@
  "line:crates/vixen-session/src/lib.rs:8d1d07c80410de8e": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "8d1d07c80410de8e"
+ },
+ "line:crates/vixen-session/src/lib.rs:966b5fd003a8cd54": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "966b5fd003a8cd54"
  },
  "line:crates/vixen-session/src/lib.rs:968e890add5b20b4": {
   "file": "crates/vixen-session/src/lib.rs",

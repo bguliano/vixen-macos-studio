@@ -29,6 +29,13 @@ pub mod inspector;
 #[path = "studio_marks_panel.rs"]
 pub mod marks_panel;
 
+/// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
+fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
+    let type_name = vixen_effect_registry::by_type_id(&e.node.type_id).map(|d| d.name).unwrap_or("Effect");
+    let targets: Vec<&str> = e.node.targets.iter().map(|(_, name)| name.as_str()).collect();
+    crate::studio_access::effect_label(type_name, &targets.join(", "), e.node.start, e.node.start + e.node.time_span, None)
+}
+
 fn string<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
     a[k].as_str()
         .filter(|s| !s.is_empty() && s.len() <= 256)
@@ -434,7 +441,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             status
         }
         "sequence_effects" => {
-            json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>()})).collect::<Vec<_>>(),"total":s.effect_count()})
+            json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),"label":studio_access_label(e)})).collect::<Vec<_>>(),"total":s.effect_count()})
         }
         "effect_add" | "effect_band" => {
             let planned = if name == "effect_band" { plan_band(core, &s, a)? } else { plan_add(core, &s, a)? };
@@ -1180,7 +1187,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
         ("sequence_open","Open a profile Sequence filename, a Sequence/.scratch filename with scratch:true, or an absolute path to a .tim file anywhere (opened in place; sequence_save still writes only into the profile). sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack; reload:true instead discards that copy and reads the file again (same sequenceId; unsaved changes need confirm:true; refused while an app window has it open). sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":{"type":"string","minLength":1,"maxLength":1024},"scratch":boolean,"reload":boolean,"confirm":boolean}),vec!["file"],false),
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp, plus what its window's title bar and toolbar show: title, subtitle (the song, or No audio), song, songMissing, rendering and renderingPercent (rendered of all effects).",json!({"sequenceId":string}),vec!["sequenceId"],true),
-        ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs and millisecond times.",json!({"sequenceId":string}),vec!["sequenceId"],true),
+        ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs, millisecond times and label (the words VoiceOver reads for the effect on the timeline).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
         ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Returns effectId and effectIds.",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
         ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,layerId?} (as effect_band), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
@@ -1378,6 +1385,9 @@ mod tests {
         assert_eq!(run("sequence_status", json!({"sequenceId":id}))["effects"], 0);
         run("sequence_redo", json!({"sequenceId":id}));
         assert_eq!(level(&single), shaped, "redo restores the inline parameters");
+        // sequence_effects reads each effect as VoiceOver does on the timeline (R43).
+        let listed = run("sequence_effects", json!({"sequenceId":id}))["effects"][0]["label"].clone();
+        assert_eq!(listed, json!("Pulse on Pixel, 0:00.000 to 0:00.400"));
         // Color-array gradients keep evenly spaced stops through every write path.
         let stops = |effect: &Value| {
             let parameters = run("effect_parameters", json!({"sequenceId":id,"effectId":effect}))["parameters"].clone();

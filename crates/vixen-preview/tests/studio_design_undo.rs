@@ -98,3 +98,41 @@ fn location_offset_and_background_resize_undo() {
     assert_eq!((s.data().location_offset.x.value, s.data().location_offset.y.value), (30.0, -5.0));
     assert_eq!(s.data().background_file_name.as_deref(), Some("yard-1600.jpg"));
 }
+
+#[test]
+fn props_read_their_kind_lights_and_links_and_tab_walks_them() {
+    let mut tree = ElementTree::new();
+    let group = tree.add_string("Roofline", 11);
+    let tree = Arc::new(tree);
+    let mut d = PreviewData::new();
+    let a = d.add_shape(pixel_line());
+    let b = d.add_shape(pixel_line());
+    let mut s = DesignSession::new(d, Some(Arc::clone(&tree)));
+    let before = s.item(a).unwrap().shape.clone();
+    let mut linker = ElementLinker::new(&before);
+    linker.drop_nodes(0, 0, &[group], &tree);
+    let mut linked = before.clone();
+    linker.apply(&mut linked);
+    s.studio_replace_shape(a, linked, None);
+
+    let items = s.studio_access_items();
+    assert_eq!(items.len(), 2);
+    assert_eq!(items[0].label, "Line, 11 lights, linked to Roofline");
+    assert_eq!(items[1].label, "Line, 11 lights, not linked");
+    assert!(items[0].w > 0 && items[0].h > 0);
+    assert!(items.iter().all(|i| !i.selected));
+
+    // Tab from nothing picks the first prop, then the next, then wraps; ⇧Tab goes back.
+    let (ch, said) = s.studio_access_step(1);
+    assert!(ch.selection_changed && ch.show_properties == Some(a));
+    assert_eq!(said.as_deref(), Some("Line, 11 lights, linked to Roofline"));
+    assert_eq!(s.selected_item(), Some(a));
+    s.studio_access_step(1);
+    assert_eq!(s.selected_item(), Some(b));
+    s.studio_access_step(1);
+    assert_eq!(s.selected_item(), Some(a), "wraps around");
+    s.studio_access_step(-1);
+    assert_eq!(s.selected_item(), Some(b));
+    assert!(s.studio_access_items()[1].selected);
+    assert_eq!(s.num_undoable(), 0, "selecting is not an edit");
+}

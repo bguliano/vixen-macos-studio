@@ -976,6 +976,7 @@ final class SequencerModel: OpenEditor {
         let outcome = shell.keyDown(key: key, shift: flags.contains(.shift), cmd: flags.contains(.command), opt: flags.contains(.option))
         if UITestHarness.isActive { testKeyRoute = "table \(key) handled=\(outcome.handled)" }
         afterCommand(outcome)
+        studioAccessAfterKey(key, handled: outcome.handled) // STUDIO: VoiceOver reads the row ↑ and ↓ moved to (StudioSequencerAccess.swift)
         return outcome.handled
     }
 
