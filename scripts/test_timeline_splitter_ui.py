@@ -67,7 +67,11 @@ def main():
              for row in rows if str(row.get("detail", "")).startswith("row=")]
     assert len(reads) == 6, reads
     rows_seen = [r["row"] for r in reads]
-    assert rows_seen == [200, 200, 200, 260, 260, 260], rows_seen
+    # The pane keeps the wanted width unless the timeline is too narrow for it and a 100-wide grid (divider 1);
+    # with sidebars around the timeline (Studio) the narrow reads give way and the wide ones grow back.
+    wanted = [200, 200, 200, 260, 260, 260]
+    expected = [max(100, min(w, r["width"] - 101)) for w, r in zip(wanted, reads)]
+    assert rows_seen == expected, (rows_seen, expected, reads)
     assert all(r["gridLeft"] == r["row"] + 1 for r in reads), reads
     assert [r["saved"] for r in reads[:3]] == [200] * 3 or [r["saved"] for r in reads[:3]] == [0] * 3, reads
     assert [r["saved"] for r in reads[3:]] == [260] * 3, reads
