@@ -12,7 +12,7 @@ from pathlib import Path
 
 def check(root: Path) -> None:
     rows = json.loads((root / "result.json").read_text())
-    assert len(rows) == 80 and all(row["ok"] for row in rows), rows
+    assert len(rows) == 78 and all(row["ok"] for row in rows), rows
     states = []
     for row in rows:
         detail = row.get("detail", "")
@@ -42,7 +42,7 @@ def check(root: Path) -> None:
     assert [r.split()[1] for r in routes] == ["d", "i", "i"]
     assert any("text=00:00.500" in r.get("detail", "") for r in rows)
     assert any("text=00:00.100" in r.get("detail", "") for r in rows)
-    print("PASS: 80 native steps; D/I routing, exact effect timing, Cancel, reverse-order options, Undo/Redo")
+    print("PASS: 78 native steps; D/I routing, exact effect timing, Cancel, reverse-order options, Undo/Redo")
 
 
 if __name__ == "__main__":

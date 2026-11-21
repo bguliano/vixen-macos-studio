@@ -42,20 +42,6 @@
       "seconds": 0.5
     },
     {
-      "action": "menu",
-      "path": [
-        "Edit",
-        "Select All Elements"
-      ]
-    },
-    {
-      "action": "menu",
-      "path": [
-        "Edit",
-        "Delete"
-      ]
-    },
-    {
       "action": "wait",
       "seconds": 0.5
     },

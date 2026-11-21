@@ -42,20 +42,6 @@
       "seconds": 0.5
     },
     {
-      "action": "menu",
-      "path": [
-        "Edit",
-        "Select All Elements"
-      ]
-    },
-    {
-      "action": "menu",
-      "path": [
-        "Edit",
-        "Delete"
-      ]
-    },
-    {
       "action": "wait",
       "seconds": 0.5
     },
@@ -114,8 +100,9 @@
       "action": "hook",
       "name": "sequencer.pointer",
       "path": [
-        "920",
-        "215"
+        "time",
+        "5300",
+        "16"
       ]
     },
     {

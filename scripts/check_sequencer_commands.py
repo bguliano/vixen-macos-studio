@@ -12,7 +12,7 @@ from pathlib import Path
 
 def check(root: Path, saved: Path) -> None:
     rows = json.loads((root / "result.json").read_text())
-    assert len(rows) == 47 and all(r["ok"] for r in rows), rows
+    assert len(rows) == 45 and all(r["ok"] for r in rows), rows
     states = [json.loads(r["detail"]) for r in rows if r.get("detail", "").startswith("{")]
     assert len(states) == 9
     assert [len(s["elements"]) for s in states] == [3, 3, 3, 6, 3, 6, 3, 6, 6]
@@ -34,7 +34,7 @@ def check(root: Path, saved: Path) -> None:
     assert len({e.findtext("InstanceId") for e in effects}) == 6
     assert all(e.findtext("StartTime") == "PT5S" and e.findtext("TimeSpan") == "PT2S" for e in effects)
     assert all(e.findtext("TypeId") == "cbd76d3b-c924-40ff-bad6-d1437b3dbdc0" for e in effects)
-    print("PASS: 47 native steps; Command-A/C/V/Z/Shift-Z/Y/S, exact effect counts, saved XML")
+    print("PASS: 45 native steps; Command-A/C/V/Z/Shift-Z/Y/S, exact effect counts, saved XML")
 
 
 if __name__ == "__main__":

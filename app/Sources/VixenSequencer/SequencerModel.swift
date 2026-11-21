@@ -169,9 +169,16 @@ final class SequencerModel: OpenEditor {
             return String(decoding: data, as: UTF8.self)
         }
         UITestHarness.hooks["sequencer.pointer"] = { [weak self, weak window] args in
-            guard let self, let window, args.count == 2, let x = Double(args[0]), let y = Double(args[1]) else { return "FAIL needs pointer x/y" }
+            guard let self, let window else { return "FAIL no sequencer" }
             // An offscreen test window cannot put the physical mouse over an effect. Use the existing Test Pointer fixture
             // for the upstream hotkeys whose precondition is a selected effect under the pointer.
+            // ["time", ms, y] puts it at that time, y points below the ruler, so a script needn't know the window's layout.
+            if args.count == 3, args[0] == "time", let ms = Double(args[1]), let y = Double(args[2]) {
+                guard let point = self.windowPoint(timeMs: ms, gridY: y) else { return "FAIL no timeline" }
+                self.testPointer = point
+                return "pointer \(Int(point.x)),\(Int(window.frame.height - point.y)) at \(args[1]) ms"
+            }
+            guard args.count == 2, let x = Double(args[0]), let y = Double(args[1]) else { return "FAIL needs pointer x/y" }
             self.testPointer = NSPoint(x: x, y: window.frame.height - y)
             return "pointer \(x),\(y)"
         }
@@ -1018,6 +1025,23 @@ final class SequencerModel: OpenEditor {
         let left = container.gridLeft
         shell.setGridPointer(x: Int32(point.x - left), y: Int32(fromTop) - bars)
         shell.setGridSize(width: Int32(container.bounds.width - left), height: Int32(container.bounds.height) - bars)
+        #endif
+    }
+
+    /// The reverse of `notePointerForKeys`: the window point over a time in the grid, `gridY` points below the bars. For the harness.
+    func windowPoint(timeMs: Double, gridY: Double) -> NSPoint? {
+        #if canImport(VixenTimeline)
+        guard let canvas else { return nil }
+        let container = canvas.view
+        let view = canvas.controller.view()
+        guard view.timePerPixel > 0 else { return nil }
+        let bars = Double(view.waveformHeight + view.rulerHeight + view.marksBarHeight)
+        let x = container.gridLeft + timeMs * 10_000 / Double(view.timePerPixel) - view.scrollX
+        let fromTop = bars + gridY
+        let point = NSPoint(x: x, y: container.isFlipped ? fromTop : container.bounds.height - fromTop)
+        return container.convert(point, to: nil)
+        #else
+        return nil
         #endif
     }
 
