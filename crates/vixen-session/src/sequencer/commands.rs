@@ -949,9 +949,14 @@ impl SequencerState {
     /// F303. The stale timing provider stays, and is saved with the file, as upstream's does. Not undoable.
     pub fn remove_audio(&mut self) {
         let mut session = self.session.lock();
+        let undo = crate::studio_sequence::audio::before(&session, "Remove Audio"); // STUDIO: Remove Audio is one undo step (B3)
         session.document_mut().media.clear();
         session.set_audio_clip(None);
         session.set_modified();
+        // STUDIO-BEGIN sequence-audio-record: Remove Audio on the undo stack
+        let undo = crate::studio_sequence::audio::settled(undo, &session);
+        session.record_undo(undo);
+        // STUDIO-END sequence-audio-record
     }
 
     /// What `MediaService.ImportMedia` will copy over, when the profile already has a file by that name that isn't this one.
@@ -979,11 +984,18 @@ impl SequencerState {
         let clip = vixen_audio::AudioClip::load(&target).ok().map(Arc::new);
         let length = clip.as_ref().map_or(TimeSpan::ZERO, |c| c.duration());
         let mut session = self.session.lock();
+        let undo = crate::studio_sequence::audio::before(&session, crate::studio_sequence::audio::change_label(&session)); // STUDIO: one undo step (B3)
         session.document_mut().media.clear();
         session.set_audio_clip(None);
         if length == TimeSpan::ZERO {
             // F302's FIX: the old audio has gone, so it's marked modified and the controls follow.
             session.set_modified();
+            // STUDIO-BEGIN sequence-audio-record-failed: the old song is gone, so Undo brings it back
+            let undo = crate::studio_sequence::audio::settled(undo, &session);
+            session.record_undo(undo);
+            drop(session);
+            self.apply_timing_enabled_state();
+            // STUDIO-END sequence-audio-record-failed
             return AddAudioOutcome::Unprocessable;
         }
         let instance_id = Uuid::new_v4();
@@ -1000,6 +1012,10 @@ impl SequencerState {
         };
         self.pending_audio_length = Some(length);
         session.set_modified();
+        // STUDIO-BEGIN sequence-audio-record-added: the new song and the length it set, one undo step
+        let undo = crate::studio_sequence::audio::settled(undo, &session);
+        session.record_undo(undo);
+        // STUDIO-END sequence-audio-record-added
         session.render_all_dirty();
         drop(session);
         self.grid.sync_from_document();

@@ -1822,6 +1822,16 @@ impl TimelineController {
         update
     }
 
+    // STUDIO-BEGIN sequence-audio-waveform: whether the session's song differs from the waveform's (Undo, an agent, Change Audio), so the window calls audio_changed
+    pub fn studio_audio_stale(&self) -> bool {
+        let Some(s) = self.session.session.try_lock() else { return false };
+        let media = s.audio().map(|c| TimeSpan::from_secs(c.frames() as f64 / c.sample_rate() as f64));
+        drop(s);
+        let t = self.timeline.lock();
+        t.waveform.has_audio != media.is_some() || media.is_some_and(|m| m != t.waveform.media_duration)
+    }
+    // STUDIO-END sequence-audio-waveform
+
     pub fn waveform_mouse_move(&self, y: i32, left_down: bool) -> TimelineCursorKind {
         self.timeline.lock().waveform_mouse_move(y, left_down).into()
     }

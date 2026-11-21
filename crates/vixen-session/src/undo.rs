@@ -99,6 +99,15 @@ pub enum UndoAction {
     // STUDIO-BEGIN sequence-inspector-undo: the sequence inspector's mark collection visibility, as (collection, lines, bar) to go back to
     StudioMarkVisibility { label: String, flags: Vec<(Uuid, bool, bool)> },
     // STUDIO-END sequence-inspector-undo
+    // STUDIO-BEGIN sequence-audio-undo: the song to go back to: media entries, timing source, decoded clip, and the length when the change set it
+    StudioAudio {
+        label: String,
+        media: Vec<vixen_io::MediaEntry>,
+        timing: vixen_io::SelectedTimingProvider,
+        clip: Option<Arc<vixen_audio::AudioClip>>,
+        length: Option<TimeSpan>,
+    },
+    // STUDIO-END sequence-audio-undo
     // STUDIO-BEGIN marks-panel-undo: a Mark Collections panel edit, as the whole list and the mark-reading effects' parameters to go back to
     StudioMarkCollections { label: String, marks: Vec<MarkCollection>, params: Vec<(EffectId, Params)> },
     // STUDIO-END marks-panel-undo
@@ -144,6 +153,7 @@ impl UndoAction {
         match self {
             UndoAction::StudioSettings {label,..} => label.clone(), // STUDIO: document settings share the same undo menu
             UndoAction::StudioMarkVisibility { label, .. } => label.clone(), // STUDIO: the sequence inspector's mark visibility
+            UndoAction::StudioAudio { label, .. } => label.clone(), // STUDIO: Add, Change and Remove Audio on the undo stack
             UndoAction::StudioMarkCollections { label, .. } => label.clone(), // STUDIO: Mark Collections panel edits on the shared undo
             UndoAction::EffectsAdded { kind, ids } => added_removed_text(*kind, ids.len(), true),
             UndoAction::EffectsRemoved { kind, effects } => added_removed_text(*kind, effects.len(), false),

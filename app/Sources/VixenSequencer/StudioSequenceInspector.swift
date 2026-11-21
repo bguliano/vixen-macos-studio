@@ -121,7 +121,14 @@ struct StudioSequenceInspector: View {
                 Text("No audio. Add a song to see its waveform and play along with it.")
                     .foregroundStyle(.secondary)
             }
-            Button(overview.audio == nil ? "Add Audio…" : "Change Audio…") { model.associateAudio() }
+            HStack {
+                Button(overview.audio == nil ? "Add Audio…" : "Change Audio…") { model.studioChangeAudio() }
+                    .help("Chooses the sequence's song. Undo puts the previous one back.")
+                if overview.audio != nil {
+                    Button("Remove Audio") { model.studioRemoveAudio() }
+                        .help("Removes the song from the sequence (the file stays in Media). Undo brings it back.")
+                }
+            }
         }
     }
 
@@ -235,13 +242,21 @@ struct StudioSequenceInspector: View {
         run("layer_create", ["name": name])
     }
 
-    /// `sequencer.inspector`: what the empty inspector shows, and `sequencer.inspector length|visible|layer …` to edit
+    /// `sequencer.inspector`: what the empty inspector shows, and `sequencer.inspector length|visible|audio …` to edit
     /// through the same paths as its controls.
     private func registerHook() {
         guard UITestHarness.isActive else { return }
         UITestHarness.hooks["sequencer.inspector"] = { [model] args in
             guard let session = model.session else { return "FAIL no sequencer" }
             switch args.first {
+            case "audio" where args == ["audio", "remove"]:
+                model.studioRemoveAudio()
+            case "audio" where args == ["audio", "choose"]:
+                // Change Audio… itself: under test its open panel answers with VIXEN_TEST_FILE.
+                model.studioChangeAudio()
+            case "audio" where args.count == 2:
+                // Change Audio… with the file the open panel would have chosen, through the same path.
+                await model.studioSetAudio(URL(fileURLWithPath: args[1]))
             case "length" where args.count == 2:
                 _ = try? session.studioCommand(command: "sequence_length", argumentsJson: "{\"length\":\"\(args[1])\"}")
             case "visible" where args.count == 3:

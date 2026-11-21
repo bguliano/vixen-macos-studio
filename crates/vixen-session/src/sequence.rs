@@ -1102,6 +1102,21 @@ impl SequenceSession {
                 UndoAction::StudioMarkVisibility { label, flags: current }
             }
             // STUDIO-END sequence-inspector-inverse
+            // STUDIO-BEGIN sequence-audio-inverse: swap the song back whole, and the length only when its change set it
+            UndoAction::StudioAudio { label, media, timing, clip, length } => {
+                let inverse = UndoAction::StudioAudio {
+                    label,
+                    media: std::mem::replace(&mut self.document.media, media),
+                    timing: std::mem::replace(&mut self.document.selected_timing_provider, timing),
+                    clip: std::mem::replace(&mut self.shared.audio, clip),
+                    length: length.map(|_| self.document.length),
+                };
+                if let Some(length) = length {
+                    self.document.length = length;
+                }
+                inverse
+            }
+            // STUDIO-END sequence-audio-inverse
             // STUDIO-BEGIN marks-panel-inverse: swap the whole collection list back, then the mark-reading effects' parameters a delete normalised
             UndoAction::StudioMarkCollections { label, marks, params } => {
                 let current_params = self.studio_mark_reader_params();

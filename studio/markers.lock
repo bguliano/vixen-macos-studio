@@ -303,6 +303,34 @@
   "file": "crates/vixen-session/src/scheduler/run.rs",
   "hash": "2761ec86f185e10e"
  },
+ "block:sequence-audio-inverse": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "727dbeda00ce23fc"
+ },
+ "block:sequence-audio-record": {
+  "file": "crates/vixen-session/src/sequencer/commands.rs",
+  "hash": "91d78fab35bb6b43"
+ },
+ "block:sequence-audio-record-added": {
+  "file": "crates/vixen-session/src/sequencer/commands.rs",
+  "hash": "91d78fab35bb6b43"
+ },
+ "block:sequence-audio-record-failed": {
+  "file": "crates/vixen-session/src/sequencer/commands.rs",
+  "hash": "b5c1527b40aa4e7b"
+ },
+ "block:sequence-audio-speed": {
+  "file": "crates/vixen-session/src/sequencer/state.rs",
+  "hash": "77693694c6bb2367"
+ },
+ "block:sequence-audio-undo": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "6132988cdc16514c"
+ },
+ "block:sequence-audio-waveform": {
+  "file": "crates/vixen-ffi/src/timeline.rs",
+  "hash": "f6ada1718f01c34e"
+ },
  "block:sequence-inspector": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "6f9e513ccb52afdb"
@@ -711,9 +739,17 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "0b9bd053a71a652f"
  },
+ "line:app/Sources/VixenSequencer/SequencerCommands.swift:58e2086a581ada25": {
+  "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
+  "hash": "58e2086a581ada25"
+ },
  "line:app/Sources/VixenSequencer/SequencerCommands.swift:5e0e0c6c365c2685": {
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "5e0e0c6c365c2685"
+ },
+ "line:app/Sources/VixenSequencer/SequencerCommands.swift:e64d605e95d255e1": {
+  "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
+  "hash": "e64d605e95d255e1"
  },
  "line:app/Sources/VixenSequencer/SequencerCommands.swift:ee4610a9fd858fec": {
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
@@ -775,9 +811,17 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "6b9eda5eb466fb37"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:85ce3549076edf72": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "85ce3549076edf72"
+ },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:b2283a37126e49d5": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "b2283a37126e49d5"
+ },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:da594d0a70a9215e": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "da594d0a70a9215e"
  },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:f769a3213b44196f": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
@@ -1255,6 +1299,14 @@
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "c4f258362eb26588"
  },
+ "line:crates/vixen-session/src/sequencer/commands.rs:3b74128dbc3a3db7": {
+  "file": "crates/vixen-session/src/sequencer/commands.rs",
+  "hash": "3b74128dbc3a3db7"
+ },
+ "line:crates/vixen-session/src/sequencer/commands.rs:c4cb01370c720249": {
+  "file": "crates/vixen-session/src/sequencer/commands.rs",
+  "hash": "c4cb01370c720249"
+ },
  "line:crates/vixen-session/src/sequencer/state.rs:0a47ae48bfb5d66b": {
   "file": "crates/vixen-session/src/sequencer/state.rs",
   "hash": "0a47ae48bfb5d66b"
@@ -1326,6 +1378,10 @@
  "line:crates/vixen-session/src/undo.rs:bca77e0e22b11298": {
   "file": "crates/vixen-session/src/undo.rs",
   "hash": "bca77e0e22b11298"
+ },
+ "line:crates/vixen-session/src/undo.rs:df4c119e04cb6a87": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "df4c119e04cb6a87"
  },
  "line:crates/vixen-session/src/undo.rs:fc6becddd58ee393": {
   "file": "crates/vixen-session/src/undo.rs",

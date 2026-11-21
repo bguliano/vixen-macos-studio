@@ -715,6 +715,13 @@ impl SequencerState {
             self.last_render_report = report;
             changed = true;
         }
+        // STUDIO-BEGIN sequence-audio-speed: the speed controls follow the song after Undo or an agent's change
+        let timing = timing_source_exists(session.lock().document(), &self.core.paths.media_dir());
+        if timing != self.transport.speed_controls().gauge_enabled {
+            self.apply_timing_enabled_state();
+            changed = true;
+        }
+        // STUDIO-END sequence-audio-speed
         PollResult { changed, auto_save_due }
     }
 

@@ -466,6 +466,7 @@ final class SequencerModel: OpenEditor {
                     self.refresh()
                 }
                 self.refreshStudioChrome() // STUDIO: renders and agent edits finish between UI changes
+                self.studioFollowAudio() // STUDIO: the waveform follows an agent's song change (StudioSequenceAudio.swift)
                 if result.transportActive {
                     self.startFrameTaskIfNeeded()
                 }
@@ -514,6 +515,7 @@ final class SequencerModel: OpenEditor {
             }
         }
         #endif
+        studioFollowAudio() // STUDIO: the waveform follows Undo and Change Audio (StudioSequenceAudio.swift)
         let state = shell.uiState()
         ui = state
         positionText = state.positionText

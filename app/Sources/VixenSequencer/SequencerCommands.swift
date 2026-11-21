@@ -424,9 +424,9 @@ private struct ToolsMenu: View {
         let model = registry.ready
         let ui = model?.ui
         Menu("Audio") {
-            Button("Associate Audio...") { model?.associateAudio() }
+            Button("Associate Audio...") { model?.studioChangeAudio() } // STUDIO: one undo step, no warning first (B3)
                 .disabled(model == nil)
-            Button("Remove Audio") { model?.removeAudio() }
+            Button("Remove Audio") { model?.studioRemoveAudio() } // STUDIO: one undo step, no confirmation (B3)
                 .disabled(!(ui?.removeAudioEnabled ?? false))
             #if canImport(VixenMarks)
             Button("Beat/Bar Detection") { model?.sheet = .beatsAndBars }

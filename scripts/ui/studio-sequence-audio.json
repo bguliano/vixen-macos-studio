@@ -1,0 +1,187 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "snapshot",
+      "name": "1-original"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector",
+      "path": [
+        "audio",
+        "choose"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "snapshot",
+      "name": "2-changed"
+    },
+    {
+      "action": "menus",
+      "name": "menus-after-change"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Change Audio"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "snapshot",
+      "name": "3-undone"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Redo Change Audio"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Change Audio"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector",
+      "path": [
+        "audio",
+        "remove"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "snapshot",
+      "name": "4-removed"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Remove Audio"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 6
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.inspector"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.waveformState"
+    },
+    {
+      "action": "snapshot",
+      "name": "5-remove-undone"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

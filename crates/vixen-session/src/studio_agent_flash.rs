@@ -62,6 +62,7 @@ fn touched(action: &UndoAction, out: &mut Vec<EffectId>) {
         UndoAction::ParamsChanged { params, .. } => out.extend(params.iter().map(|(id, _)| *id)),
         UndoAction::StudioSettings { .. }
         | UndoAction::StudioMarkVisibility { .. }
+        | UndoAction::StudioAudio { .. }
         | UndoAction::StudioMarkCollections { .. }
         | UndoAction::EffectsRemoved { .. }
         | UndoAction::MarksChanged { .. }

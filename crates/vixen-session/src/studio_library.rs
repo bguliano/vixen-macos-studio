@@ -296,7 +296,7 @@ fn open_session(core: &AppCore, path: &Path) -> Option<Arc<Mutex<SequenceSession
 }
 
 /// `AudioData`, as the sequencer's Add Audio writes it, so the file names its song for Windows Vixen and the library.
-fn audio_data_model(instance_id: &Uuid, path: &Path) -> vixen_xml::XElement {
+pub(super) fn audio_data_model(instance_id: &Uuid, path: &Path) -> vixen_xml::XElement {
     const NS: &str = "http://schemas.datacontract.org/2004/07/VixenModules.Media.Audio";
     let mut model = vixen_xml::XElement::new("http://schemas.microsoft.com/2003/10/Serialization/Arrays", "anyType");
     model.xsi_type = Some((NS.to_string(), "AudioData".to_string()));
@@ -308,7 +308,7 @@ fn audio_data_model(instance_id: &Uuid, path: &Path) -> vixen_xml::XElement {
 
 /// The song for library_new_from_audio: an absolute path to an audio file anywhere, or a filename in the profile's
 /// Media folder. Returns the file to read and its name in Media.
-fn audio_source(core: &AppCore, a: &Value) -> Result<(PathBuf, String), String> {
+pub(super) fn audio_source(core: &AppCore, a: &Value) -> Result<(PathBuf, String), String> {
     let audio = a["audio"]
         .as_str()
         .filter(|s| !s.is_empty() && s.len() <= 1024)
@@ -336,7 +336,7 @@ fn audio_source(core: &AppCore, a: &Value) -> Result<(PathBuf, String), String> 
 /// Puts the song in the profile's Media folder, as the sequencer's Add Audio does (`MediaService.ImportMedia`), unless
 /// it's already there. A different file with the same name is never replaced. Returns the Media file and whether this
 /// copied it.
-fn import_audio(core: &AppCore, source: &Path, name: &str) -> Result<(PathBuf, bool), String> {
+pub(super) fn import_audio(core: &AppCore, source: &Path, name: &str) -> Result<(PathBuf, bool), String> {
     let existing = core.paths.media_dir().join(name);
     if existing.is_file() {
         if canonical(&existing) == canonical(source) {

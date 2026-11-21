@@ -148,8 +148,10 @@ command, edits are live with Undo, and each change is verified with harness runs
    song with its length, a missing-audio warning, Fit Length to Song and Change Audio…, every mark collection with its
    mark count and a switch that shows or hides its lines and bar, the layers with their effect counts (renamed in place,
    Add Layer), and the render progress. Length, mark visibility and layer edits are each one step on the window's Undo
-   (mark visibility through the new `StudioMarkVisibility` undo action); changing the song is still the Audio menu's,
-   without Undo, as in vanilla. MCP `sequence_overview` reads the same, `marks_visibility` toggles collections, and
+   (mark visibility through the new `StudioMarkVisibility` undo action). Change Audio… and Remove Audio (inspector, Audio
+   menu, toolbar) are one undo step each, without a warning first: Undo puts back the song, its timing source, its decoded
+   audio and the length it set, and the waveform and speed controls follow (`StudioAudio`, B3; MCP `sequence_audio`;
+   harness `scripts/ui/studio-sequence-audio.json`). MCP `sequence_overview` reads the same, `marks_visibility` toggles collections, and
    `sequence_length` also takes the field's text as `length`. Harness: `scripts/ui/studio-sequence-inspector.json`
    (hook `sequencer.inspector`).
 3. Marks draw as coloured ticks in the ruler and waveform, with full-height lines only for the selected collection.

@@ -28,6 +28,8 @@ pub mod window_chrome;
 pub mod inspector;
 #[path = "studio_marks_panel.rs"]
 pub mod marks_panel;
+#[path = "studio_sequence_audio.rs"]
+pub mod audio;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -591,6 +593,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             inspector::overview(&s, &core.paths.media_dir())
         }
         "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
+        "sequence_audio" => return audio::execute(core, &mut s, a, agent),
         "marks_collection_edit" | "marks_collection_delete" | "marks_import" => return marks_panel::execute(&mut s, name, a, agent),
         "sequence_row_height" => return crate::studio_row_height::execute(&mut s, a),
         "marks_create" => {
@@ -1210,6 +1213,7 @@ pub fn tools() -> Vec<Value> {
     let mut entries=entries;
     entries.extend(library::tools());
     entries.extend(inspector::tools());
+    entries.extend(audio::tools());
     entries.extend(marks_panel::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());

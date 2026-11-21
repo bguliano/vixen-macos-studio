@@ -275,8 +275,8 @@ private struct StudioAudioMenu: View {
     var body: some View {
         let ui = model.ui
         Menu {
-            Button(ui?.removeAudioEnabled == true ? "Change Audio…" : "Add Audio…") { model.associateAudio() }
-            Button("Remove Audio") { model.removeAudio() }
+            Button(ui?.removeAudioEnabled == true ? "Change Audio…" : "Add Audio…") { model.studioChangeAudio() }
+            Button("Remove Audio") { model.studioRemoveAudio() }
                 .disabled(!(ui?.removeAudioEnabled ?? false))
             #if canImport(VixenMarks)
             Button("Detect Beats and Bars…") { model.sheet = .beatsAndBars }
