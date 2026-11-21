@@ -835,6 +835,15 @@ impl GradientEditorSession {
     pub fn result(&self) -> GradientValue {
         self.inner.lock().gradient().into()
     }
+
+    // STUDIO-BEGIN gradient-editor-restore-ffi: the live gradient editor's Undo and Redo (B27)
+    /// Undo and Redo in Studio's live gradient editor: the dialog's gradient becomes `gradient` again.
+    pub fn restore(&self, gradient: GradientValue) -> GradientEditorState {
+        let mut s = self.inner.lock();
+        s.restore(&(&gradient).into());
+        self.state_of(&s)
+    }
+    // STUDIO-END gradient-editor-restore-ffi
 }
 
 // The libraries: what the dialogs and the sequencer's library panels share.

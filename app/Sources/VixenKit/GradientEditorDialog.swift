@@ -2,7 +2,10 @@ import AppKit
 import SwiftUI
 import VixenBridge
 
-/// The Color Gradient Editor dialog, F87 to F93, as a sheet. It edits its own copy, in Rust; `onOK` gets the result and Cancel does nothing.
+// STUDIO-BEGIN gradient-editor-live: the gradient editor applies each change as it's made and closes with Done (B27)
+/// The Color Gradient Editor dialog, F87 to F93, as a sheet. It works on its own copy, in Rust, and hands each finished
+/// change to `onChange` at once; each is a step on the sheet's Edit ▸ Undo, and Done (or Esc) closes, telling `onDone`
+/// whether anything changed (`StudioGradientEditorLive.swift`).
 @MainActor
 public enum GradientEditorDialog {
     public static func present(
@@ -13,31 +16,35 @@ public enum GradientEditorDialog {
         validColors: [UInt32] = [],
         title: String? = nil,
         libraryName: String? = nil,
-        onOK: @escaping (GradientValue) -> Void
+        onDone: ((Bool) -> Void)? = nil,
+        onChange: @escaping (GradientValue) -> Void
     ) {
         KitSheet.present(on: window) { dismiss in
             GradientEditorContent(
                 session: GradientEditorSession(gradient: gradient, libraryName: libraryName, discrete: discrete, validColors: validColors),
                 core: core,
                 rowTitle: title,
-                onFinish: { result in
+                live: StudioGradientLive(gradient: gradient, onChange: onChange) { changed in
                     dismiss()
-                    if let result {
-                        onOK(result)
-                    }
+                    onDone?(changed)
                 }
             )
         }
     }
 
-    /// `EditLibraryItemAsync`: with no discrete limit, whatever the row's targets are.
+    /// `EditLibraryItemAsync`: with no discrete limit, whatever the row's targets are. Each change replaces the entry;
+    /// `onDone` runs after the editor closes, when the library has changed.
     public static func editLibraryEntry(on window: NSWindow, core: VixenCore, name: String, onDone: (() -> Void)? = nil) {
         guard let entry = core.libraryGradients().first(where: { $0.name == name }) else { return }
-        present(on: window, core: core, gradient: entry.gradient, libraryName: name) { edited in
+        present(on: window, core: core, gradient: entry.gradient, libraryName: name, onDone: { changed in
+            if changed {
+                onDone?()
+            }
+        }) { edited in
             _ = core.libraryAddGradient(name: name, gradient: edited)
-            onDone?()
         }
     }
+    // STUDIO-END gradient-editor-live
 
     /// F93's name loop.
     public static func askForName(on window: NSWindow, core: VixenCore, typed: String = "", completion: @escaping (String?) -> Void) {
@@ -76,7 +83,16 @@ public enum GradientEditorDialog {
 @Observable
 final class GradientEditorViewModel {
     let session: GradientEditorSession
-    var state: GradientEditorState
+    var state: GradientEditorState {
+        didSet { live?.sessionChanged() } // STUDIO: live, with Undo (B27)
+    }
+    // STUDIO-BEGIN gradient-editor-live-model: each finished change goes to the owner (B27)
+    /// True while the bar has the mouse down, so a drag reaches the owner once, on release.
+    @ObservationIgnored var pointerDown = false
+    @ObservationIgnored weak var live: StudioGradientLive?
+    /// The bar's size, for the harness's clicks.
+    @ObservationIgnored var barSize = CGSize(width: 421, height: 90)
+    // STUDIO-END gradient-editor-live-model
     /// The colour panel is showing this over the swatch, before it commits.
     var liveSwatch: UInt32?
 
@@ -96,16 +112,17 @@ final class GradientEditorViewModel {
 private struct GradientEditorContent: View {
     let core: VixenCore
     let rowTitle: String?
-    let onFinish: (GradientValue?) -> Void
+    let live: StudioGradientLive // STUDIO: live, with Done (B27)
+    @Environment(\.undoManager) private var undoManager // STUDIO: the sheet's own Undo (B27)
     @State private var model: GradientEditorViewModel
     @State private var hostReference = WeakWindow()
     private var hostWindow: NSWindow? { hostReference.window }
     @State private var usesRowTitle: Bool
 
-    init(session: GradientEditorSession, core: VixenCore, rowTitle: String?, onFinish: @escaping (GradientValue?) -> Void) {
+    init(session: GradientEditorSession, core: VixenCore, rowTitle: String?, live: StudioGradientLive) { // STUDIO: live, with Done (B27)
         self.core = core
         self.rowTitle = rowTitle
-        self.onFinish = onFinish
+        self.live = live // STUDIO: live, with Done (B27)
         _model = State(initialValue: GradientEditorViewModel(session: session))
         _usesRowTitle = State(initialValue: rowTitle != nil)
     }
@@ -165,23 +182,32 @@ private struct GradientEditorContent: View {
                 .padding(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // STUDIO-BEGIN gradient-editor-live-done: Done instead of OK/Cancel (B27)
             HStack {
+                Text("Changes apply as you make them.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
-                Button("Cancel") {
-                    model.finishColorEdit()
-                    onFinish(nil)
-                }
-                .keyboardShortcut(.cancelAction)
-                Button("OK") {
-                    model.finishColorEdit()
-                    onFinish(model.session.result())
-                }
-                .keyboardShortcut(.defaultAction)
+                Button("Done") { live.finish() }
+                    .keyboardShortcut(.defaultAction)
+                    // Esc closes too, keeping the changes, as there's nothing to cancel.
+                    .background {
+                        Button("") { live.finish() }.keyboardShortcut(.cancelAction).opacity(0).accessibilityHidden(true)
+                    }
             }
+            // STUDIO-END gradient-editor-live-done
         }
         .padding(16)
         .frame(minWidth: 560)
         .background(WindowFinder(into: hostReference))
+        // STUDIO-BEGIN gradient-editor-live-hooks: the visit's undo steps and harness (B27)
+        .onAppear {
+            StudioGradientEditorHarness.install()
+            live.model = model
+            live.undo = undoManager
+            model.live = live
+            StudioGradientLive.current = live
+        }
+        .onChange(of: undoManager) { live.undo = undoManager }
+        // STUDIO-END gradient-editor-live-hooks
     }
 
     /// F90.
@@ -288,6 +314,7 @@ final class GradientBarNSView: NSView {
     /// The faders' positions depend on the width, so a new width asks Rust once, outside the layout pass.
     override func setFrameSize(_ newSize: NSSize) {
         super.setFrameSize(newSize)
+        model?.barSize = newSize // STUDIO: the harness clicks where the bar is (B27)
         guard drawnWidth != newSize.width, newSize.width > 0 else { return }
         drawnWidth = newSize.width
         DispatchQueue.main.async { [weak self] in
@@ -404,6 +431,7 @@ final class GradientBarNSView: NSView {
         model.finishColorEdit()
         window?.makeFirstResponder(self)
         let p = local(event)
+        model.pointerDown = event.clickCount != 2 // STUDIO: the drag reaches the owner on release (B27)
         if event.clickCount == 2 {
             if model.session.faderUnder(x: p.x, y: p.y, width: bounds.width, height: bounds.height) {
                 onDoubleClickFader?()
@@ -424,6 +452,7 @@ final class GradientBarNSView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard let model else { return }
         let p = local(event)
+        model.pointerDown = false // STUDIO: the drag reaches the owner on release (B27)
         model.state = model.session.release(x: p.x, y: p.y, width: bounds.width, height: bounds.height)
         needsDisplay = true
     }

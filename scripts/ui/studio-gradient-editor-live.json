@@ -1,0 +1,315 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "mouse",
+      "x": 900,
+      "y": 340
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Select All Elements"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.dropEffect",
+      "path": [
+        "Pulse",
+        "0"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "open",
+        "*"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "01-gradient-editor"
+    },
+    {
+      "action": "dump",
+      "name": "01-gradient-editor"
+    },
+    {
+      "action": "click",
+      "label": "OK"
+    },
+    {
+      "action": "click",
+      "label": "Cancel"
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "select",
+        "0"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "color",
+        "FFFF0000"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "click",
+      "label": "Location:"
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "location",
+        "40"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "snapshot",
+      "name": "02-gradient-editor-changed"
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "responder-undo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "responder-redo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "click",
+      "label": "Done"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "open",
+        "*"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "03-reopened"
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "escape"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.gradientEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.keyEvent",
+      "path": [
+        "z",
+        "cmd"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectGradient",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

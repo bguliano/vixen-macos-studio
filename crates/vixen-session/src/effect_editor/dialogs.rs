@@ -857,6 +857,19 @@ impl GradientEditSession {
         self.selection.clear();
         self.focus_selected = false;
     }
+
+    // STUDIO-BEGIN gradient-editor-restore: the live gradient editor's Undo puts an earlier gradient back (B27)
+    /// Studio's Undo and Redo in the live gradient editor: the dialog's gradient becomes `gradient` again, its link
+    /// included, and any drag in progress ends. The selection stays when the stops are still the same ones.
+    pub fn restore(&mut self, gradient: &ColorGradient) {
+        if gradient.colors().len() != self.gradient.colors().len() {
+            self.selection.clear();
+            self.focus_selected = false;
+        }
+        self.gradient = gradient.clone();
+        self.pressed = false;
+    }
+    // STUDIO-END gradient-editor-restore
 }
 
 fn point_in_polygon(x: f64, y: f64, polygon: &[(f64, f64)]) -> bool {
@@ -948,6 +961,34 @@ mod tests {
         let s = CurveEditSession::open(&entry, None);
         assert_eq!(s.mode().title, "Curve Editor: Library Curve");
     }
+
+    // STUDIO-BEGIN gradient-editor-restore-test: Undo in the live gradient editor (B27)
+    #[test]
+    fn gradient_restore_puts_an_earlier_gradient_back_and_ends_a_drag() {
+        let mut s = gradient_session(false);
+        let start = s.gradient().clone();
+        s.press(210.0, GH - 5.0, GW, GH);
+        s.drag(310.0, GH - 5.0, GW, GH);
+        let moved = s.gradient().clone();
+        s.drag(360.0, GH - 5.0, GW, GH);
+        s.restore(&moved);
+        assert_eq!(s.gradient().colors()[2].position, 0.75);
+        assert!(s.has_selection(), "the same stops stay selected");
+        s.drag(110.0, GH - 5.0, GW, GH);
+        assert_eq!(s.gradient().colors()[2].position, 0.75, "the drag ended");
+
+        s.restore(&start);
+        assert_eq!(s.gradient().colors().len(), 2);
+        assert!(!s.has_selection(), "different stops drop the selection");
+
+        let mut linked = start.clone();
+        linked.library_reference_name = "L".to_string();
+        s.restore(&linked);
+        assert!(s.mode().read_only);
+        s.restore(&start);
+        assert!(!s.mode().read_only && s.gradient().library_reference_name.is_empty());
+    }
+    // STUDIO-END gradient-editor-restore-test
 
     // STUDIO-BEGIN curve-editor-restore-test: Undo in the live curve editor (B24)
     #[test]

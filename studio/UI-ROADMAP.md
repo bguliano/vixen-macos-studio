@@ -273,6 +273,15 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   editor's commands. Harness: `scripts/check_studio_curve_editor_live.py` with `scripts/ui/studio-curve-editor-live.json`
   (`studio.curveEditor` and `studio.effectCurve` hooks).
 
+- **Gradient editor (B27).** *Done:* the Color Gradient Editor (VixenKit), which an effect's gradient rows and the gradient
+  library open, no longer commits through OK/Cancel. Each finished change (a stop added, dragged or deleted, a colour
+  picked, a location typed, Load, Unlink, an edited library gradient) goes to the owner at once and is one step on the
+  sheet's Edit ▸ Undo ("Edit Gradient"); a drag is one change, on release. Done (or Esc) closes and keeps everything. An
+  effect's whole visit is one step on the sequence's Undo (its commits share a gesture); a library entry is written as it
+  changes. No MCP tool: the editor is a working copy, and agents set gradients through the effect editor's commands.
+  Harness: `scripts/check_studio_gradient_editor_live.py` with `scripts/ui/studio-gradient-editor-live.json`
+  (`studio.gradientEditor` and `studio.effectGradient` hooks).
+
 - **Tools (B8).** *Done:* the Custom Prop Editor has no OK/Cancel commit flows. Preferences applies and saves each change
   at once, each one step on the sheet's Edit ▸ Undo ("Change Preferences"; a color drag is one step, Defaults is one),
   and closes with Done; the light size is a stepper, so Undo isn't taken by a text field (`StudioPropPreferences.swift`).

@@ -199,6 +199,34 @@
   "file": "app/Sources/VixenDialogs/FixtureEditor.swift",
   "hash": "c685b7ac2a3bece1"
  },
+ "block:gradient-editor-live": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "2d5456200b8e995d"
+ },
+ "block:gradient-editor-live-done": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "a5718a4fdf95a3cf"
+ },
+ "block:gradient-editor-live-hooks": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "fd6a9b1e00b7f51f"
+ },
+ "block:gradient-editor-live-model": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "88d61d7e9633e074"
+ },
+ "block:gradient-editor-restore": {
+  "file": "crates/vixen-session/src/effect_editor/dialogs.rs",
+  "hash": "2fe65af5406c376a"
+ },
+ "block:gradient-editor-restore-ffi": {
+  "file": "crates/vixen-ffi/src/kit.rs",
+  "hash": "839907658c79ab54"
+ },
+ "block:gradient-editor-restore-test": {
+  "file": "crates/vixen-session/src/effect_editor/dialogs.rs",
+  "hash": "cae76bb2c9bd08ee"
+ },
  "block:graph-access": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "15914399d3acc857"
@@ -955,9 +983,17 @@
   "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
   "hash": "4de26206bbd87ef4"
  },
+ "line:app/Sources/VixenEffectEditor/RowEditors.swift:517703978c51ac91": {
+  "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
+  "hash": "517703978c51ac91"
+ },
  "line:app/Sources/VixenEffectEditor/RowEditors.swift:5636bc37d87657fb": {
   "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
   "hash": "5636bc37d87657fb"
+ },
+ "line:app/Sources/VixenEffectEditor/RowEditors.swift:98d68cd415cc511f": {
+  "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
+  "hash": "98d68cd415cc511f"
  },
  "line:app/Sources/VixenKit/CurveEditorDialog.swift:0020fafdc78b1bba": {
   "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
@@ -990,6 +1026,38 @@
  "line:app/Sources/VixenKit/CurveEditorDialog.swift:ab3b5d5922f1dd76": {
   "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
   "hash": "ab3b5d5922f1dd76"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:2221cc4aad18e520": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "2221cc4aad18e520"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:617ae4b841aa79b1": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "617ae4b841aa79b1"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:be48120982651704": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "be48120982651704"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:d0a502ce77e13e06": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "d0a502ce77e13e06"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:d5762877812c997f": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "d5762877812c997f"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:e7b9a4c4fdd61ac1": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "e7b9a4c4fdd61ac1"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:ec8072c68518c91e": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "ec8072c68518c91e"
+ },
+ "line:app/Sources/VixenKit/GradientEditorDialog.swift:ffadb90b36f73bda": {
+  "file": "app/Sources/VixenKit/GradientEditorDialog.swift",
+  "hash": "ffadb90b36f73bda"
  },
  "line:app/Sources/VixenKit/KitSupport.swift:c59e89c754a19a8d": {
   "file": "app/Sources/VixenKit/KitSupport.swift",

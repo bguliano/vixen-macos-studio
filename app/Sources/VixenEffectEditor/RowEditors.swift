@@ -379,13 +379,10 @@ struct GradientRowStrip: View {
             performDrop: { model.drop(rowKey, $0) },
             onPressed: onPressed
         )
+        .onAppear { model.registerStudioGradientHook() } // STUDIO: the live gradient editor's harness (B27)
     }
 
     private func openEditor() {
-        guard let window = model.hostWindow else { return }
-        PendingCommits.flushAll()
-        GradientEditorDialog.present(on: window, core: model.core, gradient: value, discrete: discrete, validColors: valid, title: title) { edited in
-            model.commit(rowKey, .gradient(value: edited))
-        }
+        model.openGradientEditor(rowKey, gradient: value, discrete: discrete, validColors: valid, title: title) // STUDIO: each change commits at once; the visit is one undo step (B27)
     }
 }
