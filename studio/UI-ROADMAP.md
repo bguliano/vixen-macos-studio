@@ -157,6 +157,15 @@ command, edits are live with Undo, and each change is verified with harness runs
    it; mark selection, visibility (`marks_visibility`) and snapping are unchanged. Harness:
    `scripts/ui/studio-quiet-marks.json`.
 4. Compact / regular row height (View menu), remembered per sequence.
+   *Done:* View ▸ Row Height picks Compact (20 pt rows) or Regular (32 pt), so a compact grid shows 1.6 times as many
+   rows (34 against 21 in a 1400×900 window on Christmas Can-Can). Every row scales by the same factor, so hand-sized
+   rows keep their proportions (`studio_row_height.rs`, `StudioRowHeight.swift`). The choice is the sequence's own
+   `DefaultRowHeight` and row settings, which the file already carries, so it is remembered per sequence (saved
+   silently at close like zoom) and vanilla and Windows open it as saved. The menu runs `sequence_row_height` through
+   the window's document, as an agent does, and an open window follows the document at once. Like zoom it is a view
+   setting, not on Undo: choosing the other height reverses it. Harness: `scripts/ui/studio-row-height.json`
+   (remembered across close and reopen) and `scripts/ui/studio-row-height-interact.json` (drag, Undo, row selection
+   and switching back in compact rows; hook `sequencer.rows`).
 5. Replace the vanilla dock tab with the native window tab bar.
 6. Effects library: favourites and recently used at the top.
 7. Agent edits flash briefly on the timeline, matching the toolbar's agent activity.

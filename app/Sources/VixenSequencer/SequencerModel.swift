@@ -25,6 +25,7 @@ final class SequencerModel: OpenEditor {
     /// Everything menus, strips and the status bar read. `nil` until the sequence has loaded.
     private(set) var ui: ShellUiState?
     var studioChrome: StudioWindowChrome? // STUDIO: window-chrome title, song, unsaved dot and render ring (StudioWindowChromeSync.swift)
+    var studioRowHeight: String? // STUDIO: View ▸ Row Height's checkmark, "compact" or "regular" (StudioRowHeight.swift)
     private(set) var toolbars: ShellToolbars?
     private(set) var panels: ShellPanels?
     /// Updated at display rate only while playing, on its own, so only the label redraws.

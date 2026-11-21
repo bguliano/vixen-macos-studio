@@ -347,6 +347,7 @@ pub struct Timeline {
     /// Mark selection changed since the last time someone asked.
     pub(crate) marks_selection_notify: bool,
     pub(crate) studio_lit_collections: Vec<Uuid>, // STUDIO: collections with selected marks, whose lines cross the grid (R35)
+    pub(crate) studio_seen_row_height: i32, // STUDIO: the document's DefaultRowHeight at the last sync, to follow sequence_row_height (R36)
 
     pub(crate) g: GridInput,
     pub(crate) cursor_kind: CursorKind,
@@ -405,6 +406,7 @@ impl Timeline {
             pinch_rows: 1.0,
             marks_selection_notify: false,
             studio_lit_collections: Vec::new(), // STUDIO: R35
+            studio_seen_row_height: 0, // STUDIO: R36
             g: GridInput::default(),
             cursor_kind: CursorKind::Arrow,
             dirty: Dirty { grid_all: true, row_header: true, ruler: true, marks_bar: true, waveform: true, overlay: true, view: true, ..Dirty::default() },

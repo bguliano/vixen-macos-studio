@@ -33,6 +33,7 @@ impl Timeline {
         let doc = session.document();
         self.tags = tags;
         self.rows.load_rows(session.tree(), &doc.row_settings, doc.default_row_height);
+        self.studio_seen_row_height = doc.default_row_height; // STUDIO: R36, follow later changes to it
         self.info.total = session.length();
         if doc.time_per_pixel > TimeSpan::ZERO {
             self.info.time_per_pixel = doc.time_per_pixel;
@@ -183,6 +184,7 @@ impl Timeline {
         self.flush_rows();
         self.refresh_render_state(session);
         self.sync_marks(session);
+        self.studio_follow_row_height(session); // STUDIO: R36, sequence_row_height from the menu or an agent
         if self.info.total != session.length() {
             self.set_total(session.length());
         }

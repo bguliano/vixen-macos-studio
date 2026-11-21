@@ -10,6 +10,7 @@ pub mod studio_patch; // STUDIO: patching by intent (reverse, swap, move to outp
 pub mod studio_commission; // STUDIO: commissioning tests (moving pixel, color bars, all on) per element, group or controller
 pub mod studio_palette; // STUDIO: the ⌘K command palette's search, disabled reasons and MCP tool
 pub mod studio_mark_ticks; // STUDIO: marks as ruler and waveform ticks, lines across the grid for the active collection
+pub mod studio_row_height; // STUDIO: View ▸ Row Height, compact or regular, remembered per sequence (R36)
 pub mod archive;
 pub mod boot;
 pub mod compare;

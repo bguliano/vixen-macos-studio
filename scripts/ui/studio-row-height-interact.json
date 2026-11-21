@@ -1,0 +1,142 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "mouse",
+      "x": 206,
+      "y": 544
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.rows"
+    },
+    {
+      "action": "snapshot",
+      "name": "compact-expanded"
+    },
+    {
+      "action": "mouse",
+      "x": 817,
+      "y": 244,
+      "toX": 887,
+      "toY": 244
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "compact-dragged"
+    },
+    {
+      "action": "menus",
+      "name": "menus-after-drag"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Undo Moved 1 effect"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "snapshot",
+      "name": "compact-undone"
+    },
+    {
+      "action": "mouse",
+      "x": 268,
+      "y": 285
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "snapshot",
+      "name": "compact-row-selected"
+    },
+    {
+      "action": "menu",
+      "path": [
+        "View",
+        "Row Height",
+        "Regular"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.rows"
+    },
+    {
+      "action": "snapshot",
+      "name": "regular-expanded"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.rows",
+      "path": [
+        "compact"
+      ]
+    },
+    {
+      "action": "menus",
+      "name": "menus-end"
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

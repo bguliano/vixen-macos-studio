@@ -32,6 +32,16 @@ const FORM: &str = "TimedSequenceEditorForm";
 // Records
 // ----------------------------------------------------------------------------------------------------------------------
 
+// STUDIO-BEGIN row-height-record: what View ▸ Row Height shows (R36)
+#[derive(uniffi::Record, Clone)]
+pub struct TimelineStudioRowHeight {
+    /// "compact" or "regular".
+    pub mode: String,
+    pub height_pt: i32,
+    pub rows_in_view: u32,
+}
+// STUDIO-END row-height-record
+
 #[derive(uniffi::Record, Copy, Clone)]
 pub struct TimelineMods {
     pub shift: bool,
@@ -1060,6 +1070,14 @@ impl TimelineController {
         t.studio_mark_ticks(x, width, TimeSpan(time_per_pixel)).iter().map(|l| TimelineLine { x: l.x, color: argb(l.color), width: l.width, dash: l.dash }).collect()
     }
     // STUDIO-END quiet-mark-ticks
+
+    // STUDIO-BEGIN row-height-mode: View ▸ Row Height, compact or regular (UI roadmap R36)
+    /// The window's row height, which View ▸ Row Height checks, and how many rows the grid shows at it.
+    pub fn studio_row_height(&self) -> TimelineStudioRowHeight {
+        let t = self.timeline.lock();
+        TimelineStudioRowHeight { mode: t.studio_row_height().name().to_string(), height_pt: t.rows.row_height, rows_in_view: t.studio_rows_in_view() as u32 }
+    }
+    // STUDIO-END row-height-mode
 
     /// F141 for a span of the canvas.
     pub fn waveform_frame(&self, first_column: i32, columns: i32, time_per_pixel: i64) -> TimelineWaveformFrame {

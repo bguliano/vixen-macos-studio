@@ -576,6 +576,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             inspector::overview(&s, &core.paths.media_dir())
         }
         "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
+        "sequence_row_height" => return crate::studio_row_height::execute(&mut s, a),
         "marks_create" => {
             let times = a["timesMs"]
                 .as_array()
@@ -1189,6 +1190,7 @@ pub fn tools() -> Vec<Value> {
     let mut entries=entries;
     entries.extend(library::tools());
     entries.extend(inspector::tools());
+    entries.extend(crate::studio_row_height::tools());
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 

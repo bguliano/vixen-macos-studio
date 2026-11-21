@@ -375,6 +375,13 @@ private struct ViewMenuItems: View {
             .disabled(model == nil)
         Button("Reset Row Height to Default") { model?.run(.resetRowHeight) }
             .disabled(model == nil)
+        // STUDIO-BEGIN row-height-menu: View ▸ Row Height, compact or regular, remembered per sequence (R36)
+        Picker("Row Height", selection: Binding(get: { model?.studioRowHeight ?? "regular" }, set: { model?.setStudioRowHeight($0) })) {
+            Text("Compact").tag("compact")
+            Text("Regular").tag("regular")
+        }
+        .disabled(model?.studioRowHeight == nil)
+        // STUDIO-END row-height-menu
         Divider()
         toggle("Highlight Rows With Effects", ui?.prefs.highlightRows) { model?.set(.highlightRows, $0) }
         toggle("Show Effect Info", ui?.prefs.showEffectInfo) { model?.set(.showEffectInfo, $0) }

@@ -7,6 +7,7 @@ import VixenKit
 /// because renders and agent edits finish between UI changes.
 extension SequencerModel {
     func refreshStudioChrome() {
+        refreshStudioRowHeight()
         guard let session else { return }
         let chrome = session.studioWindowChrome()
         guard chrome != studioChrome else { return }
