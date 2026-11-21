@@ -228,7 +228,17 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
 
 ## Phase 5: polish and guards
 
-- Replace fixed widths with adaptive layout; check every window at its minimum size and in light mode.
+- **Adaptive layout (R42).** *Done:* every window is checked at its minimum size in light and dark by
+  `scripts/ui/studio-adaptive-layout.json` (`scripts/check_studio_adaptive_layout.py`) with the `studio.layout` harness hook,
+  which also flags controls past a window's edge, overlapping siblings and truncated labels. Fixed: the sequencer's minimum
+  was 640 points with side panes 200 and 340 wide, so the timeline went under the inspector; its panes now have minimums
+  (180, 320, 260) that set the window's, a window resize takes from the timeline and squeezes a side pane only down to its
+  minimum, and only a dragged divider is remembered (a resize used to save the squeezed widths for good)
+  (`StudioDockLayout.swift`). The Controllers table's columns fit the show window's minimum and grow when it's wider; the
+  Display pane's patch counts wrap instead of truncating; About opens at the original's 900 × 800 but shrinks to 640 × 480.
+  The remaining fixed `.frame(width:)` sizes (about 300, mostly icons, swatches, sheets and form label columns) were left
+  where the windows holding them pass the audit; sheets and the preview designer aren't in the audit yet. *Remaining:* the timeline's row-name column (inside the timeline) still shrinks
+  in proportion with the window and saves that width, shared with vanilla (backlog).
 - Accessibility labels and full keyboard navigation on custom controls (timeline, patch graph).
 - Regression guards in the test suite: sequence open time, memory per agent edit (the e8a531dbc class of bug), preview
   frame pacing.

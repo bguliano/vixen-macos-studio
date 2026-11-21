@@ -75,6 +75,22 @@
   "file": "crates/vixen-session/src/setup/commit.rs",
   "hash": "73786ef58dc7140c"
  },
+ "block:dock-minimums": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "d657855d1fb7163b"
+ },
+ "block:dock-save-drag": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "27d996412ada4244"
+ },
+ "block:dock-saved-minimums": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "01fb92d62f974b17"
+ },
+ "block:dock-window-resize": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "aa9d9811a6b4ac44"
+ },
  "block:exclusive-save-temp": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
@@ -166,6 +182,10 @@
  "block:patch-by-intent": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "3ce730d05f99469f"
+ },
+ "block:patch-count-wrap": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "77fc67f03a27d21a"
  },
  "block:patching-header": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
@@ -475,6 +495,10 @@
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "957aa3a369122b22"
  },
+ "line:app/Sources/VixenAdmin/SmallWindows.swift:8f1f7c3c23bd229a": {
+  "file": "app/Sources/VixenAdmin/SmallWindows.swift",
+  "hash": "8f1f7c3c23bd229a"
+ },
  "line:app/Sources/VixenDialogs/ControllerMonitors.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenDialogs/ControllerMonitors.swift",
   "hash": "288860d93ff8cd0d"
@@ -647,6 +671,14 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "ee4610a9fd858fec"
  },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:197352c5598170eb": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "197352c5598170eb"
+ },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:30f1412d873c5029": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "30f1412d873c5029"
+ },
  "line:app/Sources/VixenSequencer/SequencerContent.swift:4737c7648a83702f": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "4737c7648a83702f"
@@ -654,6 +686,10 @@
  "line:app/Sources/VixenSequencer/SequencerContent.swift:b544ae993fa32a89": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "b544ae993fa32a89"
+ },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:f9ca6428f5a1f10c": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "f9ca6428f5a1f10c"
  },
  "line:app/Sources/VixenSequencer/SequencerDrops.swift:ebf4ae124e0f1c57": {
   "file": "app/Sources/VixenSequencer/SequencerDrops.swift",
@@ -694,6 +730,10 @@
  "line:app/Sources/VixenSequencer/SequencerModel.swift:f769a3213b44196f": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "f769a3213b44196f"
+ },
+ "line:app/Sources/VixenSequencer/SequencerScene.swift:03768e20d6f49931": {
+  "file": "app/Sources/VixenSequencer/SequencerScene.swift",
+  "hash": "03768e20d6f49931"
  },
  "line:app/Sources/VixenSequencer/SequencerScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",
@@ -806,6 +846,10 @@
  "line:app/Sources/VixenSetup/Window/SetupPanels.swift:faf7af0daeaf19b6": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
   "hash": "faf7af0daeaf19b6"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupPanels.swift:fe3a8e8716a3ef93": {
+  "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
+  "hash": "fe3a8e8716a3ef93"
  },
  "line:app/Sources/VixenSetup/Window/SetupRootView.swift:0acd5178f9087bb3": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",

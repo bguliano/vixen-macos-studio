@@ -1,0 +1,1550 @@
+{
+ "steps": [
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "sequences"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-sequences-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-sequences-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "display"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-display-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-display-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-controllers-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-controllers-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1500",
+    "800",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-controllers-wide"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "previews"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-previews-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-previews-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "schedule"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-schedule-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "show-schedule-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "about"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "About Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "About Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "about-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "About Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "About Vixen Studio"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "About Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "about-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "About Vixen Studio"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "About Vixen Studio"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "installed-modules"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Installed Modules"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Installed Modules"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "installed-modules-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Installed Modules"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Installed Modules"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Installed Modules"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "installed-modules-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Installed Modules"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Installed Modules"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "release-notes"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Release Notes"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Release Notes"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "release-notes-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Release Notes"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Release Notes"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Release Notes"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "release-notes-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Release Notes"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Release Notes"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "instrumentation"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Instrumentation"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Instrumentation"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "instrumentation-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Instrumentation"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Instrumentation"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Instrumentation"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "instrumentation-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Instrumentation"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Instrumentation"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "display-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Display Setup"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Display Setup"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "display-setup-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Display Setup"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Display Setup"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Display Setup"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "display-setup-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Display Setup"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Display Setup"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "sequence-package-export"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Export"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Sequence Package Export"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequence-package-export-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Sequence Package Export"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Export"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Sequence Package Export"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequence-package-export-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Sequence Package Export"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Export"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "sequence-package-import"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Import"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Sequence Package Import"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequence-package-import-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Sequence Package Import"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Import"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Sequence Package Import"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequence-package-import-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Sequence Package Import"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Sequence Package Import"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "window",
+   "id": "export-wizard"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Export Wizard"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Export Wizard"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "export-wizard-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Export Wizard"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Export Wizard"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Export Wizard"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "export-wizard-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Export Wizard"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Export Wizard"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "studioSection",
+   "name": "sequences"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioDropFiles",
+   "text": "Sequence/Christmas Can-Can.tim"
+  },
+  {
+   "action": "wait",
+   "seconds": 6
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequencer-dark"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequencer-light"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1300",
+    "800",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "snapshot",
+   "name": "sequencer-regrown"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "mouse",
+   "x": 200.5,
+   "y": 300,
+   "toX": 260,
+   "toY": 300
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1300",
+    "800",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Christmas Can-Can"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "sequencer-dragged"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Vixen Studio",
+    "Settings\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@settings"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "settings-dark",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@settings"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "settings-light",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "restore"
+   ]
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

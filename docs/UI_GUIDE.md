@@ -146,6 +146,14 @@ Recording permission survives rebuilds):
 Set the appearance to test with `defaults write io.github.bguliano.vixen-macos-studio studio.appearance light|dark|system`
 before launching.
 
+**Layout at minimum size:** the `studio.layout` hook (`StudioLayoutAudit.swift`) switches the appearance during a run
+(`appearance light|dark`, then `restore` at the end), shrinks a window to its minimum (`min <title>`) or a given size
+(`size <w> <h> <title>`), reports a split view's pane widths (`panes`), and checks the window's accessibility tree for
+controls reaching past its edge, overlapping siblings and truncated one-line labels (`check <title>`). `@settings` names
+the Settings window. `scripts/ui/studio-adaptive-layout.json` runs it over every window, checked by
+`scripts/check_studio_adaptive_layout.py`; add a window there when you add one, and look at its snapshots. Size panes
+with `minWidth`/`idealWidth` rather than fixed widths, and keep a window's minimum the sum of its panes' minimums.
+
 Set `VIXEN_UI_TEST_TRACE=1` to log each step before and after it runs when diagnosing a stalled script. The in-process accessibility reader handles both plain and attributed text returned by SwiftUI; some offscreen icon controls are still absent from that tree, so use posted native pointer events and verify their resulting state when label lookup cannot reach them.
 
 Tests must not make sound or send anything to hardware or the network. The harness sets `VIXEN_MUTE=1`, and output controllers stay stopped unless a test starts them.

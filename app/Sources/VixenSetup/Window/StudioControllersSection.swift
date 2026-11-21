@@ -81,6 +81,9 @@ struct StudioControllersSection: View {
         }
     }
 
+    /// A Table starts its columns at their ideal widths and scrolls sideways rather than narrow them, so the ideals add up
+    /// to the width the table gets in the show window at its minimum size; wider windows give the columns the rest, and
+    /// long names truncate in their cells.
     private var table: some View {
         Table(overview.controllers, selection: $selection) {
             TableColumn("State") { row in
@@ -93,7 +96,7 @@ struct StudioControllersSection: View {
                 }
                 .help(row.running ? "Sends while Live Output is on" : "Doesn't send, even with Live Output on")
             }
-            .width(min: 70, ideal: 76, max: 100)
+            .width(min: 60, ideal: 68, max: 100)
             TableColumn("Name") { row in
                 VStack(alignment: .leading, spacing: 0) {
                     Text(row.name)
@@ -102,24 +105,24 @@ struct StudioControllersSection: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .width(min: 100, ideal: 120)
+            .width(min: 72, ideal: 88)
             TableColumn("Address") { row in
                 Text(row.address ?? "—")
                     .monospacedDigit()
                     .foregroundStyle(row.address == nil ? .secondary : .primary)
             }
-            .width(min: 80, ideal: 95)
+            .width(min: 52, ideal: 56)
             TableColumn("Universes") { row in
                 Text(row.universes.isEmpty ? "—" : row.universes)
                     .foregroundStyle(row.universes.isEmpty ? .secondary : .primary)
             }
-            .width(min: 70, ideal: 90)
+            .width(min: 52, ideal: 58)
             TableColumn("Patched") { row in
                 Text("\(row.patchedOutputs.formatted()) of \(row.outputs.formatted())")
                     .monospacedDigit()
                     .help("\(row.patchedOutputs.formatted()) of this controller's \(row.outputs.formatted()) outputs have an element patched to them")
             }
-            .width(min: 80, ideal: 100)
+            .width(min: 52, ideal: 60)
             TableColumn("Output") { row in
                 Label(row.health.text, systemImage: row.health.symbol)
                     .symbolRenderingMode(.multicolor)
@@ -127,7 +130,7 @@ struct StudioControllersSection: View {
                     .lineLimit(1)
                     .help(([row.health.text] + row.problems.dropFirst()).joined(separator: "\n"))
             }
-            .width(min: 110, ideal: 150)
+            .width(min: 64, ideal: 72)
         }
         .contextMenu(forSelectionType: String.self) { ids in
             contextMenu(ids)

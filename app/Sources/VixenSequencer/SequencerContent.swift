@@ -93,6 +93,7 @@ struct DockArea: NSViewRepresentable {
         split.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 0)
         split.setHoldingPriority(NSLayoutConstraint.Priority(200), forSubviewAt: 1)
         split.setHoldingPriority(NSLayoutConstraint.Priority(260), forSubviewAt: 2)
+        StudioDockLayout.constrain([left, centre, right]) // STUDIO: panes keep their minimum widths as the window narrows (R42)
         context.coordinator.split = split
         return split
     }
@@ -147,31 +148,41 @@ struct DockArea: NSViewRepresentable {
                 return
             }
             placed = true
-            let width = split.bounds.width
-            if !leftHidden {
-                split.setPosition(panels.leftWidth, ofDividerAt: 0)
-            }
-            if !rightHidden {
-                split.setPosition(width - panels.rightWidth - split.dividerThickness, ofDividerAt: 1)
-            }
+            // STUDIO-BEGIN dock-saved-minimums: saved widths fit the window, never below the panes' minimums (R42)
+            StudioDockLayout.apply(to: split, left: leftHidden ? nil : panels.leftWidth, right: rightHidden ? nil : panels.rightWidth)
+            // STUDIO-END dock-saved-minimums
         }
 
         func splitView(_ splitView: NSSplitView, constrainMinCoordinate proposedMinimumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
-            dividerIndex == 0 ? max(proposedMinimumPosition, 120) : max(proposedMinimumPosition, splitView.arrangedSubviews[0].frame.maxX + 320)
+            // STUDIO-BEGIN dock-minimums: dragging a divider stops at the panes' minimum widths (R42)
+            dividerIndex == 0 ? max(proposedMinimumPosition, StudioDockLayout.leftMinimum) : max(proposedMinimumPosition, splitView.arrangedSubviews[0].frame.maxX + StudioDockLayout.centreMinimum)
+            // STUDIO-END dock-minimums
         }
 
         func splitView(_ splitView: NSSplitView, constrainMaxCoordinate proposedMaximumPosition: CGFloat, ofSubviewAt dividerIndex: Int) -> CGFloat {
             if dividerIndex == 0 {
-                return min(proposedMaximumPosition, splitView.arrangedSubviews[2].frame.minX - 320)
+                return min(proposedMaximumPosition, splitView.arrangedSubviews[2].frame.minX - StudioDockLayout.centreMinimum) // STUDIO: the timeline's minimum (R42)
             }
-            return min(proposedMaximumPosition, splitView.bounds.width - 160)
+            return min(proposedMaximumPosition, splitView.bounds.width - StudioDockLayout.rightMinimum) // STUDIO: the right pane's minimum (R42)
         }
+
+        // STUDIO-BEGIN dock-window-resize: a window resize changes the timeline; the side panes give way only down to their minimums (R42)
+        func splitView(_ splitView: NSSplitView, resizeSubviewsWithOldSize oldSize: NSSize) {
+            StudioDockLayout.whileResizing {
+                splitView.adjustSubviews()
+                guard placed, let panels = model.panels else { return }
+                StudioDockLayout.apply(to: splitView, left: leftHidden ? nil : panels.leftWidth, right: rightHidden ? nil : panels.rightWidth)
+            }
+        }
+        // STUDIO-END dock-window-resize
 
         func splitViewDidResizeSubviews(_ notification: Notification) {
             guard placed, let split else { return }
-            let left = leftHidden ? nil : Double(split.arrangedSubviews[0].frame.width)
-            let right = rightHidden ? nil : Double(split.arrangedSubviews[2].frame.width)
-            model.setPanelWidths(left: left, right: right)
+            // STUDIO-BEGIN dock-save-drag: remember only the pane whose divider the user drags, not window resizes or a pane squeezed by a narrow window (R42)
+            guard StudioDockLayout.isDividerDrag(in: split), let panels = model.panels else { return }
+            let moved = StudioDockLayout.dragged(split, left: leftHidden ? nil : panels.leftWidth, right: rightHidden ? nil : panels.rightWidth)
+            model.setPanelWidths(left: moved.left, right: moved.right)
+            // STUDIO-END dock-save-drag
         }
     }
 }

@@ -9,6 +9,7 @@ import VixenBridge
 public struct StudioCommandPaletteCommands: Commands {
     public init() {
         StudioCommandPalette.installHarnessHook()
+        StudioLayoutAudit.installHarnessHook()
     }
 
     public var body: some Commands {

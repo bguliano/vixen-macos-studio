@@ -40,7 +40,7 @@ struct AboutView: View {
             }
         }
         .padding(12)
-        .frame(width: 900, height: 800)
+        .frame(minWidth: 640, idealWidth: 900, minHeight: 480, idealHeight: 800) // STUDIO: opens at the original's size but fits small displays (R42)
         .onAppear {
             // A missing file leaves the box empty and logs it, where the original throws from Load.
             guard let url = VixenResources.url("License.txt"), let text = bundledText(path: url.path) else {

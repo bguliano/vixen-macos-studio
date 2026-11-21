@@ -399,6 +399,10 @@ struct SimplePatchingView: View {
         GridRow {
             Text(label)
                 .fontWeight(bold ? .bold : .regular)
+                // STUDIO-BEGIN patch-count-wrap: wraps at a word instead of truncating in the show window's narrower Display pane (R42)
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+                // STUDIO-END patch-count-wrap
                 .help(help)
             Text("\(value)")
                 .fontWeight(bold ? .bold : .regular)
@@ -442,6 +446,7 @@ struct SimplePatchingView: View {
                     Color.clear.frame(height: 12).gridCellUnsizedAxes(.horizontal)
                     GridRow {
                         Text("First output:")
+                            .layoutPriority(1) // STUDIO: keeps its width beside the wrapping count labels (R42)
                             .help("The first output in the list of selected outputs (as will be used for patching).")
                         Text(model.controllerStats.firstLabel)
                             .fixedSize(horizontal: false, vertical: true)
@@ -449,6 +454,7 @@ struct SimplePatchingView: View {
                     }
                     GridRow {
                         Text("Last output:")
+                            .layoutPriority(1) // STUDIO: keeps its width beside the wrapping count labels (R42)
                             .help("The last output in the list of selected outputs (as will be used for patching).")
                         Text(model.controllerStats.lastLabel)
                             .fixedSize(horizontal: false, vertical: true)
