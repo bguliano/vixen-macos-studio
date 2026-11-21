@@ -79,6 +79,10 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "33211ce659ca27ee"
  },
+ "block:native-window-tabs": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "6fea847d0a9cd1e7"
+ },
  "block:panel-tabs": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "2e68e2f86a0f473e"
@@ -530,6 +534,10 @@
  "line:app/Sources/VixenSequencer/SequencerModel.swift:6b9eda5eb466fb37": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "6b9eda5eb466fb37"
+ },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:b2283a37126e49d5": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "b2283a37126e49d5"
  },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:f769a3213b44196f": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",

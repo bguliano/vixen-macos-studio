@@ -182,19 +182,9 @@ struct TimelineRegion: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Text(model.ui?.timelineTitle ?? "Timeline")
-                    .font(.callout)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Theme.inputBackground, in: UnevenRoundedRectangle(topLeadingRadius: 5, topTrailingRadius: 5))
-                    .accessibilityIdentifier("timeline-tab")
-                Spacer(minLength: 0)
-            }
-            .padding(.top, 4)
-            .padding(.leading, 6)
-            Divider()
+            // STUDIO-BEGIN native-window-tabs: no "Timeline - song" tab strip; sequences tab natively (StudioSequencerTabs)
             timeline
+            // STUDIO-END native-window-tabs
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

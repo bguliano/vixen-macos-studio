@@ -167,6 +167,13 @@ command, edits are live with Undo, and each change is verified with harness runs
    (remembered across close and reopen) and `scripts/ui/studio-row-height-interact.json` (drag, Undo, row selection
    and switching back in compact rows; hook `sequencer.rows`).
 5. Replace the vanilla dock tab with the native window tab bar.
+   *Done:* the "Timeline - song.mp3" tab strip above the grid is gone, so the toolbar sits directly on the ruler, and
+   sequencer windows tab natively (`StudioSequencerTabs.swift`): a sequence opened while another sequencer window is
+   open joins that window as a new, selected tab titled with the sequence (the window title Phase 3 item 1 sets), and only
+   sequencer windows tab together. Dragging a tab out, Window ▸ Merge All Windows, Move Tab to New Window and Show Tab
+   Bar are the system's own; each tab keeps its own document, Undo, inspector and close prompt. Tabs arrange windows,
+   not the document, so there is no command or Undo for them (agents still open sequences with `sequence_open`).
+   Harness: `scripts/ui/studio-window-tabs.json` with `scripts/check_studio_window_tabs.py` (hook `sequencer.tabs`).
 6. Effects library: favourites and recently used at the top.
 7. Agent edits flash briefly on the timeline, matching the toolbar's agent activity.
 

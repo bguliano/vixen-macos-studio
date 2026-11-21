@@ -121,9 +121,9 @@ final class SequencerModel: OpenEditor {
     func attach(window: NSWindow) {
         guard self.window !== window else { return }
         self.window = window
-        window.tabbingMode = .disallowed
         window.minSize = NSSize(width: 640, height: 480)
         SequencerWindowFrame.restore(window)
+        StudioSequencerTabs.adopt(window) // STUDIO: sequences tab natively instead of one window each
         let proxy = SequencerWindowDelegate(model: self, original: window.delegate)
         delegateProxy = proxy
         window.delegate = proxy
