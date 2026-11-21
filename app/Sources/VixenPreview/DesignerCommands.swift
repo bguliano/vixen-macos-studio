@@ -35,7 +35,8 @@ struct PreviewDesignerCommands: Commands {
             Toggle("Float Properties Panel", isOn: Binding(get: { model?.propertiesFloating ?? false }, set: { model?.setFloating(.properties, $0) }))
                 .disabled(model == nil)
         }
-        CommandGroup(after: .pasteboard) {
+        // Not after .pasteboard: the sequencer replaces that group, and SwiftUI then drops other scenes' groups placed after it.
+        CommandGroup(before: .textEditing) {
             DesignerEditItems(model: registry.active)
         }
         CommandMenu("Settings") {
@@ -66,26 +67,32 @@ private struct DesignerEditItems: View {
     let model: PreviewDesignerModel?
 
     var body: some View {
-        let t = model?.toolbar
-        Divider()
-        Button("Lock") { model?.apply(model?.designer?.lock()) }
-            .keyboardShortcut(model == nil ? nil : KeyboardShortcut("l", modifiers: .command))
-            .disabled(t?.lock != true)
-        Button("Unlock") { model?.apply(model?.designer?.unlock()) }
-            .keyboardShortcut(model == nil ? nil : KeyboardShortcut("u", modifiers: .command))
-            .disabled(t?.unlock != true)
+        // Only while a designer is in front, so the other windows' Edit menus keep to their own items.
+        if let model {
+            items(model)
+        }
+    }
+
+    @ViewBuilder
+    private func items(_ model: PreviewDesignerModel) -> some View {
+        let t = model.toolbar
+        // The group before Find starts with its own separator.
+        Button("Lock") { model.apply(model.designer?.lock()) }
+            .keyboardShortcut("l", modifiers: .command)
+            .disabled(!t.lock)
+        Button("Unlock") { model.apply(model.designer?.unlock()) }
+            .keyboardShortcut("u", modifiers: .command)
+            .disabled(!t.unlock)
         // ⌘N is File > New on the Mac.
-        Button("Unlock All") { model?.apply(model?.designer?.unlockAll()) }
-            .keyboardShortcut(model == nil ? nil : KeyboardShortcut("u", modifiers: [.command, .option]))
-            .disabled(t?.unlockAll != true)
-        Button(t?.hideLockedActive == true ? "Show Locked" : "Hide Locked") { model?.toggleHideLocked() }
-            .disabled(t?.hideLockedEnabled != true)
+        Button("Unlock All") { model.apply(model.designer?.unlockAll()) }
+            .keyboardShortcut("u", modifiers: [.command, .option])
+            .disabled(!t.unlockAll)
+        Button(t.hideLockedActive ? "Show Locked" : "Hide Locked") { model.toggleHideLocked() }
+            .disabled(!t.hideLockedEnabled)
         Divider()
-        Button("Background Properties...") { model?.sheet = .resizeBackground }
-            .disabled(model == nil)
+        Button("Background Properties...") { model.sheet = .resizeBackground }
         Divider()
-        Button("Templates (Legacy)") { model?.sheet = .templates }
-            .disabled(model == nil)
+        Button("Templates (Legacy)") { model.sheet = .templates }
     }
 }
 

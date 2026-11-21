@@ -1,0 +1,49 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "menus",
+   "name": "menus-admin"
+  },
+  {
+   "action": "previewTarget",
+   "text": "Christmas Tree 2019"
+  },
+  {
+   "action": "window",
+   "id": "preview-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "designerOnScreen"
+  },
+  {
+   "action": "menus",
+   "name": "menus-designer"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-closed"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}
