@@ -261,8 +261,17 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   with their overwrite questions); Coarse Fine's Live mode switch is gone, since every change is live. No MCP tool: the
   sheets run vanilla's own dialog commands, and agents configure controllers, colour and locations through
   `controller_configure`, `element_color` and `element_location`. Harness: `scripts/check_studio_dialogs_live.py` with
-  `scripts/ui/studio-dialogs-live.json` (`studio.liveSheet` hook). *Remaining:* the curve editor (VixenKit), which the
-  Dimming Curve filter and helper open, still has OK (backlog).
+  `scripts/ui/studio-dialogs-live.json` (`studio.liveSheet` hook).
+
+- **Curve editor (B24).** *Done:* the curve editor (VixenKit), which an effect's curve row, the Dimming Curve filter and
+  helper, the curve library and the fixture wizard open, no longer commits through OK/Cancel. Each finished change (a
+  point dropped or removed, Update, Reverse, Invert, a drawn or f(x) curve, Load, Unlink, an edited library curve) goes to
+  the owner at once and is one step on the sheet's Edit ▸ Undo ("Edit Curve"); a drag is one change, on release. Done (or
+  Esc) closes and keeps everything. An effect's whole visit is one step on the sequence's Undo (its commits share a
+  gesture); the Dimming Curve filter's visit is one step on Display Setup's Undo, as its other sheets are; a library
+  entry is written as it changes. No MCP tool: the editor is a working copy, and agents set curves through the effect
+  editor's commands. Harness: `scripts/check_studio_curve_editor_live.py` with `scripts/ui/studio-curve-editor-live.json`
+  (`studio.curveEditor` and `studio.effectCurve` hooks).
 
 - **Tools (B8).** *Done:* the Custom Prop Editor has no OK/Cancel commit flows. Preferences applies and saves each change
   at once, each one step on the sheet's Edit ▸ Undo ("Change Preferences"; a color drag is one step, Defaults is one),

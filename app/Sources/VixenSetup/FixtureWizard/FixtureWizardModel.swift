@@ -94,10 +94,11 @@ final class FixtureWizardModel {
     var curveCore: VixenCore? { wizard?.vixenCore() }
     var dimmingCurve: CurveValue? { wizard?.dimmingCurve() }
 
-    func finishCurve(_ curve: CurveValue?) {
-        if let curve { apply { $0.setDimmingCurve(curve: curve) } }
-        showsCurveEditor = false
+    // STUDIO-BEGIN curve-editor-live-wizard: the wizard's curve follows each change in the curve editor (B24)
+    func changeCurve(_ curve: CurveValue) {
+        apply { $0.setDimmingCurve(curve: curve) }
     }
+    // STUDIO-END curve-editor-live-wizard
 
     func finish(allowOverwrite: Bool = false) {
         guard let wizard, state?.canFinish == true, !isFinishing, !isDone else { return }

@@ -552,12 +552,18 @@ struct DimmingHelperSheet: View {
         .padding(20)
         .frame(width: 520)
         .sheet(isPresented: $editing) {
-            CurveEditorView(core: context.vixenCore(), curve: (curve ?? context.defaultCurve()).value) { edited in
-                editing = false
-                if let edited {
-                    curve = DialogCurve(edited)
+            // STUDIO-BEGIN curve-editor-live-helper: the curve the helper will set up follows each change; Done closes (B24)
+            CurveEditorView(
+                core: context.vixenCore(),
+                curve: (curve ?? context.defaultCurve()).value,
+                onChange: { curve = DialogCurve($0) },
+                onDone: { _ in
+                    // Done with no change still picks the curve shown, as OK did.
+                    if curve == nil { curve = context.defaultCurve() }
+                    editing = false
                 }
-            }
+            )
+            // STUDIO-END curve-editor-live-helper
         }
         .dialogAlert($alert)
     }

@@ -47,6 +47,50 @@
   "file": "app/Info.plist",
   "hash": "7f9d86476c08b909"
  },
+ "block:curve-editor-live": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "fd6e805363ff3a89"
+ },
+ "block:curve-editor-live-done": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "c5600799e28c5e05"
+ },
+ "block:curve-editor-live-filter": {
+  "file": "app/Sources/VixenDialogs/FilterSheets.swift",
+  "hash": "e3d0836b4b59222b"
+ },
+ "block:curve-editor-live-helper": {
+  "file": "app/Sources/VixenDialogs/PropertySheets.swift",
+  "hash": "d4bfc768fcd84f36"
+ },
+ "block:curve-editor-live-hooks": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "9d6b887543aa9043"
+ },
+ "block:curve-editor-live-model": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "da3bafe309efd707"
+ },
+ "block:curve-editor-live-view": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "4ff6cd7ea606be23"
+ },
+ "block:curve-editor-live-wizard": {
+  "file": "app/Sources/VixenSetup/FixtureWizard/FixtureWizardModel.swift",
+  "hash": "02a3f4dcce6bdba1"
+ },
+ "block:curve-editor-restore": {
+  "file": "crates/vixen-session/src/effect_editor/dialogs.rs",
+  "hash": "2e900faeecdda182"
+ },
+ "block:curve-editor-restore-ffi": {
+  "file": "crates/vixen-ffi/src/kit.rs",
+  "hash": "96fa2016d989173f"
+ },
+ "block:curve-editor-restore-test": {
+  "file": "crates/vixen-session/src/effect_editor/dialogs.rs",
+  "hash": "b31337f5551ee58f"
+ },
  "block:designer-access": {
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "e5e2645a9d25b03a"
@@ -903,6 +947,46 @@
   "file": "app/Sources/VixenEffectEditor/EffectEditorTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenEffectEditor/RowEditors.swift:4de26206bbd87ef4": {
+  "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
+  "hash": "4de26206bbd87ef4"
+ },
+ "line:app/Sources/VixenEffectEditor/RowEditors.swift:5636bc37d87657fb": {
+  "file": "app/Sources/VixenEffectEditor/RowEditors.swift",
+  "hash": "5636bc37d87657fb"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:0020fafdc78b1bba": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "0020fafdc78b1bba"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:2ede4d2d5ff4aacc": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "2ede4d2d5ff4aacc"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:4e87f4c92812fe2b": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "4e87f4c92812fe2b"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:75859ce4e6d89258": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "75859ce4e6d89258"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:7916052c30597ddc": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "7916052c30597ddc"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:90405d5ad783883c": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "90405d5ad783883c"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:a96c708fbe11ea9d": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "a96c708fbe11ea9d"
+ },
+ "line:app/Sources/VixenKit/CurveEditorDialog.swift:ab3b5d5922f1dd76": {
+  "file": "app/Sources/VixenKit/CurveEditorDialog.swift",
+  "hash": "ab3b5d5922f1dd76"
+ },
  "line:app/Sources/VixenKit/KitSupport.swift:c59e89c754a19a8d": {
   "file": "app/Sources/VixenKit/KitSupport.swift",
   "hash": "c59e89c754a19a8d"
@@ -1258,6 +1342,10 @@
  "line:app/Sources/VixenSequencer/StatusBarView.swift:11dd5e48eedf0723": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
   "hash": "11dd5e48eedf0723"
+ },
+ "line:app/Sources/VixenSetup/FixtureWizard/FixtureWizardPages.swift:3bbb4e91fd91099f": {
+  "file": "app/Sources/VixenSetup/FixtureWizard/FixtureWizardPages.swift",
+  "hash": "3bbb4e91fd91099f"
  },
  "line:app/Sources/VixenSetup/SetupScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSetup/SetupScene.swift",

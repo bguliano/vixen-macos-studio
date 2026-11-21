@@ -440,6 +440,17 @@ impl CurveEditSession {
         self.curve.points = entry.points.clone();
         self.populate();
     }
+
+    // STUDIO-BEGIN curve-editor-restore: the live curve editor's Undo puts an earlier curve back (B24)
+    /// Studio's Undo and Redo in the live curve editor: the dialog's curve becomes `curve` again, its link included, and
+    /// any drag or drawing in progress ends.
+    pub fn restore(&mut self, curve: &Curve) {
+        self.curve = curve.clone();
+        self.editing = None;
+        self.draw_mode = false;
+        self.populate();
+    }
+    // STUDIO-END curve-editor-restore
 }
 
 /// F92: what the dialog's Library group shows for the gradient's state.
@@ -937,6 +948,28 @@ mod tests {
         let s = CurveEditSession::open(&entry, None);
         assert_eq!(s.mode().title, "Curve Editor: Library Curve");
     }
+
+    // STUDIO-BEGIN curve-editor-restore-test: Undo in the live curve editor (B24)
+    #[test]
+    fn restore_puts_an_earlier_curve_back_and_ends_a_drag() {
+        let start = Curve::from_points(vec![(0.0, 0.0), (50.0, 50.0), (100.0, 100.0)]);
+        let mut s = CurveEditSession::open(&start, None);
+        s.press(50.5, 50.5, Mods::default(), SCALE, SCALE);
+        s.drag(60.5, 40.5, Mods::default());
+        assert_ne!(s.curve().points, start.points);
+        s.restore(&start);
+        assert_eq!(s.curve().points, start.points);
+        assert!(!s.cancel_drag(), "the drag ended");
+        assert!(!s.update_enabled() && s.x_text().is_empty() && s.fields_enabled());
+
+        let mut linked = Curve::ramp_up();
+        linked.library_reference_name = "Ramp".to_string();
+        s.restore(&linked);
+        assert!(s.mode().read_only && !s.fields_enabled());
+        s.restore(&start);
+        assert!(!s.mode().read_only && s.curve().library_reference_name.is_empty());
+    }
+    // STUDIO-END curve-editor-restore-test
 
     #[test]
     fn dragging_a_point_is_by_delta_clamped_and_resorts() {

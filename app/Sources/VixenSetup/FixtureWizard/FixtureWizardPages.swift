@@ -218,7 +218,7 @@ struct FixtureDimmingCurvesPage: View {
         }
         .sheet(isPresented: $model.showsCurveEditor) {
             if let core = model.curveCore, let curve = model.dimmingCurve {
-                CurveEditorView(core: core, curve: curve, onFinish: model.finishCurve)
+                CurveEditorView(core: core, curve: curve, onChange: model.changeCurve, onDone: { _ in model.showsCurveEditor = false }) // STUDIO: live, with Done (B24)
             }
         }
     }

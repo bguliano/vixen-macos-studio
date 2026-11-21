@@ -650,6 +650,15 @@ impl CurveEditorSession {
     pub fn result(&self) -> CurveValue {
         self.inner.lock().curve().into()
     }
+
+    // STUDIO-BEGIN curve-editor-restore-ffi: the live curve editor's Undo and Redo (B24)
+    /// Undo and Redo in Studio's live curve editor: the dialog's curve becomes `curve` again.
+    pub fn restore(&self, curve: CurveValue) -> CurveEditorState {
+        let mut s = self.inner.lock();
+        s.restore(&(&curve).into());
+        curve_state(&s)
+    }
+    // STUDIO-END curve-editor-restore-ffi
 }
 
 // The Color Gradient Editor dialog: F87 to F92.

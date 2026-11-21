@@ -2,8 +2,11 @@ import AppKit
 import SwiftUI
 import VixenBridge
 
-/// The Curve Editor dialog, F70 to F78, as a sheet. Everything it does happens on its own copy, in Rust; `onOK` gets the result and Cancel does nothing. `title` is the row's display name when
-/// there is one: Load or Unlink then sets F71's title.
+// STUDIO-BEGIN curve-editor-live: the curve editor applies each change as it's made and closes with Done (B24)
+/// The Curve Editor dialog, F70 to F78, as a sheet. It works on its own copy, in Rust, and hands each finished change to
+/// `onChange` at once; each is a step on the sheet's Edit ▸ Undo, and Done (or Esc) closes, telling `onDone` whether
+/// anything changed (`StudioCurveEditorLive.swift`). `title` is the row's display name when there is one: Load or Unlink
+/// then sets F71's title.
 @MainActor
 public enum CurveEditorDialog {
     public static func present(
@@ -12,31 +15,35 @@ public enum CurveEditorDialog {
         curve: CurveValue,
         title: String? = nil,
         libraryName: String? = nil,
-        onOK: @escaping (CurveValue) -> Void
+        onDone: ((Bool) -> Void)? = nil,
+        onChange: @escaping (CurveValue) -> Void
     ) {
         KitSheet.present(on: window) { dismiss in
             CurveEditorContent(
                 session: CurveEditorSession(curve: curve, libraryName: libraryName),
                 core: core,
                 rowTitle: title,
-                onFinish: { result in
+                live: StudioCurveLive(curve: curve, onChange: onChange) { changed in
                     dismiss()
-                    if let result {
-                        onOK(result)
-                    }
+                    onDone?(changed)
                 }
             )
         }
     }
 
-    /// `EditLibraryCurveAsync`: opens the editor on a library entry, and OK replaces the entry. `onDone` runs after the library has changed.
+    /// `EditLibraryCurveAsync`: opens the editor on a library entry, and each change replaces the entry. `onDone` runs after
+    /// the editor closes, when the library has changed.
     public static func editLibraryEntry(on window: NSWindow, core: VixenCore, name: String, onDone: (() -> Void)? = nil) {
         guard let entry = core.libraryCurves().first(where: { $0.name == name }) else { return }
-        present(on: window, core: core, curve: entry.curve, libraryName: name) { edited in
+        present(on: window, core: core, curve: entry.curve, libraryName: name, onDone: { changed in
+            if changed {
+                onDone?()
+            }
+        }) { edited in
             _ = core.libraryAddCurve(name: name, curve: edited)
-            onDone?()
         }
     }
+    // STUDIO-END curve-editor-live
 
     /// F78's and F81's name loop: empty asks again, an existing name asks to overwrite. `completion` gets the name to use, or `nil` if cancelled.
     public static func askForName(on window: NSWindow, core: VixenCore, typed: String = "", completion: @escaping (String?) -> Void) {
@@ -79,6 +86,11 @@ final class CurveEditorViewModel {
     var state: CurveEditorState
     var xText = ""
     var yText = ""
+    // STUDIO-BEGIN curve-editor-live-model: each finished change goes to the owner (B24)
+    /// True while the graph has the mouse down, so a drag reaches the owner once, on release.
+    @ObservationIgnored var pointerDown = false
+    @ObservationIgnored weak var live: StudioCurveLive?
+    // STUDIO-END curve-editor-live-model
 
     init(session: CurveEditorSession) {
         self.session = session
@@ -91,30 +103,35 @@ final class CurveEditorViewModel {
         state = new
         xText = new.xText
         yText = new.yText
+        live?.sessionChanged() // STUDIO: live, with Undo (B24)
     }
 }
 
-/// The same dialog as SwiftUI content, for a sheet already being presented. `onFinish` gets the result, or `nil` for Cancel.
+// STUDIO-BEGIN curve-editor-live-view: live, with Done (B24)
+/// The same dialog as SwiftUI content, for a sheet already being presented. `onChange` gets each change as it's made;
+/// `onDone` closes the sheet, and is told whether anything changed.
 public struct CurveEditorView: View {
     let core: VixenCore
-    let curve: CurveValue
-    let onFinish: (CurveValue?) -> Void
+    @State private var live: StudioCurveLive
+    @State private var session: CurveEditorSession
 
-    public init(core: VixenCore, curve: CurveValue, onFinish: @escaping (CurveValue?) -> Void) {
+    public init(core: VixenCore, curve: CurveValue, onChange: @escaping (CurveValue) -> Void, onDone: @escaping (Bool) -> Void) {
         self.core = core
-        self.curve = curve
-        self.onFinish = onFinish
+        _live = State(initialValue: StudioCurveLive(curve: curve, onChange: onChange, onDone: onDone))
+        _session = State(initialValue: CurveEditorSession(curve: curve, libraryName: nil))
     }
 
     public var body: some View {
-        CurveEditorContent(session: CurveEditorSession(curve: curve, libraryName: nil), core: core, rowTitle: nil, onFinish: onFinish)
+        CurveEditorContent(session: session, core: core, rowTitle: nil, live: live)
     }
 }
+// STUDIO-END curve-editor-live-view
 
 private struct CurveEditorContent: View {
     let core: VixenCore
     let rowTitle: String?
-    let onFinish: (CurveValue?) -> Void
+    let live: StudioCurveLive // STUDIO: live, with Done (B24)
+    @Environment(\.undoManager) private var undoManager // STUDIO: the sheet's own Undo (B24)
     @State private var model: CurveEditorViewModel
     @State private var drawInterval: String
     @State private var drawBalloon: BalloonText?
@@ -123,10 +140,10 @@ private struct CurveEditorContent: View {
     /// The row's name is shown until Load or Unlink sets F71's title.
     @State private var usesRowTitle: Bool
 
-    init(session: CurveEditorSession, core: VixenCore, rowTitle: String?, onFinish: @escaping (CurveValue?) -> Void) {
+    init(session: CurveEditorSession, core: VixenCore, rowTitle: String?, live: StudioCurveLive) { // STUDIO: live, with Done (B24)
         self.core = core
         self.rowTitle = rowTitle
-        self.onFinish = onFinish
+        self.live = live // STUDIO: live, with Done (B24)
         _model = State(initialValue: CurveEditorViewModel(session: session))
         _drawInterval = State(initialValue: session.state().drawInterval)
         _usesRowTitle = State(initialValue: rowTitle != nil)
@@ -154,16 +171,33 @@ private struct CurveEditorContent: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 }
+                // STUDIO-BEGIN curve-editor-live-done: Done instead of OK/Cancel (B24)
+                if !state.instructionsVisible {
+                    Text("Changes apply as you make them.").font(.caption).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button("Cancel") { onFinish(nil) }
-                    .keyboardShortcut(.cancelAction)
-                Button("OK") { onFinish(model.session.result()) }
+                Button("Done") { live.finish() }
                     .keyboardShortcut(.defaultAction)
+                    // Esc closes too, keeping the changes, as there's nothing to cancel.
+                    .background {
+                        Button("") { live.finish() }.keyboardShortcut(.cancelAction).opacity(0).accessibilityHidden(true)
+                    }
+                // STUDIO-END curve-editor-live-done
             }
         }
         .padding(16)
         .frame(minWidth: 591)
         .background(WindowFinder(into: hostReference))
+        // STUDIO-BEGIN curve-editor-live-hooks: the visit's undo steps and harness (B24)
+        .onAppear {
+            StudioCurveEditorHarness.install()
+            live.model = model
+            live.undo = undoManager
+            model.live = live
+            StudioCurveLive.current = live
+        }
+        .onChange(of: undoManager) { live.undo = undoManager }
+        // STUDIO-END curve-editor-live-hooks
     }
 
     private var curveGroup: some View {
@@ -546,6 +580,7 @@ final class CurveGraphNSView: NSView {
         let location = convert(event.locationInWindow, from: nil)
         guard chart.insetBy(dx: -8, dy: -8).contains(location) else { return }
         let p = data(from: location)
+        model.pointerDown = true // STUDIO: the drag reaches the owner on release (B24)
         model.apply(model.session.press(x: p.x, y: p.y, mods: KitMods(event.modifierFlags), pointsPerUnitX: unitScale.x, pointsPerUnitY: unitScale.y))
         needsDisplay = true
     }
@@ -560,12 +595,14 @@ final class CurveGraphNSView: NSView {
     override func mouseUp(with event: NSEvent) {
         guard let model, !ignoringInput else { return }
         let p = data(from: convert(event.locationInWindow, from: nil))
+        model.pointerDown = false // STUDIO: the drag reaches the owner on release (B24)
         model.apply(model.session.release(y: p.y))
         needsDisplay = true
     }
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53, let model, model.session.cancelDrag() {
+            model.pointerDown = false // STUDIO: a cancelled drag changes nothing (B24)
             model.apply(model.session.state())
             needsDisplay = true
         } else {
@@ -575,6 +612,7 @@ final class CurveGraphNSView: NSView {
 
     override func cancelOperation(_ sender: Any?) {
         if let model, model.session.cancelDrag() {
+            model.pointerDown = false // STUDIO: a cancelled drag changes nothing (B24)
             model.apply(model.session.state())
             needsDisplay = true
         } else {

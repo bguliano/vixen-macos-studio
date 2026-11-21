@@ -1,0 +1,408 @@
+{
+  "steps": [
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "sequences"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "studioDropFiles",
+      "text": "Sequence/Christmas Can-Can.tim"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.4
+    },
+    {
+      "action": "focus",
+      "window": "Christmas Can-Can"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.resize",
+      "path": [
+        "1400",
+        "900"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 12
+    },
+    {
+      "action": "mouse",
+      "x": 900,
+      "y": 340
+    },
+    {
+      "action": "menu",
+      "path": [
+        "Edit",
+        "Select All Elements"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.dropEffect",
+      "path": [
+        "Pulse",
+        "0"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 2
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "open",
+        "*"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "01-curve-editor"
+    },
+    {
+      "action": "dump",
+      "name": "01-curve-editor"
+    },
+    {
+      "action": "click",
+      "label": "OK"
+    },
+    {
+      "action": "click",
+      "label": "Cancel"
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "click",
+      "label": "Reverse Curve"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "function",
+        "50"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "responder-undo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "responder-redo"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "02-curve-editor-changed"
+    },
+    {
+      "action": "click",
+      "label": "Done"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "open",
+        "*"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "02a-reopened"
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "escape"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "02b-after-escape"
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.keyEvent",
+      "path": [
+        "z",
+        "cmd"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.effectCurve",
+      "path": [
+        "state",
+        "*"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "sequencer.state"
+    },
+    {
+      "action": "focus",
+      "window": "Vixen Studio"
+    },
+    {
+      "action": "studioSection",
+      "name": "display"
+    },
+    {
+      "action": "wait",
+      "seconds": 4
+    },
+    {
+      "action": "hook",
+      "name": "setup.selectElements",
+      "path": [
+        "Star"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.command",
+      "path": [
+        "helper",
+        "Dimming Curve"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "setup.command",
+      "path": [
+        "runHelper"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "snapshot",
+      "name": "03-helper"
+    },
+    {
+      "action": "click",
+      "label": "Setup Dimming Curve"
+    },
+    {
+      "action": "wait",
+      "seconds": 1.5
+    },
+    {
+      "action": "click",
+      "label": "OK"
+    },
+    {
+      "action": "click",
+      "label": "Reverse Curve"
+    },
+    {
+      "action": "wait",
+      "seconds": 0.5
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "04-helper-curve"
+    },
+    {
+      "action": "click",
+      "label": "Done"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "studio.curveEditor",
+      "path": [
+        "state"
+      ]
+    },
+    {
+      "action": "snapshot",
+      "name": "05-helper-after"
+    },
+    {
+      "action": "click",
+      "label": "Cancel"
+    },
+    {
+      "action": "wait",
+      "seconds": 1
+    },
+    {
+      "action": "hook",
+      "name": "setup.sheetOpen",
+      "path": []
+    },
+    {
+      "action": "quit"
+    }
+  ]
+}

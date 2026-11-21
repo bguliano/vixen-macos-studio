@@ -245,12 +245,13 @@ struct DimmingCurveFilterSheet: View {
     let onFinish: (Bool) -> Void
 
     var body: some View {
-        CurveEditorView(core: context.vixenCore(), curve: curve.value) { edited in
-            guard let edited else {
-                onFinish(false)
-                return
-            }
-            onFinish((try? context.applyDimmingCurve(filter: filter, curve: DialogCurve(edited))) != nil)
-        }
+        // STUDIO-BEGIN curve-editor-live-filter: each change applies to the filter at once; Done closes (B24)
+        CurveEditorView(
+            core: context.vixenCore(),
+            curve: curve.value,
+            onChange: { edited in _ = try? context.applyDimmingCurve(filter: filter, curve: DialogCurve(edited)) },
+            onDone: onFinish
+        )
+        // STUDIO-END curve-editor-live-filter
     }
 }

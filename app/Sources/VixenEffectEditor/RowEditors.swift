@@ -341,14 +341,11 @@ struct CurveRowStrip: View {
             performDrop: { model.drop(rowKey, $0) },
             onPressed: onPressed
         )
+        .onAppear { model.registerStudioCurveHook() } // STUDIO: the live curve editor's harness (B24)
     }
 
     private func openEditor() {
-        guard let window = model.hostWindow else { return }
-        PendingCommits.flushAll()
-        CurveEditorDialog.present(on: window, core: model.core, curve: value, title: title) { edited in
-            model.commit(rowKey, .curve(value: edited))
-        }
+        model.openCurveEditor(rowKey, curve: value, title: title) // STUDIO: each change commits at once; the visit is one undo step (B24)
     }
 }
 
