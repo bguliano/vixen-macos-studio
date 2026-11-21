@@ -56,6 +56,11 @@ impl AppCore {
     /// Its window closed. The window's views can keep the session alive a while after that, and a closed sequence must not render again for a display
     /// change or be found as open.
     pub fn unregister_sequence_session(&self, session: &Arc<Mutex<SequenceSession>>) {
+        // STUDIO-BEGIN agent-owned-sequence: a window on a sequence the agent opened closes without closing it for the agent
+        if self.studio_display.owned_sequences.lock().values().any(|owned| Arc::ptr_eq(owned, session)) {
+            return;
+        }
+        // STUDIO-END agent-owned-sequence
         let mut sessions = self.display.sessions.lock();
         sessions.retain(|s| s.strong_count() > 0 && !std::ptr::eq(s.as_ptr(), Arc::as_ptr(session)));
     }

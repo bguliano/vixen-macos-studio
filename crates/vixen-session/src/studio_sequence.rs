@@ -1251,6 +1251,30 @@ pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<
 mod tests {
     use super::*;
     #[test]
+    fn closing_a_window_keeps_a_sequence_the_agent_opened_but_ends_one_it_did_not() {
+        let root = std::env::temp_dir().join(format!("studio-window-close-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let id: Uuid = execute(&core, "sequence_create", &json!({"lengthMs":10000}), true).unwrap()["sequenceId"]
+            .as_str()
+            .unwrap()
+            .parse()
+            .unwrap();
+        let owned = find(&core, id).unwrap();
+        core.unregister_sequence_session(&owned);
+        assert!(find(&core, id).is_ok(), "the agent still holds it");
+
+        let window_only = Arc::new(Mutex::new(SequenceSession::new_untitled(&core.session_environment())));
+        core.register_sequence_session(&window_only);
+        let window_id = window_only.lock().playback_id();
+        assert!(find(&core, window_id).is_ok());
+        core.unregister_sequence_session(&window_only);
+        assert!(find(&core, window_id).is_err(), "closed in the app, even while its views still hold it");
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn rapid_agent_edits_schedule_each_effect_once() {
         let root = std::env::temp_dir().join(format!("studio-rapid-{}", Uuid::new_v4()));
         let core = AppCore::open(root.clone(), true).unwrap();

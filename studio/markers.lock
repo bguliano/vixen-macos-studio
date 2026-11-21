@@ -11,6 +11,10 @@
   "file": "crates/vixen-ffi/src/timeline.rs",
   "hash": "1d5cefc8005e1ce9"
  },
+ "block:agent-owned-sequence": {
+  "file": "crates/vixen-session/src/setup/commit.rs",
+  "hash": "41f6223e05d6c40c"
+ },
  "block:app-identity": {
   "file": "app/Info.plist",
   "hash": "357f99168b05089a"
