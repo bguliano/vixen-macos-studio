@@ -113,7 +113,9 @@ public struct ControllerMonitorWindow: View {
             switch monitor?.kind {
             case .dummy:
                 if let view = try? context.dummyMonitor(controller: controller) {
+                    // Upstream sets no minimum and Windows keeps a form wide enough for its title bar; AppKit would shrink this to nothing.
                     DummyMonitorView(monitor: view)
+                        .frame(minWidth: 160, minHeight: 120)
                 }
             case .debug:
                 if let view = try? context.debugMonitor(controller: controller) {
