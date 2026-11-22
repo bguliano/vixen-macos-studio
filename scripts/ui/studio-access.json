@@ -223,6 +223,73 @@
       ]
     },
     {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "click",
+        "graph"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "graph"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "click",
+        "graph"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "graph"
+      ]
+    },
+    {
       "action": "studioSection",
       "name": "sequences"
     },
@@ -592,6 +659,73 @@
       "modifiers": [
         "control"
       ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "click",
+        "designer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "designer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "designer"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "click",
+        "designer"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
     },
     {
       "action": "hook",

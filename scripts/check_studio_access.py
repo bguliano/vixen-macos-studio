@@ -10,13 +10,15 @@ Runs scripts/ui/studio-access.json, which drives each canvas with keys only, thr
   takes Output 2 from White Middle, as a drag would (selecting the new line, so Tab Tab reaches White Bottom again);
   Edit ▸ Undo (⌘Z, sent as the menu sends it with the show window key, since a script's window never is) puts it back
   as one step (the pane reloads into the Simple view, so the script picks Graphical again); ⇧Tab moves the selection;
-  ⌃Tab leaves;
+  ⌃Tab leaves; the focus ring checks below (B38);
 - the timeline of "Christmas Can-Can": effects read as "Set Level on White Bottom, 0:00.476 to 0:01.497"; ↓ gives the
   grid a row, → and Tab step along it, ⇧→ extends, ⇧Tab steps back, ↑ and ⌥← read the row, ⌃Tab leaves; a click
-  gives the grid the keyboard without a focus ring, leaving and coming back without a click
-  brings the ring back, and a click hides it again (#60);
+  the focus ring checks (#60);
 - the preview designer for "Christmas Tree 2019": thirteen labelled props; Tab selects the first, Tab Tab ⇧Tab the
-  second ("linked to White Bottom") with its properties shown; → → moves it two points; ⌃Tab leaves.
+  second ("linked to White Bottom") with its properties shown; → → moves it two points; ⌃Tab leaves; the focus ring
+  checks (B38).
+On each canvas, a click gives it the keyboard without a focus ring, leaving and coming back without a click brings the
+ring back, and a click on the focused canvas hides it again (the timeline's #60, the graph's and designer's B38).
 Snapshots graph-keyboard.png, timeline-keyboard.png (designer-keyboard.png is Metal: capture it on screen).
 """
 import json
@@ -59,9 +61,19 @@ def report():
     return text, fields
 
 
+def check_ring(canvas):
+    """Click, ⌃Tab and back by keyboard, click again: the ring shows only when the keyboard brought focus."""
+    text, r = report()
+    assert r["focused"] == "1" and r["ring"] == "0", f"a click gives the {canvas} the keyboard without a focus ring: " + text
+    text, r = report()
+    assert r["focused"] == "1" and r["ring"] == "1", f"leaving the {canvas} and coming back without a click brings the ring back: " + text
+    text, r = report()
+    assert r["focused"] == "1" and r["ring"] == "0", f"a click on the focused {canvas} hides the ring: " + text
+
+
 # The graph
 text, r = report()
-assert r["focused"] == "1" and r["role"] == "AXLayoutArea" and r["label"] == "Patching graph" and r["items"] == "34", text
+assert r["focused"] == "1" and r["role"] == "AXLayoutArea" and r["label"] == "Patching graph" and r["items"] == "34" and r["ring"] == "1", text
 text, r = report()
 assert r["selected"] == "White Bottom, element, to Output 1" and r["said"] == r["selected"], text
 menu = next(reports)
@@ -78,6 +90,7 @@ text, r = report()
 assert r["selected"] and r["selected"] != undone_selection and r["said"] == r["selected"], "⇧Tab moves the selection: " + text
 text, r = report()
 assert r["focused"] == "0", "⌃Tab leaves the graph: " + text
+check_ring("graph")
 labels = [line[2:].split(" @ ")[0] for line in (out / "access-graph.txt").read_text().splitlines()]
 assert "White Bottom, element, to Output 1" in labels and "White Middle, element, to Output 2" in labels, ("Undo took the connection back", labels[:4])
 
@@ -97,16 +110,11 @@ text, r = report()
 assert r["said"].startswith("Relays, collapsed"), "⌥← closes it: " + text
 text, r = report()
 assert r["focused"] == "0", "⌃Tab leaves the timeline: " + text
-text, r = report()
-assert r["focused"] == "1" and r["ring"] == "0", "a click gives the grid the keyboard without a focus ring (#60): " + text
-text, r = report()
-assert r["focused"] == "1" and r["ring"] == "1", "leaving and coming back without a click brings the ring back: " + text
-text, r = report()
-assert r["focused"] == "1" and r["ring"] == "0", "a click on the focused grid hides the ring: " + text
+check_ring("timeline")
 
 # The designer
 text, r = report()
-assert r["focused"] == "1" and r["label"] == "Preview layout" and r["items"] == "13", text
+assert r["focused"] == "1" and r["label"] == "Preview layout" and r["items"] == "13" and r["ring"] == "1", text
 text, r = report()
 assert r["selected"] == "Poly Line, 2 lights, not linked", text
 text, r = report()
@@ -119,6 +127,7 @@ info = [s["detail"] for s in result if s["action"] == "designerInfo"][-1]
 assert "panel=Poly Line Properties" in info, info
 text, r = report()
 assert r["focused"] == "0", "⌃Tab leaves the designer: " + text
+check_ring("designer")
 assert next(reports, None) is None
 
 for name in ["graph-tree", "timeline-tree", "designer-tree"]:

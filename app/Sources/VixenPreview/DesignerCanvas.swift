@@ -232,6 +232,7 @@ final class DesignerCanvasView: NSView, NSMenuItemValidation {
     // MARK: Mouse
 
     override func mouseDown(with event: NSEvent) {
+        studioAccessNoteClick() // STUDIO: no focus ring after a click (StudioDesignerAccess.swift)
         window?.makeFirstResponder(self)
         guard let model, let designer = model.designer else { return }
         // The Control key is the Mac's secondary click, and ⌘ stands in for upstream's Ctrl.
@@ -264,6 +265,7 @@ final class DesignerCanvasView: NSView, NSMenuItemValidation {
     }
 
     override func otherMouseDown(with event: NSEvent) {
+        studioAccessNoteClick() // STUDIO: no focus ring after a middle click (StudioDesignerAccess.swift)
         guard let model, let designer = model.designer else { return }
         window?.makeFirstResponder(self)
         let p = point(event)
@@ -285,6 +287,7 @@ final class DesignerCanvasView: NSView, NSMenuItemValidation {
     /// F37: built after the click has selected. `popUpContextMenu` runs its own loop and swallows the right mouse up, so the session never sees one, and a shape mid-creation or
     /// pasted shapes on the pointer stay as they were.
     override func rightMouseDown(with event: NSEvent) {
+        studioAccessNoteClick() // STUDIO: no focus ring after a right click (StudioDesignerAccess.swift)
         window?.makeFirstResponder(self)
         let p = point(event)
         guard let menu = contextMenu(atX: p.x, y: p.y, mods: mods(event.modifierFlags)) else { return }

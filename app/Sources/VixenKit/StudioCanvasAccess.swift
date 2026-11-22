@@ -130,6 +130,8 @@ public enum StudioCanvasAccess {
     /// - `menu <canvas>`: the titles of the menu Return opens for the selected item, `|` between them, `>` before a
     ///   submenu's.
     /// - `choose <canvas> <title> [<submenu title>]`: runs that item of the selected item's menu, as choosing it would.
+    /// - `click <canvas>`: posts a left click on an empty corner of the canvas, where no item is, for the focus ring checks.
+    ///   A script's window is never key, so the canvas must take a first click (`acceptsFirstMouse`), at least while the harness runs.
     public static func installHarnessHook() {
         guard UITestHarness.isActive, UITestHarness.hooks["studio.access"] == nil else { return }
         UITestHarness.hooks["studio.access"] = { args in
@@ -155,6 +157,25 @@ public enum StudioCanvasAccess {
                 let frames = chosen.map { let f = $0.accessibilityFrame(); return "\(Int(f.minX)),\(Int(f.minY)),\(Int(f.width)),\(Int(f.height))" }
                 let focused = canvas.window?.firstResponder === canvas
                 return "focused=\(focused ? 1 : 0) role=\(canvas.accessibilityRole()?.rawValue ?? "") label=\(canvas.accessibilityLabel() ?? "") items=\(items.count) frames=\(frames.joined(separator: ";")) selected=\(selected.joined(separator: " | ")) said=\(lastAnnouncement) ring=\(focused && showsFocusRing(canvas) ? 1 : 0)"
+            case "click":
+                guard let window = canvas.window else { return "FAIL \(name) has no window" }
+                let frames = canvas.studioAccessItems().map { $0.accessibilityFrame() }
+                let r = canvas.visibleRect.insetBy(dx: 8, dy: 8)
+                let corners = [NSPoint(x: r.maxX, y: r.maxY), NSPoint(x: r.minX, y: r.maxY), NSPoint(x: r.maxX, y: r.minY), NSPoint(x: r.minX, y: r.minY)]
+                guard let point = corners.map({ canvas.convert($0, to: nil) }).first(where: { p in
+                    canvas.superview.map { canvas.hitTest($0.convert(p, from: nil)) === canvas } == true
+                        && !frames.contains { $0.contains(window.convertPoint(toScreen: p)) }
+                }) else { return "FAIL no empty corner on \(name)" }
+                window.makeKey()
+                for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                    if let e = NSEvent.mouseEvent(
+                        with: type, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                        windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0
+                    ) {
+                        NSApp.postEvent(e, atStart: false)
+                    }
+                }
+                return "clicked"
             case "menu":
                 guard let menu = canvas.studioAccessMenu() else { return "FAIL no menu" }
                 return menu.items.filter { !$0.isSeparatorItem }.map { item in

@@ -38,8 +38,23 @@ extension GraphCanvasView: StudioAccessCanvas {
 
     // MARK: Focus ring
 
-    override var focusRingMaskBounds: NSRect { visibleRect }
-    override func drawFocusRingMask() { visibleRect.insetBy(dx: 1, dy: 1).fill() }
+    /// Only when the keyboard brought focus here (B38, as the timeline's #60): a click already shows where it landed.
+    override var focusRingMaskBounds: NSRect { StudioCanvasAccess.showsFocusRing(self) ? visibleRect : .zero }
+    override func drawFocusRingMask() {
+        if StudioCanvasAccess.showsFocusRing(self) { visibleRect.insetBy(dx: 1, dy: 1).fill() }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        StudioCanvasAccess.noteFocus(self)
+        return true
+    }
+
+    /// From the canvas's mouse presses: a click on a canvas that already has the keyboard hides the ring too.
+    func studioAccessNoteClick() { StudioCanvasAccess.noteClick(self) }
+
+    // A script's window is never key, so the harness's clicks reach the canvas only as a first click.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { UITestHarness.isActive || super.acceptsFirstMouse(for: event) }
 
     // MARK: Keys
 

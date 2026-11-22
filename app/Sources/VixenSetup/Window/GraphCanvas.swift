@@ -876,6 +876,7 @@ final class GraphCanvasView: NSView {
     // MARK: Mouse
 
     override func mouseDown(with event: NSEvent) {
+        studioAccessNoteClick() // STUDIO: no focus ring after a click (StudioGraphAccess.swift)
         window?.makeFirstResponder(self)
         let p = convert(event.locationInWindow, from: nil)
         lastPoint = p
@@ -934,6 +935,7 @@ final class GraphCanvasView: NSView {
     }
 
     override func rightMouseDown(with event: NSEvent) {
+        studioAccessNoteClick() // STUDIO: no focus ring after a right click (StudioGraphAccess.swift)
         window?.makeFirstResponder(self)
         beginSecondary(at: convert(event.locationInWindow, from: nil))
     }

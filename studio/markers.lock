@@ -1219,9 +1219,21 @@
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "f9677da835b1cc32"
  },
+ "line:app/Sources/VixenPreview/DesignerCanvas.swift:1775e28b3ff946c4": {
+  "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
+  "hash": "1775e28b3ff946c4"
+ },
  "line:app/Sources/VixenPreview/DesignerCanvas.swift:1986b8b7dc6dfe23": {
   "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
   "hash": "1986b8b7dc6dfe23"
+ },
+ "line:app/Sources/VixenPreview/DesignerCanvas.swift:9734fda3f3f8e584": {
+  "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
+  "hash": "9734fda3f3f8e584"
+ },
+ "line:app/Sources/VixenPreview/DesignerCanvas.swift:eaeee149d8a969cc": {
+  "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
+  "hash": "eaeee149d8a969cc"
  },
  "line:app/Sources/VixenPreview/DesignerDialogs.swift:4be024d1cee5f743": {
   "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
@@ -1523,9 +1535,17 @@
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",
   "hash": "f5d9c1de6e31cdb7"
  },
+ "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:4b13815cf8916ed4": {
+  "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
+  "hash": "4b13815cf8916ed4"
+ },
  "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:78cd4d3f365b540e": {
   "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
   "hash": "78cd4d3f365b540e"
+ },
+ "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:8067a81399e8bcb2": {
+  "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",
+  "hash": "8067a81399e8bcb2"
  },
  "line:app/Sources/VixenSetup/Window/GraphCanvas.swift:c427641c18f17bcf": {
   "file": "app/Sources/VixenSetup/Window/GraphCanvas.swift",

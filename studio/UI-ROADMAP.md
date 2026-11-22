@@ -314,9 +314,9 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   words built in Rust (`studio_access.rs` in vixen-session and vixen-preview): "Set Level on White Bottom, 0:00.476 to
   0:01.497", "White Bottom, element, to Output 1", "Poly Line, 161 lights, linked to White Bottom". A press selects the
   item as a click does; on the graph and designer VO-⇧-M opens its menu. Keys are the same on all three: Tab and ⇧Tab
-  select the next and previous item inside the canvas, ⌃Tab and ⌃⇧Tab move on, and a focus ring marks the canvas with
-  the keyboard. The timeline adds ← and → through the active row's effects (⇧ extends; the first key gives a grid with
-  no active row one), ⌥→ and ⌥← to open and close the row, and reads the row ↑ and ↓ move to; the graph's Return opens
+  select the next and previous item inside the canvas, ⌃Tab and ⌃⇧Tab move on, and a focus ring marks the canvas when
+  the keyboard brought focus there (not after a click, as a button's). The timeline adds ← and → through the active
+  row's effects (⇧ extends; the first key gives a grid with no active row one), ⌥→ and ⌥← to open and close the row, and reads the row ↑ and ↓ move to; the graph's Return opens
   the selected shape's menu, whose Connect To lists what a drag from its output port could reach (Expand/Collapse and
   Configure Filter… too); the designer's arrows nudge the Tab-selected prop as before. `sequence_effects` gives agents
   the same `label`. Verified by `scripts/check_studio_access.py` (`scripts/ui/studio-access.json`, hook
