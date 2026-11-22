@@ -64,8 +64,12 @@ struct StudioSequencerToolbar: CustomizableToolbarContent {
             .help(unsaved ? "Save your changes to the sequence (⌘S)" : "Save the sequence (⌘S). Everything is saved.")
         }
         ToolbarItem(id: "editor-panel", placement: .primaryAction) {
-            panelToggle("Inspector", systemImage: "sidebar.trailing", panel: .effectEditor,
-                        help: "Show or hide the effect editor and libraries")
+            // The whole right-hand drawer, not only its Effect Editor tab (#69).
+            Toggle(isOn: Binding(get: { model.studioInspectorShown }, set: { _ in model.toggleStudioInspector() })) {
+                Label("Inspector", systemImage: "sidebar.trailing")
+            }
+            .toggleStyle(.button)
+            .help("Show or hide the inspector: the effect editor, libraries and other panels on the right (⌥⌘I)")
         }
 
         ToolbarItem(id: "export", placement: .primaryAction, showsByDefault: false) {

@@ -125,7 +125,7 @@ struct DockArea: NSViewRepresentable {
         func apply(_ panels: ShellPanels?) {
             guard let split, let panels, split.arrangedSubviews.count == 3 else { return }
             let hideLeft = panels.leftTabs.isEmpty
-            let hideRight = panels.rightTabs.isEmpty
+            let hideRight = panels.rightTabs.isEmpty || model.studioInspectorCollapsed // STUDIO: the Inspector button collapses the whole drawer (#69)
             let changed = !placed || hideLeft != leftHidden || hideRight != rightHidden
             guard changed else { return }
             leftHidden = hideLeft

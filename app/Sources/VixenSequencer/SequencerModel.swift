@@ -29,6 +29,7 @@ final class SequencerModel: OpenEditor {
     var studioEffectsLibraryRevision: UInt64 = 0 // STUDIO: the Effects library's favorites and recents changed (StudioEffectsLibrary.swift)
     var studioAgentFlashRevision: UInt64? // STUDIO: the agent edits the timeline last flashed (StudioAgentFlash.swift)
     var studioAgentFlashes: [TimelineStudioAgentFlash] = [] // STUDIO: R39 flashes, kept for the harness only
+    var studioInspectorCollapsed = UserDefaults.standard.bool(forKey: SequencerModel.studioInspectorCollapsedKey) // STUDIO: the right drawer collapsed by the Inspector button (StudioInspectorDrawer.swift, #69)
     private(set) var toolbars: ShellToolbars?
     private(set) var panels: ShellPanels?
     /// Updated at display rate only while playing, on its own, so only the label redraws.
@@ -254,6 +255,7 @@ final class SequencerModel: OpenEditor {
             guard let ui = self.ui else { return "FAIL sequencer not loaded" }
             return "speed=\(ui.speed.gaugeText) running=\(ui.transport.running) tempo=\(ui.prefs.useTempoForSpeed)"
         }
+        registerStudioInspectorHook(window) // STUDIO: the inspector drawer for the harness (StudioInspectorDrawer.swift, #69)
         // `sequencer.resize` with path [width, height]: what a script can't do with the pointer.
         UITestHarness.hooks["sequencer.resize"] = { [weak window] args in
             guard let window, args.count == 2, let width = Double(args[0]), let height = Double(args[1]) else { return "FAIL needs width and height" }
@@ -867,6 +869,7 @@ final class SequencerModel: OpenEditor {
         shell?.togglePanel(panel: panel)
         panels = shell?.panels()
         syncFloatingPanels()
+        studioRevealInspector(for: panel) // STUDIO: showing a right-hand panel opens a collapsed inspector drawer (#69)
     }
 
     func selectPanel(_ panel: ShellPanel, side: ShellSide) {
@@ -893,6 +896,7 @@ final class SequencerModel: OpenEditor {
         shell?.setPanelFloating(panel: panel, floating: false)
         panels = shell?.panels()
         syncFloatingPanels()
+        studioRevealInspector(for: panel) // STUDIO: docking a panel on the right opens a collapsed inspector drawer (#69)
     }
 
     /// Floating panels are `NSPanel`s, so they stay beside the window and the key monitor still hears them.
