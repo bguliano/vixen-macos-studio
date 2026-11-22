@@ -70,7 +70,7 @@ pub fn write_header(packet: &mut [u8], packet_number: usize, size: usize, last: 
     let offset = (packet_number * DDP_CHANNELS_PER_PACKET) as u32;
     packet[0] = if last { DDP_FLAGS1_VER1 | DDP_FLAGS1_PUSH } else { DDP_FLAGS1_VER1 };
     packet[1] = 0; // Reserved.
-    packet[2] = 1; // Custom data.
+    packet[2] = 0; // Undefined data type (VIX-4029).
     packet[3] = DDP_ID_DISPLAY;
     packet[4..8].copy_from_slice(&offset.to_be_bytes());
     packet[8] = (size >> 8) as u8;
@@ -310,9 +310,9 @@ mod tests {
     fn header_bytes() {
         let mut p = [0u8; 10];
         write_header(&mut p, 0, 3, true);
-        assert_eq!(p, [0x41, 0, 1, 1, 0, 0, 0, 0, 0, 3]);
+        assert_eq!(p, [0x41, 0, 0, 1, 0, 0, 0, 0, 0, 3]);
         write_header(&mut p, 2, 1440, false);
-        assert_eq!(p, [0x40, 0, 1, 1, 0, 0, 0x0B, 0x40, 0x05, 0xA0]);
+        assert_eq!(p, [0x40, 0, 0, 1, 0, 0, 0x0B, 0x40, 0x05, 0xA0]);
     }
 
     #[test]

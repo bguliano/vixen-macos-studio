@@ -386,7 +386,7 @@ fn ddp_single_packet_has_the_push_flag() {
     let rx = UdpReceiver::new();
     let mut m = ddp_module(3, &rx);
     m.update(&[OutputCommand::U8(10), OutputCommand::None, OutputCommand::U16(700)]);
-    assert_eq!(rx.recv(), vec![0x41, 0x00, 0x01, 0x01, 0, 0, 0, 0, 0x00, 0x03, 10, 0, 0]);
+    assert_eq!(rx.recv(), vec![0x41, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0x00, 0x03, 10, 0, 0]);
     m.stop();
 }
 
@@ -398,11 +398,11 @@ fn ddp_splits_at_1440_channels_with_the_push_flag_last() {
     m.update(&frame);
     let first = rx.recv();
     assert_eq!(first.len(), 1450);
-    assert_eq!(&first[..10], &[0x40, 0, 1, 1, 0, 0, 0, 0, 0x05, 0xA0]);
+    assert_eq!(&first[..10], &[0x40, 0, 0, 1, 0, 0, 0, 0, 0x05, 0xA0]);
     assert_eq!(first[10], 0);
     assert_eq!(first[1449], (1439 % 251) as u8);
     let second = rx.recv();
-    assert_eq!(second, vec![0x41, 0, 1, 1, 0x00, 0x00, 0x05, 0xA0, 0x00, 0x01, (1440 % 251) as u8]);
+    assert_eq!(second, vec![0x41, 0, 0, 1, 0x00, 0x00, 0x05, 0xA0, 0x00, 0x01, (1440 % 251) as u8]);
     m.stop();
 }
 
@@ -412,7 +412,7 @@ fn ddp_an_exact_multiple_ends_in_an_empty_push_packet() {
     let mut m = ddp_module(1440, &rx);
     m.update(&vec![OutputCommand::U8(1); 1440]);
     assert_eq!(rx.recv().len(), 1450);
-    assert_eq!(rx.recv(), vec![0x41, 0, 1, 1, 0x00, 0x00, 0x05, 0xA0, 0x00, 0x00]);
+    assert_eq!(rx.recv(), vec![0x41, 0, 0, 1, 0x00, 0x00, 0x05, 0xA0, 0x00, 0x00]);
     m.stop();
 }
 
@@ -424,9 +424,9 @@ fn ddp_offsets_keep_growing_by_1440() {
     let first = rx.recv();
     let second = rx.recv();
     let third = rx.recv();
-    assert_eq!(&first[..10], &[0x40, 0, 1, 1, 0, 0, 0, 0, 0x05, 0xA0]);
-    assert_eq!(&second[..10], &[0x40, 0, 1, 1, 0, 0, 0x05, 0xA0, 0x05, 0xA0]);
-    assert_eq!(&third[..10], &[0x41, 0, 1, 1, 0, 0, 0x0B, 0x40, 0x00, 0x78]);
+    assert_eq!(&first[..10], &[0x40, 0, 0, 1, 0, 0, 0, 0, 0x05, 0xA0]);
+    assert_eq!(&second[..10], &[0x40, 0, 0, 1, 0, 0, 0x05, 0xA0, 0x05, 0xA0]);
+    assert_eq!(&third[..10], &[0x41, 0, 0, 1, 0, 0, 0x0B, 0x40, 0x00, 0x78]);
     assert_eq!(third.len(), 130);
     m.stop();
 }
@@ -441,7 +441,7 @@ fn ddp_host_name_replaces_the_saved_address() {
     m.set_output_count(1);
     m.start();
     m.update(&u8s(&[4]));
-    assert_eq!(rx.recv(), vec![0x41, 0, 1, 1, 0, 0, 0, 0, 0, 1, 4]);
+    assert_eq!(rx.recv(), vec![0x41, 0, 0, 1, 0, 0, 0, 0, 0, 1, 4]);
     let vixen_output::ControllerConfig::Ddp(saved) = m.config() else { panic!() };
     assert_eq!(saved.address.as_deref(), Some("127.0.0.1"));
     assert_eq!(saved.host_name.as_deref(), Some("localhost"));
@@ -691,5 +691,34 @@ fn rds_http_sends_the_encoded_text_and_answers_a_challenge() {
     assert!(requests[0].starts_with("GET /?action=update_rt&update_rt=Jingle+Bells+%26+more HTTP/1.1\r\n"), "{}", requests[0]);
     assert!(!requests[0].contains("Authorization"));
     assert!(requests[1].contains("Authorization: Basic dXNlcjpwYXNz\r\n"), "{}", requests[1]);
+    m.stop();
+}
+
+// Upstream `DDPPacketTests` (VIX-4029): header, payload, offsets and push flag against the 3waylabs spec.
+
+#[test]
+fn ddp_update_state_single_packet_encodes_spec_header_and_payload() {
+    let rx = UdpReceiver::new();
+    let mut m = ddp_module(3, &rx);
+    m.update(&u8s(&[0x12, 0x34, 0x56]));
+    assert_eq!(rx.recv(), vec![0x41, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x12, 0x34, 0x56]);
+    m.stop();
+}
+
+#[test]
+fn ddp_update_state_multiple_packets_offsets_and_push_flag_match_spec() {
+    let rx = UdpReceiver::new();
+    let mut m = ddp_module(1441, &rx);
+    let states: Vec<OutputCommand> = (0..1441).map(|i| OutputCommand::U8((i & 0xff) as u8)).collect();
+    m.update(&states);
+    let first = rx.recv();
+    let second = rx.recv();
+    assert_eq!(first.len(), 1450);
+    assert_eq!(first[0], 0x40);
+    assert_eq!(&first[4..10], &[0x00, 0x00, 0x00, 0x00, 0x05, 0xa0]);
+    assert_eq!(second[0], 0x41);
+    assert_eq!(&second[4..10], &[0x00, 0x00, 0x05, 0xa0, 0x00, 0x01]);
+    assert_eq!(first[first.len() - 1], 0x9f);
+    assert_eq!(second[10], 0xa0);
     m.stop();
 }

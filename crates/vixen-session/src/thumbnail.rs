@@ -53,22 +53,21 @@ pub fn rasterize(r: &ThumbnailRequest) -> Pixels {
     let width = r.width as f64;
     let height = r.height as f64;
 
-    // Limit the number of rows rasterized.
-    let tmpsiz = (height / 2.0) as usize + 1;
-    let count = r.intents.map.len();
-    let skip_count = if count > tmpsiz { count / tmpsiz } else { 1 };
-    let divisor = r.elements.len() / skip_count;
-    if divisor == 0 {
+    if r.intents.map.is_empty() {
         return out;
     }
-    let height_per_element = height / divisor as f64;
 
-    let mut y = 0.0f64;
-    for (ctr, element) in r.elements.iter().enumerate() {
-        if ctr % skip_count != 0 {
-            continue;
-        }
-        if let Some(nodes) = r.intents.nodes_for(element).filter(|n| !n.is_empty()) {
+    // Partition the target list itself. It can contain many more entries than the rendered intents (VIX-4032).
+    let row_count = r.elements.len().min((height / 2.0) as usize + 1);
+    let height_per_element = height / row_count as f64;
+    for row_index in 0..row_count {
+        let y = row_index as f64 * height_per_element;
+        let first_element = row_index * r.elements.len() / row_count;
+        let end_element = (row_index + 1) * r.elements.len() / row_count;
+        let element_intents = r.elements[first_element..end_element].iter().find_map(|element| {
+            r.intents.nodes_for(element).filter(|n| has_visible_intent(n.iter(), r.visible_start, r.visible_end))
+        });
+        if let Some(nodes) = element_intents {
             // Determine whether parallel intents are used on this element.
             let mut stack: Vec<Vec<&IntentNode>> = vec![vec![&nodes[0]]];
             for node in &nodes[1..] {
@@ -89,8 +88,19 @@ pub fn rasterize(r: &ThumbnailRequest) -> Pixels {
                 skip = 1;
             }
 
-            let h = height_per_element as f32 / (stack.len() - skip) as f32;
-            for (stack_count, row) in stack.iter().skip(skip).enumerate() {
+            // Each displayed lane needs its own pixel band. Preserve the base layer drawn above.
+            let lane_count = stack.len() - skip;
+            let displayed_lanes = lane_count.min((height_per_element as usize).max(1));
+            let h = height_per_element as f32 / displayed_lanes as f32;
+            for lane_index in 0..displayed_lanes {
+                let first_lane = skip + lane_index * lane_count / displayed_lanes;
+                let end_lane = skip + (lane_index + 1) * lane_count / displayed_lanes;
+                let mut row = &stack[first_lane];
+                let mut i = first_lane;
+                while i + 1 < end_lane && !has_visible_intent(row.iter().copied(), r.visible_start, r.visible_end) {
+                    row = &stack[i + 1];
+                    i += 1;
+                }
                 for node in row {
                     if node.end < r.visible_start || node.start > r.visible_end {
                         continue;
@@ -108,16 +118,20 @@ pub fn rasterize(r: &ThumbnailRequest) -> Pixels {
                     draw_intent(
                         &mut out,
                         &node.intent,
-                        (start_x as f32, y as f32 + h * stack_count as f32, width_x as f32, h),
+                        (start_x as f32, y as f32 + h * lane_index as f32, width_x as f32, h),
                         visible_intent_start,
                         visible_intent_end,
                     );
                 }
             }
         }
-        y += height_per_element;
     }
     out
+}
+
+/// `HasVisibleIntent`: whether any intent overlaps the visible interval.
+fn has_visible_intent<'n>(intents: impl IntoIterator<Item = &'n IntentNode>, visible_start: TimeSpan, visible_end: TimeSpan) -> bool {
+    intents.into_iter().any(|n| n.end > visible_start && n.start < visible_end)
 }
 
 #[inline]
@@ -187,7 +201,9 @@ fn to_float(c: Color) -> [f32; 4] {
 /// `DrawGradient`: a horizontal `LinearGradientBrush` with gamma correction.
 fn draw_gradient(out: &mut Pixels, start: Color, end: Color, rect: (f32, f32, f32, f32)) {
     let (x, y, w, h) = rect;
-    if w <= 0.0 || h <= 0.0 {
+    if !x.is_finite() || !y.is_finite() || !w.is_finite() || !h.is_finite() || !(x + w).is_finite() || !(y + h).is_finite()
+        || w <= 0.0 || h <= 0.0 || x + w <= x || y + h <= y
+    {
         return;
     }
     // GDI+ fills a pixel when its centre is inside the rectangle.
@@ -217,7 +233,18 @@ fn draw_gradient(out: &mut Pixels, start: Color, end: Color, rect: (f32, f32, f3
     // The original widens the gradient a little to avoid edge artefacts.
     let offset = x * 0.004;
     let grad_x = x - offset;
-    let grad_w = w + 2.0 * offset;
+    let grad_right = grad_x + (w + 2.0 * offset);
+    let grad_w = grad_right - grad_x;
+    // A gradient too thin for the brush fills with the start colour instead (VIX-4032).
+    if !grad_x.is_finite() || !grad_right.is_finite() || !grad_w.is_finite() || grad_w < 1.0 / 256.0 {
+        let c = to_float(start);
+        for py in y0..y1 {
+            for px in x0..x1 {
+                out.blend(px, py, c);
+            }
+        }
+        return;
+    }
     let (s, e) = (to_float(start), to_float(end));
     // Gamma correction: interpolate at 2.2 and convert back.
     let lin = |v: f32| (v / 255.0).powf(2.2);
@@ -364,5 +391,71 @@ mod tests {
         let e = EffectIntents::new();
         assert_eq!(rasterize(&request(&e, &[], 100, 10, 10)).rgba.iter().sum::<u8>(), 0);
         assert!(rasterize(&request(&e, &[Uuid::new_v4()], 100, 0, 0)).rgba.is_empty());
+    }
+
+    fn static_array(c: RgbValue, span: TimeSpan) -> Intent {
+        Intent::new(IntentData::ArrayRgb(FrameArray::from_vec(vec![c, c], span)), span)
+    }
+
+    /// Upstream `EffectRasterizerDrawingTests.DrawCanvasContent_DisplaysVisibleTargetsInDenseThumbnail` (VIX-4032):
+    /// sparse targets with overlapping intents show in their target bands.
+    #[test]
+    fn draw_canvas_content_displays_visible_targets_in_dense_thumbnail() {
+        let targets: Vec<Uuid> = (0..40).map(|_| Uuid::new_v4()).collect();
+        let (visible_start, visible_end) = (ms(100), ms(300));
+        let visible_duration = visible_end - visible_start;
+        let mut e = EffectIntents::new();
+        e.add_intent_for_element(targets[0], static_array(RgbValue { r: 0, g: 0, b: 255 }, visible_start), TimeSpan::ZERO);
+        let dense = static_array(RgbValue { r: 255, g: 0, b: 0 }, visible_duration);
+        for _ in 0..215 {
+            e.add_intent_for_element(targets[2], dense.clone(), visible_start);
+        }
+        e.add_intent_for_element(targets[39], static_array(RgbValue { r: 0, g: 255, b: 0 }, visible_duration), visible_start);
+        let r = ThumbnailRequest {
+            intents: &e,
+            elements: &targets,
+            effect_span: ms(400),
+            visible_start,
+            visible_end,
+            overall_width: 200.0,
+            width: 100,
+            height: 19,
+        };
+        let p = rasterize(&r);
+        assert_eq!(px(&p, 20, 0), [255, 0, 0, 255]);
+        assert_eq!(px(&p, 20, 9)[3], 0);
+        assert_eq!(px(&p, 20, 18), [0, 255, 0, 255]);
+    }
+
+    /// Upstream `IntentRasterizerDrawingTests.Rasterize_CapturedButterflyBounds_ContinuesDrawing` (VIX-4032).
+    #[test]
+    fn captured_butterfly_bounds_continue_drawing() {
+        let mut p = Pixels::transparent(320, 24);
+        let captured = (297.225464, 7.57701015, 4.71786451, 8.1524071e-5);
+        draw_gradient(&mut p, Color::RED, Color::BLUE, captured);
+        draw_gradient(&mut p, Color::from_argb_u32(0x5B0505FE), Color::from_argb_u32(0x580505FF), captured);
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (10.0, 10.0, 100.0, 8.0));
+        assert_ne!(px(&p, 30, 13)[3], 0);
+        assert_ne!(px(&p, 20, 13), px(&p, 90, 13));
+    }
+
+    /// Upstream `IntentRasterizerDrawingTests.Rasterize_TinyAndInvalidBounds_ContinuesDrawing` (VIX-4032).
+    #[test]
+    fn tiny_and_invalid_bounds_continue_drawing() {
+        let mut p = Pixels::transparent(40, 20);
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (0.0, 0.0, 1e-8, 4.0));
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (f32::NAN, 0.0, 10.0, 4.0));
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (0.0, 0.0, -1.0, 4.0));
+        draw_gradient(&mut p, Color::LIME, Color::LIME, (5.0, 8.0, 20.0, 5.0));
+        assert_eq!(px(&p, 30, 1)[3], 0);
+        assert_eq!(px(&p, 10, 10), [0, 255, 0, 255]);
+    }
+
+    #[test]
+    fn a_non_finite_rectangle_draws_nothing() {
+        let mut p = Pixels::transparent(10, 10);
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (f32::NAN, 0.0, 10.0, 4.0));
+        draw_gradient(&mut p, Color::RED, Color::BLUE, (0.0, 0.0, f32::INFINITY, 4.0));
+        assert!(p.rgba.iter().all(|&b| b == 0));
     }
 }
