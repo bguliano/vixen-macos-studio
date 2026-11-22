@@ -203,6 +203,7 @@ pub fn execute(core: &AppCore, a: &Value) -> Result<Value, String> {
         let (written, _, width, height, _) = studio_preview::encode(
             &mut gallery.renderer,
             &times,
+            studio_preview::Encoding::HIGH.codec(tile_w + tile_w % 2, tile_h + tile_h % 2, f64::from(fps)),
             f64::from(fps),
             0.0,
             end,

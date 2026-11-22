@@ -1148,9 +1148,17 @@ fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &st
     confirm(a)?;
     let video = name == "preview_video";
     let file = filename(a, "file")?;
-    let extension = if video { ".mp4" } else { ".png" };
-    if !file.to_lowercase().ends_with(extension) {
-        return Err(format!("Use {extension} extension"));
+    let lower = file.to_lowercase();
+    if video {
+        let prores = a["codec"] == "prores";
+        if prores && !lower.ends_with(".mov") {
+            return Err("Use .mov extension for codec prores".into());
+        }
+        if !(lower.ends_with(".mp4") || lower.ends_with(".mov")) {
+            return Err("Use .mp4 or .mov extension".into());
+        }
+    } else if !lower.ends_with(".png") {
+        return Err("Use .png extension".into());
     }
     let path = output(core, "Export", &file)?;
     let (length, audio) = {
@@ -1178,9 +1186,9 @@ fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &st
         if end - start > 900_000.0 {
             return Err("A preview video is limited to 15 minutes".into());
         }
-        let scale = a.get("scale").map_or(Some(1.0), Value::as_f64).filter(|s| (0.1..=1.0).contains(s)).ok_or("scale must be in 0.1..1")?;
+        let options = video_options(core, a)?;
         let audio = if a["withAudio"] == false { None } else { audio };
-        crate::studio_preview::video(core, shared, &range, scale as f32, audio.as_deref(), &path)
+        crate::studio_preview::video(core, shared, &range, &options, audio.as_deref(), &path)
     } else {
         if !(0.1..=30.0).contains(&fps) {
             return Err("fps must be in 0.1..30".into());
@@ -1190,6 +1198,72 @@ fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &st
         };
         crate::studio_preview::sheet(core, shared, &range, whole("cols", 8, 1..=30)?, whole("tileWidth", 160, 64..=640)?, &path)
     }
+}
+
+/// preview_video's framing, size, renderer and encoding.
+fn video_options(core: &AppCore, a: &Value) -> Result<crate::studio_preview::VideoOptions, String> {
+    use crate::studio_preview::{Encoding, Framing, Size, VideoOptions};
+    let side = |k: &str| {
+        a.get(k)
+            .map(|v| v.as_u64().filter(|n| (16..=4096).contains(n)).map(|n| n as u32).ok_or(format!("{k} must be a whole number of pixels in 16..4096")))
+            .transpose()
+    };
+    let (width, height) = (side("width")?, side("height")?);
+    let size = match (a.get("scale"), width.or(height)) {
+        (Some(_), Some(_)) => return Err("Give scale or width/height, not both".into()),
+        (Some(v), None) => Size::Scale(v.as_f64().filter(|s| (0.1..=4.0).contains(s)).ok_or("scale must be in 0.1..4")? as f32),
+        (None, Some(_)) => Size::Fit(width, height),
+        (None, None) => Size::Default,
+    };
+    let framing = match (a.get("fit"), a.get("crop")) {
+        (Some(_), Some(_)) => return Err("Give fit or crop, not both".into()),
+        (Some(_), None) => {
+            let target = uuid(a, "fit")?;
+            let system = core.system.read();
+            let node = system.tree.find(&target).ok_or(format!("fit: element {target} not found"))?;
+            let elements: std::collections::HashSet<Uuid> = system
+                .tree
+                .leaves(node)
+                .into_iter()
+                .chain([node])
+                .filter_map(|n| system.tree.node(n).element_id)
+                .collect();
+            let padding = a.get("padding").map_or(Some(12.0), Value::as_f64).filter(|p| (0.0..=2000.0).contains(p)).ok_or("padding must be in 0..2000")?;
+            Framing::Fit { elements, padding: padding as f32 }
+        }
+        (None, Some(crop)) => {
+            let value = |k: &str, min: f64| crop[k].as_f64().filter(|v| v.is_finite() && *v >= min && v.abs() <= 20_000.0).ok_or(format!("crop.{k} must be a number"));
+            let rect = [value("x", -20_000.0)?, value("y", -20_000.0)?, value("width", 1.0)?, value("height", 1.0)?];
+            Framing::Crop(rect.map(|v| v as f32))
+        }
+        (None, None) => {
+            if a.get("padding").is_some() {
+                return Err("padding goes with fit".into());
+            }
+            Framing::Canvas
+        }
+    };
+    let gpu = match a.get("renderer").map(|v| v.as_str()) {
+        None | Some(Some("gpu")) => true,
+        Some(Some("cpu")) => false,
+        _ => return Err("renderer must be gpu or cpu".into()),
+    };
+    let encoding = match (a.get("codec").map(|v| v.as_str()), a.get("quality").map(|v| v.as_str()), a.get("bitrateKbps")) {
+        (Some(Some("prores")), None, None) => Encoding::ProRes4444,
+        (Some(Some("prores")), _, _) => return Err("quality and bitrateKbps are for codec h264; prores is always near-lossless".into()),
+        (None | Some(Some("h264")), _, Some(_)) if a.get("quality").is_some() => return Err("Give quality or bitrateKbps, not both".into()),
+        (None | Some(Some("h264")), None, Some(kbps)) => Encoding::H264Bitrate(
+            kbps.as_u64().filter(|k| (500..=200_000).contains(k)).ok_or("bitrateKbps must be a whole number in 500..200000")? as u32 * 1000,
+        ),
+        (None | Some(Some("h264")), quality, None) => match quality {
+            None | Some(Some("high")) => Encoding::HIGH,
+            Some(Some("standard")) => Encoding::STANDARD,
+            Some(Some("max")) => Encoding::MAX,
+            _ => return Err("quality must be standard, high or max".into()),
+        },
+        _ => return Err("codec must be h264 or prores".into()),
+    };
+    Ok(VideoOptions { framing, size, gpu, encoding })
 }
 
 pub fn tools() -> Vec<Value> {
@@ -1214,7 +1288,7 @@ pub fn tools() -> Vec<Value> {
 
         ("effect_set_parameter","Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"parameter":string,"value":{}}),vec!["sequenceId","effectId","parameter","value"],false),
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
-        ("preview_video","Render a sequence span as an H.264 MP4 of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, scale 1. Up to 15 minutes. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"scale":{"type":"number","minimum":0.1,"maximum":1},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
+        ("preview_video","Render a sequence span as a video of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, the app's own GPU preview renderer (antialiased lights and background artwork, as the preview window draws them; renderer cpu gives inspection frames), scale 2 (pixels per preview unit, drawn at that size, not upscaled; less when that would pass the 4096x2304 H.264 limit; or give width and/or height for the largest scale that fits), the whole preview canvas (fit an element id to frame its lights with padding preview units around them, or crop a preview rectangle), H.264 High at quality high in .mp4 or .mov (standard, high or max; or bitrateKbps). codec prores writes a ProRes 4444 .mov master. At most 4096 px a side. Up to 15 minutes. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"renderer":{"type":"string","enum":["gpu","cpu"]},"scale":{"type":"number","minimum":0.1,"maximum":4},"width":{"type":"integer","minimum":16,"maximum":4096},"height":{"type":"integer","minimum":16,"maximum":4096},"fit":string,"padding":{"type":"number","minimum":0,"maximum":2000},"crop":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"width":{"type":"number","minimum":1},"height":{"type":"number","minimum":1}},"required":["x","y","width","height"],"additionalProperties":false},"codec":{"type":"string","enum":["h264","prores"]},"quality":{"type":"string","enum":["standard","high","max"]},"bitrateKbps":{"type":"integer","minimum":500,"maximum":200000},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
         ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),

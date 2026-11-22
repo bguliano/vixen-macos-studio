@@ -1,12 +1,17 @@
-//! H.264/AAC MP4 writing through AVFoundation, so preview videos need no ffmpeg. Frames come from a caller fill function;
+//! H.264/AAC MP4 (or ProRes 4444 MOV) writing through AVFoundation, so preview videos need no ffmpeg. Frames come from a caller fill function;
 //! the sequence audio is read from its media file for the same span and encoded alongside, interleaved by the writer.
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::runtime::AnyObject;
 use objc2_av_foundation::{
     AVAssetReader, AVAssetReaderStatus, AVAssetReaderTrackOutput, AVAssetWriter,
     AVAssetWriterInput, AVAssetWriterInputPixelBufferAdaptor, AVAssetWriterStatus, AVFileTypeMPEG4,
-    AVMediaTypeAudio, AVMediaTypeVideo, AVURLAsset, AVVideoCodecKey, AVVideoCodecTypeH264,
-    AVVideoHeightKey, AVVideoWidthKey,
+    AVFileTypeQuickTimeMovie, AVMediaTypeAudio, AVMediaTypeVideo, AVURLAsset,
+    AVVideoAverageBitRateKey, AVVideoCodecKey, AVVideoCodecTypeAppleProRes4444,
+    AVVideoCodecTypeH264, AVVideoColorPrimariesKey, AVVideoColorPrimaries_ITU_R_709_2,
+    AVVideoColorPropertiesKey, AVVideoCompressionPropertiesKey, AVVideoExpectedSourceFrameRateKey,
+    AVVideoHeightKey, AVVideoMaxKeyFrameIntervalKey, AVVideoProfileLevelH264HighAutoLevel,
+    AVVideoProfileLevelKey, AVVideoTransferFunctionKey, AVVideoTransferFunction_ITU_R_709_2,
+    AVVideoWidthKey, AVVideoYCbCrMatrixKey, AVVideoYCbCrMatrix_ITU_R_709_2,
 };
 use objc2_core_foundation::CFRetained;
 use objc2_core_media::{CMTime, CMTimeRange};
@@ -22,6 +27,24 @@ const TIMESCALE: i32 = 90_000;
 // Core Audio format IDs ('lpcm', 'aac ') and AVFAudio's settings keys, whose values are their own names.
 const LINEAR_PCM: u32 = 0x6C70_636D;
 const MPEG4_AAC: u32 = 0x6161_6320;
+
+/// How the frames are compressed.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Codec {
+    /// H.264 High profile, 4:2:0, at this average bit rate (bits per second), in an MP4 or MOV.
+    H264 { bitrate: u32 },
+    /// ProRes 4444, a near-lossless master, in a MOV.
+    ProRes4444,
+}
+
+impl Codec {
+    pub fn describe(self) -> String {
+        match self {
+            Codec::H264 { bitrate } => format!("H.264 High 4:2:0 at {} kb/s", bitrate / 1000),
+            Codec::ProRes4444 => "Apple ProRes 4444".into(),
+        }
+    }
+}
 
 pub struct Written {
     pub frames: usize,
@@ -117,6 +140,51 @@ impl Drop for Audio {
     }
 }
 
+/// The writer's video settings: the codec, the size and, for H.264, High profile at `bitrate` with BT.709 colour tags,
+/// so players show the colours the frames were painted with.
+unsafe fn video_settings(
+    codec: Codec,
+    width: u32,
+    height: u32,
+    fps: f64,
+) -> Result<Retained<NSDictionary<NSString, AnyObject>>, String> {
+    let missing = "AVFoundation video keys unavailable";
+    let (w, h) = (NSNumber::new_u32(width), NSNumber::new_u32(height));
+    let colors = dictionary(&[
+        (AVVideoColorPrimariesKey.ok_or(missing)?, AVVideoColorPrimaries_ITU_R_709_2.ok_or(missing)?),
+        (AVVideoTransferFunctionKey.ok_or(missing)?, AVVideoTransferFunction_ITU_R_709_2.ok_or(missing)?),
+        (AVVideoYCbCrMatrixKey.ok_or(missing)?, AVVideoYCbCrMatrix_ITU_R_709_2.ok_or(missing)?),
+    ]);
+    let mut entries: Vec<(&NSString, &AnyObject)> = vec![
+        (AVVideoWidthKey.ok_or(missing)?, &w),
+        (AVVideoHeightKey.ok_or(missing)?, &h),
+        (AVVideoColorPropertiesKey.ok_or(missing)?, &colors),
+    ];
+    let compression;
+    let (rate, frame_rate, key_interval) = (
+        NSNumber::new_u32(match codec { Codec::H264 { bitrate } => bitrate, Codec::ProRes4444 => 0 }),
+        NSNumber::new_f64(fps),
+        // A key frame every two seconds, so a player can seek anywhere quickly.
+        NSNumber::new_u32((fps * 2.0).round().max(1.0) as u32),
+    );
+    match codec {
+        Codec::H264 { .. } => {
+            compression = dictionary(&[
+                (AVVideoAverageBitRateKey.ok_or(missing)?, &rate),
+                (AVVideoProfileLevelKey.ok_or(missing)?, AVVideoProfileLevelH264HighAutoLevel.ok_or(missing)?),
+                (AVVideoExpectedSourceFrameRateKey.ok_or(missing)?, &frame_rate),
+                (AVVideoMaxKeyFrameIntervalKey.ok_or(missing)?, &key_interval),
+            ]);
+            entries.push((AVVideoCodecKey.ok_or(missing)?, AVVideoCodecTypeH264.ok_or(missing)?));
+            entries.push((AVVideoCompressionPropertiesKey.ok_or(missing)?, &compression));
+        }
+        Codec::ProRes4444 => {
+            entries.push((AVVideoCodecKey.ok_or(missing)?, AVVideoCodecTypeAppleProRes4444.ok_or(missing)?));
+        }
+    }
+    Ok(dictionary(&entries))
+}
+
 fn pixel_buffer(width: usize, height: usize) -> Result<CFRetained<CVPixelBuffer>, String> {
     let mut out: *mut CVPixelBuffer = std::ptr::null_mut();
     let status = unsafe {
@@ -135,11 +203,13 @@ fn pixel_buffer(width: usize, height: usize) -> Result<CFRetained<CVPixelBuffer>
         .ok_or(format!("Could not allocate a video frame ({status})"))
 }
 
-/// Writes `fill`'s frames (BGRA rows, given the row stride) at `fps` from `start_ms`, until it returns `None`.
+/// Writes `fill`'s frames (BGRA rows, given the row stride) at `fps` from `start_ms`, until it returns `None`. A `.mov`
+/// path gets a QuickTime file, anything else MP4.
 /// The writer goes to a sibling temporary file renamed into place, so a failure never leaves a half-written video.
 #[allow(clippy::too_many_arguments)]
 pub fn write(
     path: &Path,
+    codec: Codec,
     width: u32,
     height: u32,
     fps: f64,
@@ -153,7 +223,12 @@ pub fn write(
         .file_name()
         .ok_or("Output has no name")?
         .to_string_lossy();
-    let temporary = directory.join(format!(".{name}.{}.partial.mp4", uuid::Uuid::new_v4()));
+    let movie = name.to_lowercase().ends_with(".mov");
+    let temporary = directory.join(format!(
+        ".{name}.{}.partial.{}",
+        uuid::Uuid::new_v4(),
+        if movie { "mov" } else { "mp4" }
+    ));
     struct Remove<'a>(&'a Path);
     impl Drop for Remove<'_> {
         fn drop(&mut self) {
@@ -163,7 +238,7 @@ pub fn write(
     let _cleanup = Remove(&temporary);
     let written = autoreleasepool(|_| {
         encode(
-            &temporary, width, height, fps, start_ms, end_ms, audio_path, fill,
+            &temporary, movie, codec, width, height, fps, start_ms, end_ms, audio_path, fill,
         )
     })?;
     std::fs::rename(&temporary, path).map_err(|e| e.to_string())?;
@@ -173,6 +248,8 @@ pub fn write(
 #[allow(clippy::too_many_arguments)]
 fn encode(
     path: &Path,
+    movie: bool,
+    codec: Codec,
     width: u32,
     height: u32,
     fps: f64,
@@ -184,20 +261,11 @@ fn encode(
     let url = NSURL::fileURLWithPath(&NSString::from_str(
         path.to_str().ok_or("Output path is not UTF-8")?,
     ));
-    let file_type = unsafe { AVFileTypeMPEG4 }.ok_or("AVFoundation MP4 type unavailable")?;
+    let file_type = unsafe { if movie { AVFileTypeQuickTimeMovie } else { AVFileTypeMPEG4 } }
+        .ok_or("AVFoundation file type unavailable")?;
     let writer = unsafe { AVAssetWriter::assetWriterWithURL_fileType_error(&url, file_type) }
         .map_err(|e| e.localizedDescription().to_string())?;
-    let (w, h) = (NSNumber::new_u32(width), NSNumber::new_u32(height));
-    let video_settings = unsafe {
-        dictionary(&[
-            (
-                AVVideoCodecKey.ok_or("AVFoundation video keys unavailable")?,
-                AVVideoCodecTypeH264.unwrap(),
-            ),
-            (AVVideoWidthKey.unwrap(), &w),
-            (AVVideoHeightKey.unwrap(), &h),
-        ])
-    };
+    let video_settings = unsafe { video_settings(codec, width, height, fps) }?;
     let video_type = unsafe { AVMediaTypeVideo }.ok_or("AVFoundation video type unavailable")?;
     let video = unsafe {
         AVAssetWriterInput::assetWriterInputWithMediaType_outputSettings(
@@ -211,7 +279,7 @@ fn encode(
     };
     unsafe {
         if !writer.canAddInput(&video) {
-            return Err("The video writer refused H.264 at this size".into());
+            return Err(format!("The video writer refused {} at {width}x{height}", codec.describe()));
         }
         writer.addInput(&video);
     }

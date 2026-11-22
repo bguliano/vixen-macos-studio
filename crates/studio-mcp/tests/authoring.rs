@@ -176,6 +176,31 @@ fn real_music_thirty_second_show_via_stdio_only() {
         assert!(video["maxIlluminated"].as_u64().unwrap() > 0, "{video}");
         let mp4 = std::fs::read(root.join("Export/MCP-music-test.mp4")).unwrap();
         assert_eq!(&mp4[4..8], b"ftyp");
+        // Drawn by the app's preview renderer at twice the canvas size by default, not upscaled afterwards.
+        let canvas_width = frame["width"].as_u64().unwrap();
+        assert_eq!(video["width"].as_u64().unwrap(), canvas_width * 2 + canvas_width * 2 % 2, "{video}");
+        assert!(video["renderer"].as_str().unwrap().starts_with("app preview renderer"), "{video}");
+        assert!(video["codec"].as_str().unwrap().starts_with("H.264 High"), "{video}");
+        // Framed on one prop at four times its size.
+        let fitted = call(
+            "preview_video",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+1000.0,"fit":element,"padding":4,"scale":4,"file":"MCP-music-fit.mp4","confirm":true}),
+        );
+        assert_eq!(fitted["frames"], 25, "{fitted}");
+        assert_eq!(fitted["scale"], 4.0, "{fitted}");
+        let crop_width = fitted["crop"][2].as_f64().unwrap();
+        assert!(crop_width < canvas_width as f64, "{fitted}");
+        assert!((fitted["width"].as_f64().unwrap() - crop_width * 4.0).abs() <= 2.0, "{fitted}");
+        // A ProRes master sized to a width bound, from CPU frames.
+        let master = call(
+            "preview_video",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+500.0,"width":640,"renderer":"cpu","codec":"prores","withAudio":false,"file":"MCP-music-master.mov","confirm":true}),
+        );
+        assert!(master["width"].as_u64().unwrap() <= 640, "{master}");
+        assert!(master["codec"].as_str().unwrap().starts_with("Apple ProRes 4444"), "{master}");
+        assert!(master["renderer"].as_str().unwrap().starts_with("CPU"), "{master}");
+        let mov = std::fs::read(root.join("Export/MCP-music-master.mov")).unwrap();
+        assert_eq!(&mov[4..12], b"ftypqt  ");
         let sheet = call(
             "preview_sheet",
             json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+4000.0,"fps":4,"cols":4,"file":"MCP-music-test-sheet.png","confirm":true}),
