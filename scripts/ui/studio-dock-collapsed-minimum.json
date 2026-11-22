@@ -1,0 +1,33 @@
+{
+  "steps": [
+    { "action": "wait", "seconds": 4 },
+    { "action": "focus", "window": "Vixen Studio" },
+    { "action": "studioSection", "name": "sequences" },
+    { "action": "wait", "seconds": 1 },
+    { "action": "studioDropFiles", "text": "Sequence/Christmas Can-Can.tim" },
+    { "action": "wait", "seconds": 0.4 },
+    { "action": "focus", "window": "Christmas Can-Can" },
+    { "action": "hook", "name": "sequencer.resize", "path": ["1400", "900"] },
+    { "action": "wait", "seconds": 12 },
+    { "action": "hook", "name": "studio.layout", "path": ["min", "Christmas Can-Can"] },
+    { "action": "hook", "name": "studio.layout", "path": ["panes", "Christmas Can-Can"] },
+    { "action": "hook", "name": "sequencer.inspectorDrawer", "path": ["toggle"] },
+    { "action": "wait", "seconds": 0.5 },
+    { "action": "hook", "name": "studio.layout", "path": ["min", "Christmas Can-Can"] },
+    { "action": "hook", "name": "studio.layout", "path": ["panes", "Christmas Can-Can"] },
+    { "action": "hook", "name": "sequencer.sidebarDrawer", "path": ["toggle"] },
+    { "action": "wait", "seconds": 0.5 },
+    { "action": "hook", "name": "studio.layout", "path": ["min", "Christmas Can-Can"] },
+    { "action": "hook", "name": "studio.layout", "path": ["panes", "Christmas Can-Can"] },
+    { "action": "snapshot", "name": "both-collapsed-min" },
+    { "action": "hook", "name": "sequencer.sidebarDrawer", "path": ["toggle"] },
+    { "action": "wait", "seconds": 1 },
+    { "action": "hook", "name": "studio.layout", "path": ["panes", "Christmas Can-Can"] },
+    { "action": "hook", "name": "sequencer.inspectorDrawer", "path": ["toggle"] },
+    { "action": "wait", "seconds": 1 },
+    { "action": "hook", "name": "studio.layout", "path": ["panes", "Christmas Can-Can"] },
+    { "action": "snapshot", "name": "both-reopened" },
+    { "action": "hook", "name": "studio.layout", "path": ["min", "Christmas Can-Can"] },
+    { "action": "quit" }
+  ]
+}

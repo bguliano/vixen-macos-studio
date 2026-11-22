@@ -18,13 +18,30 @@ enum StudioDockLayout {
     /// pane below its minimum; below required, so a hidden pane's constraint gives way quietly.
     static let minimumPriority = NSLayoutConstraint.Priority(490)
 
-    /// The window's minimum width: every showing pane at its minimum, and the dividers between them. Before the layout
-    /// has loaded, both side panes count.
-    static func minimumWidth(_ panels: ShellPanels?, divider: CGFloat = 1) -> CGFloat {
-        var width = centreMinimum
-        if !(panels?.leftTabs.isEmpty ?? false) { width += leftMinimum + divider }
-        if !(panels?.rightTabs.isEmpty ?? false) { width += rightMinimum + divider }
+    /// The window's minimum width: every showing pane at its minimum, and both dividers (the split view keeps a hidden
+    /// pane's). Before the layout has loaded, both side panes count. A drawer collapsed by the Effects or Inspector button
+    /// doesn't (B54), so the window can shrink into the space it frees.
+    static func minimumWidth(_ panels: ShellPanels?, leftCollapsed: Bool = false, rightCollapsed: Bool = false, divider: CGFloat = 1) -> CGFloat {
+        var width = centreMinimum + 2 * divider
+        if !leftCollapsed, !(panels?.leftTabs.isEmpty ?? false) { width += leftMinimum }
+        if !rightCollapsed, !(panels?.rightTabs.isEmpty ?? false) { width += rightMinimum }
         return width
+    }
+
+    /// Widens the window when a pane comes back while it's narrower than the panes' minimums (B54): a window shrunk with
+    /// a drawer collapsed would otherwise squeeze the timeline below its own. Grows to the right, moving left where the
+    /// screen ends there.
+    @MainActor
+    static func makeRoom(in split: NSSplitView, minimum: CGFloat) {
+        let short = minimum - split.bounds.width
+        guard short > 0.5, let window = split.window, !window.styleMask.contains(.fullScreen) else { return }
+        var frame = window.frame
+        frame.size.width += short
+        if let visible = window.screen?.visibleFrame {
+            frame.size.width = min(frame.width, visible.width)
+            frame.origin.x = max(visible.minX, min(frame.minX, visible.maxX - frame.width))
+        }
+        window.setFrame(frame, display: true)
     }
 
     /// The side panes' widths to open at in a split view `width` wide: the saved widths (nil for a hidden pane), raised
@@ -32,8 +49,8 @@ enum StudioDockLayout {
     static func fit(width: CGFloat, divider: CGFloat, left: Double?, right: Double?) -> (left: CGFloat?, right: CGFloat?) {
         var l = left.map { max(CGFloat($0), leftMinimum) }
         var r = right.map { max(CGFloat($0), rightMinimum) }
-        let dividers = divider * CGFloat((l == nil ? 0 : 1) + (r == nil ? 0 : 1))
-        var excess = (l ?? 0) + (r ?? 0) + dividers + centreMinimum - width
+        // A hidden pane keeps its divider.
+        var excess = (l ?? 0) + (r ?? 0) + 2 * divider + centreMinimum - width
         if excess > 0, let current = r {
             let take = min(excess, current - rightMinimum)
             r = current - take

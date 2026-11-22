@@ -133,6 +133,7 @@ struct DockArea: NSViewRepresentable {
             split.arrangedSubviews[0].isHidden = hideLeft
             split.arrangedSubviews[2].isHidden = hideRight
             split.adjustSubviews()
+            StudioDockLayout.makeRoom(in: split, minimum: StudioDockLayout.minimumWidth(panels, leftCollapsed: hideLeft, rightCollapsed: hideRight, divider: split.dividerThickness)) // STUDIO: a drawer shown in a narrow window widens it (B54)
             place(panels)
         }
 

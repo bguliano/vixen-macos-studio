@@ -154,7 +154,7 @@ struct SequencerWindow: View {
             }
         }
         // F3's minimum.
-        .frame(minWidth: StudioDockLayout.minimumWidth(model?.panels), minHeight: 480) // STUDIO: wide enough for the showing panes at their minimums (R42)
+        .frame(minWidth: StudioDockLayout.minimumWidth(model?.panels, leftCollapsed: model?.studioSidebarCollapsed ?? false, rightCollapsed: model?.studioInspectorCollapsed ?? false), minHeight: 480) // STUDIO: wide enough for the showing panes at their minimums, collapsed drawers left out (R42, B54)
         .onAppear {
             if model == nil {
                 let created = SequencerModel(app: app, ref: Self.resolve(ref), registry: registry)

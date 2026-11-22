@@ -1507,6 +1507,10 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "4737c7648a83702f"
  },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:7669e39c3976aaba": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "7669e39c3976aaba"
+ },
  "line:app/Sources/VixenSequencer/SequencerContent.swift:b0f64dceba4eb3c0": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "b0f64dceba4eb3c0"
@@ -1603,10 +1607,6 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "fcb8c00add2fb49b"
  },
- "line:app/Sources/VixenSequencer/SequencerScene.swift:03768e20d6f49931": {
-  "file": "app/Sources/VixenSequencer/SequencerScene.swift",
-  "hash": "03768e20d6f49931"
- },
  "line:app/Sources/VixenSequencer/SequencerScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",
   "hash": "288860d93ff8cd0d"
@@ -1614,6 +1614,10 @@
  "line:app/Sources/VixenSequencer/SequencerScene.swift:6de271cff069801d": {
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",
   "hash": "6de271cff069801d"
+ },
+ "line:app/Sources/VixenSequencer/SequencerScene.swift:ce34f124b6e34fa1": {
+  "file": "app/Sources/VixenSequencer/SequencerScene.swift",
+  "hash": "ce34f124b6e34fa1"
  },
  "line:app/Sources/VixenSequencer/SequencerSheets.swift:0da87b871d745a99": {
   "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
