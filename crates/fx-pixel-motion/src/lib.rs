@@ -8,6 +8,7 @@ pub mod fireworks;
 pub mod meteors;
 pub mod pin_wheel;
 pub mod shockwave;
+mod studio_bars_steps; // STUDIO: tests for Bars' Step on Marks (#67)
 
 use vixen_effects::framework::EffectDescriptor;
 

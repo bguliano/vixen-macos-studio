@@ -35,6 +35,7 @@ pub mod profiles;
 pub mod sequence;
 mod sequence_migrate;
 pub mod settings;
+mod studio_effect_members; // STUDIO: effect members only Studio has, kept out of untouched files (#67)
 pub mod system;
 pub mod values;
 pub mod xml;

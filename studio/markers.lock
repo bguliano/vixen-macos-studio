@@ -23,6 +23,34 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "eb0cf2722f73d5b1"
  },
+ "block:bars-step-marks": {
+  "file": "crates/fx-pixel-motion/src/generated/bars.rs",
+  "hash": "87b5acf84aa2c2ec"
+ },
+ "block:bars-step-marks-flat": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "5972d7ea5e628fea"
+ },
+ "block:bars-step-marks-helper": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "5daa220e61a23b29"
+ },
+ "block:bars-step-marks-position": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "af96a46e176f87f2"
+ },
+ "block:bars-step-marks-render": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "a2bf2216985aa4c2"
+ },
+ "block:bars-step-marks-select": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "41870782c9add110"
+ },
+ "block:bars-step-visibility": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "a6d8b19589072f50"
+ },
  "block:beats-undo": {
   "file": "crates/vixen-session/src/marks/beats.rs",
   "hash": "582982158f932b0e"
@@ -606,6 +634,14 @@
  "block:status-bar": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
   "hash": "034b2e867c197250"
+ },
+ "block:studio-members-absent": {
+  "file": "crates/vixen-io/src/params.rs",
+  "hash": "f4a30f6507116225"
+ },
+ "block:studio-members-skip": {
+  "file": "crates/vixen-io/src/params.rs",
+  "hash": "b9d20cd9d5f02407"
  },
  "block:template-color-apply": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
@@ -1775,6 +1811,30 @@
   "file": "app/Sources/VixenTools/ToolsScene.swift",
   "hash": "75b5cc3524a19c2d"
  },
+ "line:crates/fx-pixel-motion/src/bars.rs:1236985970805fb8": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "1236985970805fb8"
+ },
+ "line:crates/fx-pixel-motion/src/bars.rs:801ee4b1108b3e31": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "801ee4b1108b3e31"
+ },
+ "line:crates/fx-pixel-motion/src/bars.rs:a98901fc295d2182": {
+  "file": "crates/fx-pixel-motion/src/bars.rs",
+  "hash": "a98901fc295d2182"
+ },
+ "line:crates/fx-pixel-motion/src/generated/bars.rs:d6b1e30a2e4c240f": {
+  "file": "crates/fx-pixel-motion/src/generated/bars.rs",
+  "hash": "d6b1e30a2e4c240f"
+ },
+ "line:crates/fx-pixel-motion/src/lib.rs:496cad2a5af12935": {
+  "file": "crates/fx-pixel-motion/src/lib.rs",
+  "hash": "496cad2a5af12935"
+ },
+ "line:crates/vixen-effects/src/lib.rs:8a1ed0e3fdd3dc83": {
+  "file": "crates/vixen-effects/src/lib.rs",
+  "hash": "8a1ed0e3fdd3dc83"
+ },
  "line:crates/vixen-ffi/Cargo.toml:5148ba7228e2664a": {
   "file": "crates/vixen-ffi/Cargo.toml",
   "hash": "5148ba7228e2664a"
@@ -1954,6 +2014,10 @@
  "line:crates/vixen-io/src/file.rs:658915e8cd98c064": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "658915e8cd98c064"
+ },
+ "line:crates/vixen-io/src/lib.rs:bfa221f29d586530": {
+  "file": "crates/vixen-io/src/lib.rs",
+  "hash": "bfa221f29d586530"
  },
  "line:crates/vixen-output/src/modules/mod.rs:1527c4091f6fe3d4": {
   "file": "crates/vixen-output/src/modules/mod.rs",

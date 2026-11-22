@@ -14,6 +14,7 @@ pub static DESCRIPTOR: EffectDescriptor = EffectDescriptor {
     render,
     visibility: Some(visibility),
     param_changed: Some(param_changed),
+    param_changed_ctx: Some(studio_param_changed_ctx), // STUDIO: bars-step-marks picks a mark collection
     supports_location: true,
     ported: true,
     ..gen::BASE
@@ -39,7 +40,28 @@ fn visibility(p: &Params, _t: &TargetInfo, v: &mut Visibility) {
     v.set("ZigZagSpacing", !flat);
 
     v.set("HighlightPercentage", p.boolean("Highlight") && locations);
+
+    // STUDIO-BEGIN bars-step-visibility: Step on Marks replaces the movement settings while it is on (#67)
+    let steps = flat && p.boolean("StepToMarks");
+    v.set("StepToMarks", flat);
+    v.set("MarkCollectionId", steps);
+    v.set("StepsPerCycle", steps);
+    if steps {
+        v.set("MovementType", false);
+        v.set("Speed", false);
+        v.set("SpeedCurve", false);
+    }
+    // STUDIO-END bars-step-visibility
 }
+
+// STUDIO-BEGIN bars-step-marks-select: turning Step on Marks on, or the sequence's collections changing, picks a collection
+/// Like the C# effects that read marks: while stepping, keep the chosen collection if it still exists, else take the first.
+fn studio_param_changed_ctx(c: &ParamChange, p: &mut Params) {
+    if matches!(c.name, MARK_COLLECTIONS | "StepToMarks") {
+        normalize_mark_selection(p, c.info, p.boolean("StepToMarks"), None, true);
+    }
+}
+// STUDIO-END bars-step-marks-select
 
 /// The `BarType` setter: zig zags only support the speed movement type and need a slower default speed.
 fn param_changed(name: &str, p: &mut Params) {
@@ -198,6 +220,9 @@ struct Bars {
 
     /// The enlarged buffer string mode renders into when rotating.
     virtual_buffer: PixelFrameBuffer,
+
+    /// Step on Marks: the effect's marks and the steps per cycle, when on (flat bars only).
+    studio_steps: Option<(vixen_effects::studio_mark_steps::MarkSteps, i32)>, // STUDIO: bars-step-marks
 }
 
 fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
@@ -252,7 +277,15 @@ fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
         frame_flat_speed: 0.0,
         frame_interval_pos: 0.0,
         virtual_buffer: PixelFrameBuffer::new(0, 0),
+        studio_steps: None, // STUDIO: bars-step-marks
     };
+    // STUDIO-BEGIN bars-step-marks-render: the marks Step on Marks counts, taken once per render
+    if !e.zig_zag && p.boolean("StepToMarks") {
+        let marks = ctx.mark_collection(p.guid("MarkCollectionId"));
+        let steps = vixen_effects::studio_mark_steps::MarkSteps::new(marks, ctx.start_time, ctx.time_span);
+        e.studio_steps = Some((steps, p.int("StepsPerCycle")));
+    }
+    // STUDIO-END bars-step-marks-render
     let out = render_pixel_effect(ctx, p, &mut e);
     // An exception in a pixel effect means `_elementData` is never assigned, so the whole effect is dark.
     if e.broken || e.threw.get() {
@@ -587,6 +620,12 @@ impl Bars {
 
     /// `UpdateFlatPosition`. Uses the speed cached by `begin_frame`; the C# recomputes the same value.
     fn update_flat_position(&mut self, frame: i32) {
+        // STUDIO-BEGIN bars-step-marks-position: Step on Marks sets the position from the marks passed
+        if let Some(position) = self.studio_step_position(frame) {
+            self.position = position;
+            return;
+        }
+        // STUDIO-END bars-step-marks-position
         if self.iterations {
             self.position = (self.frame_interval_pos * self.speed as f64) % 1.0;
         } else {
@@ -596,6 +635,15 @@ impl Bars {
             self.position += self.frame_flat_speed / 100.0;
         }
     }
+
+    // STUDIO-BEGIN bars-step-marks-helper: each mark moves the pattern 1 / StepsPerCycle of one color cycle
+    /// The position Step on Marks gives `frame`, when it is on. A whole color cycle is `1 / Repeat` of the position.
+    fn studio_step_position(&self, frame: i32) -> Option<f64> {
+        let (steps, per_cycle) = self.studio_steps.as_ref()?;
+        let cycle = steps.cycle_position((frame * self.frame_time) as f64, *per_cycle);
+        Some(cycle / self.repeat.max(1) as f64)
+    }
+    // STUDIO-END bars-step-marks-helper
 
     // ---------------------------------------------------------------- tile position helpers
 
@@ -980,6 +1028,12 @@ impl Bars {
                 self.position = -self.position;
             }
         }
+        // STUDIO-BEGIN bars-step-marks-flat: Step on Marks replaces the movement's position
+        if let Some(position) = self.studio_step_position(frame) {
+            self.position = position;
+            self.neg_position = false;
+        }
+        // STUDIO-END bars-step-marks-flat
 
         if bar_count < 1 {
             bar_count = 1;

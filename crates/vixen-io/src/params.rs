@@ -296,6 +296,11 @@ fn decode_members(e: &XElement, desc: &'static [ParamDesc], skip_base: bool, dat
 /// runs after this. A missing reference is `null` in C#, which an effect would throw on, so it takes the
 /// table's default instead.
 fn absent_value(d: &ParamDesc) -> ParamValue {
+    // STUDIO-BEGIN studio-members-absent: a file without a Studio-only effect member reads its table default (#67)
+    if crate::studio_effect_members::is_studio_member(d) {
+        return (d.default)();
+    }
+    // STUDIO-END studio-members-absent
     match d.kind {
         ParamKind::Bool => ParamValue::Bool(false),
         ParamKind::Int => ParamValue::Int(0),
@@ -357,6 +362,11 @@ fn encode_value(d: &ParamDesc, v: &ParamValue) -> Option<XElement> {
     if holds_type_default(d, v) && skipped_when_default(d.xml_ns, d.xml) {
         return None;
     }
+    // STUDIO-BEGIN studio-members-skip: Studio-only effect members stay out of the file at their default (#67)
+    if crate::studio_effect_members::skipped(d, v) {
+        return None;
+    }
+    // STUDIO-END studio-members-skip
     let ns = contract_ns(d.xml_ns);
     let local = d.xml;
     Some(match v {

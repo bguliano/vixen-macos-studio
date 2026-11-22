@@ -6,6 +6,7 @@ pub mod framework;
 pub mod gfx;
 pub mod pixel;
 pub mod pulse_renderer;
+pub mod studio_mark_steps; // STUDIO: beat-quantized movement for effects that step on marks (#67)
 pub mod testing;
 
 /// Everything an effect module needs.
