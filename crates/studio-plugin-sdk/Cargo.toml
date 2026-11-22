@@ -1,0 +1,24 @@
+[package]
+name = "vixen-plugin-sdk"
+version = "1.0.0"
+edition = "2021"
+description = "Write Vixen Studio plugins in Rust: the plugin protocol (API 1.0) over stdin/stdout."
+
+# Studio-only (studio/PLUGINS-DESIGN.md). Plugins use it as a path/git dependency or copy src/lib.rs into themselves
+# as src/vixen_plugin_sdk.rs, so it keeps its own version and edition and needs nothing from this workspace. The app
+# never links it.
+
+[dependencies]
+serde_json = "1"
+
+# The Rust example plugin and the Rust template, compiled (with their own copy of this file) by `cargo test`.
+[[example]]
+name = "rust-http-output"
+path = "../../studio/plugins/examples/rust-http-output/src/main.rs"
+
+[[example]]
+name = "rust-template"
+path = "../../studio/plugins/templates/rust/src/main.rs"
+
+[dev-dependencies]
+studio-plugins = { path = "../studio-plugins" }

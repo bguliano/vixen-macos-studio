@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/studio-mcp", # STUDIO: local agent protocol and bridge
     "crates/studio-plugins", # STUDIO: plugin host (studio/PLUGINS-DESIGN.md)
+    "crates/studio-plugin-sdk", # STUDIO: Rust plugin SDK, package vixen-plugin-sdk (studio/PLUGINS-DESIGN.md)
     "crates/vixen-core",
     "crates/vixen-xml",
     "crates/vixen-effects",

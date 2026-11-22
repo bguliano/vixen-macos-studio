@@ -1,0 +1,48 @@
+{
+  "id": "com.example.udp-pixel-output",
+  "name": "UDP Pixel Output (example)",
+  "version": "1.0.0",
+  "apiVersion": "^1.0",
+  "description": "Example plugin: sends each frame as raw RGB bytes in one UDP datagram to a host and port, with a discover tool that finds listeners on the local network.",
+  "entry": { "command": "node", "args": ["main.mjs"] },
+  "permissions": { "network": ["udp:lan"] },
+  "contributes": {
+    "controllers": [
+      {
+        "typeId": "a3d8c1f2-47be-4e0a-b9d6-1c5e7f2a8b34",
+        "name": "UDP Pixels (example)",
+        "configSchema": {
+          "type": "object",
+          "x-order": ["host", "port", "colorOrder", "maxFps"],
+          "properties": {
+            "host": { "type": "string", "title": "Host", "description": "IPv4 address or host name of the receiver.", "format": "hostname", "default": "127.0.0.1" },
+            "port": { "type": "integer", "title": "Port", "default": 7777, "minimum": 1, "maximum": 65535 },
+            "colorOrder": { "type": "string", "title": "Colour order", "description": "The order the receiver expects each pixel's bytes in.", "enum": ["rgb", "grb", "bgr"], "x-enumNames": ["RGB", "GRB", "BGR"], "default": "rgb" },
+            "maxFps": { "type": "integer", "title": "Maximum frames per second", "default": 40, "minimum": 1, "maximum": 60 }
+          },
+          "additionalProperties": false
+        },
+        "defaultOutputs": 30,
+        "maxOutputs": 1440,
+        "outputNaming": "Pixel {n} {channel}",
+        "frameEncodings": ["u8"]
+      }
+    ],
+    "tools": [
+      {
+        "name": "discover",
+        "description": "Broadcast VIXEN-DISCOVER on the local network and list who answers within the timeout (address and the first line of each answer).",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535, "default": 7777 },
+            "timeoutMs": { "type": "integer", "minimum": 100, "maximum": 5000, "default": 1000 }
+          },
+          "additionalProperties": false
+        },
+        "readOnly": true
+      }
+    ],
+    "commands": [{ "id": "discover", "title": "Discover UDP Receivers", "tool": "discover" }]
+  }
+}

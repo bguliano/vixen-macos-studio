@@ -11,7 +11,7 @@ keeps it current, including the status below.
 | P2 Controllers | Shipped: `crates/studio-plugins/src/controllers.rs` (+ `schema.rs`), the engine hook `crates/vixen-output/src/modules/studio_external.rs`. `display.snapshot` moved to P2b. |
 | P3 MCP | Shipped: `crates/studio-plugins/src/{mcp,tools,harness,scaffold,install}.rs`, templates in `studio/plugins/templates/`, wired in `crates/studio-mcp`. |
 | P4 UI | Shipped: Settings ▸ Plugins (`app/Sources/VixenAdmin/StudioPluginsSettings.swift`), the missing-plugin banner, the Plugins menu (`app/Sources/VixenKit/StudioPlugins.swift`), the plugin controller inspector and Add Controller's Plugins heading (`app/Sources/VixenSetup/Window/StudioPluginControllerInspector.swift`, `StudioAddControllerMenu.swift`); the form, permissions and commands are worked out in `crates/studio-plugins/src/ui.rs`. Harness: `scripts/check_studio_plugins_ui.py`. |
-| P5 SDKs, examples, CLI | Not started. |
+| P5 SDKs, examples, CLI | Shipped: SDKs in `studio/plugins/sdk/{python,typescript}/` and `crates/studio-plugin-sdk` (package `vixen-plugin-sdk`), templates in `studio/plugins/templates/{python,typescript,rust}/`, examples in `studio/plugins/examples/`, the CLI in `crates/studio-plugins/src/{cli,pack}.rs` (`vixen-studio-mcp plugin …`). |
 | P6 Docs | Not started. |
 
 What P1 settled, beyond the design below:
@@ -113,7 +113,7 @@ What P3 settled:
 - **Scaffold.** Python (python3, standard library) and TypeScript (a plain Node 20 ES module, `main.mjs`, no build
   step) templates, each serving both kinds: `controller` (a type with a `prefix` setting that logs the values it gets,
   refusing unknown settings with `-32004`) and `tools` (`hello`). Written only into a new folder under
-  `Plugins/dev/`, never over anything. Rust and Swift wait for the SDKs (P5), which will replace these templates.
+  `Plugins/dev/`, never over anything. P5 replaced these templates with SDK-based ones and added Rust.
 - **Harness** (`harness::validate`, also usable from tests and the P5 CLI): manifest and API range, a valid
   configuration made from `configSchema` (defaults, else the smallest value each keyword allows) and an invalid one
   (an undeclared field when `additionalProperties` is false, else a typed field given the wrong type), `entry.command`
@@ -129,7 +129,7 @@ What P3 settled:
   (movingPixel by default), after checking the controller is a plugin's. Explicit `values` were left out: the
   commissioning patterns cover testing.
 - **Resources and prompt.** `plugins://api` serves this file until P6 writes `docs/plugins/PROTOCOL.md`;
-  `plugins://examples/<language>` the scaffold's controller plugin as Markdown until P5's examples exist.
+  `plugins://examples/<language>` serves the P5 examples.
 
 What P4 settled:
 
@@ -164,6 +164,48 @@ What P4 settled:
   the app hands Rust each one's tool, so palette entries and `command_palette` name it as `agentTool`.
 - **Deferred:** applying `outputNames` answers to output names, and the controller context menu's Configure… for a
   plugin controller (the inspector does it).
+
+What P5 settled:
+
+- **One SDK file per language**, copied next to the plugin's main file so a plugin folder is self-contained and
+  installs as it is: `vixen_plugin.py` (Python 3.9+, standard library), `vixen-plugin.mjs` + `vixen-plugin.d.ts`
+  (Node 20+, no dependencies, types for TypeScript without a build step), and the Rust SDK's `src/lib.rs`, usable as a
+  crate or copied in as `src/vixen_plugin_sdk.rs` (`mod vixen_plugin_sdk;`; `serde_json` only). The crate lives in
+  `crates/studio-plugin-sdk` (Studio-only by name) but its package is named `vixen-plugin-sdk` (not published to crates.io); it is a workspace
+  member so `cargo test` builds and checks the Rust example and template (its `[[example]]`s), and has its own version
+  and edition so a copy builds anywhere. Tests keep every copy identical to its SDK (`tests/examples.rs`).
+- **Same shape in every language:** a `Plugin` with controller types (a `Controller` subclass / trait object per
+  instance: `configure`, `set_output_count`, `start`, `stop`, `frame`, `destroy`, `output_names`, plus `status`,
+  `stats`, `message`), tools (a return string is text, `{content}` passes through, anything else is JSON text; a
+  `ToolError`/`Err` answers `isError`), events (`liveOutput.changed` also updates `muted`), `on_initialize` /
+  `on_shutdown`, `log` at four levels, `storage_get/set` and `tools_changed`. `controller(type)` takes the typeId or
+  the type's name, or nothing when the manifest declares one type.
+- **The SDKs check configurations for the plugin.** Each reads `vixen-plugin.json` from its working folder, fills in
+  `configSchema` defaults, and refuses what breaks the schema with `-32004` and `data.errors` before `configure` sees
+  it, using the same subset and the same messages as `schema.rs` (a test runs all four checkers on the same cases). So
+  every template and example passes the harness's invalid-configuration check with no code of its own.
+- **Threads and frames.** Each SDK reads stdin on its own thread (Node: the event loop) so requests to Studio work from
+  any thread or handler, and keeps one frame slot per instance: a slow `frame` skips to the newest frame instead of
+  queueing, keeping the host's latest-wins promise end to end. Requests are handled one at a time in arrival order
+  (Node handlers may be async). Instances are stopped and destroyed, and `on_shutdown` runs, before `shutdown` is
+  answered, since Studio closes stdin once it has the answer.
+- **Templates** (`plugin_scaffold` and `plugin new` share them): a main file using the SDK (a `controller` type with a
+  `prefix` setting that logs its values, and a `hello` tool), the SDK file(s), the manifest and a README. Rust adds
+  `Cargo.toml` (its own `[workspace]`), `build.sh` and `.gitignore`; its `entry.command` is `bin/<crate>`, which
+  `build.sh` fills (`target/` is ignored by hot reload, `bin/` is not, so each rebuild reloads a linked plugin).
+  Swift was left out (optional in the plan).
+- **Examples** (`studio/plugins/examples/`, served as `plugins://examples/<language>`, SDKs as `plugins://sdk/<language>`):
+  `console-output` (Python, the tutorial: settings with an extra check, status, a tool with a menu command, an event,
+  storage across restarts), `udp-pixel-output` (TypeScript: raw RGB per frame in one UDP datagram, colour order,
+  frame-rate cap, aggregated stats, a `discover` tool broadcasting `VIXEN-DISCOVER`) and `rust-http-output` (Rust: JSON
+  POSTs to a URL from a worker thread, at most one per `minIntervalMs` and only on change; plain `http://` with std).
+  Each passes the harness with live frames in `cargo test`, aimed at a local UDP or HTTP receiver the test opens.
+- **CLI** (`vixen-studio-mcp plugin …`, no profile or session needed): `new` (templates into `--dir`, never
+  overwriting), `validate DIR [--live] [--json]` (the harness; exit 1 on a failed check), `pack DIR [--out] [--force]`
+  (`<id>-<version>.vixenplugin`, deterministic: name order, fixed timestamps, executable bit only; leaves out `.git`,
+  caches, `target/`, symlinks refused, a missing in-folder `entry.command` refused; writes `<package>.sha256`;
+  `install::stage` accepts the result) and `run DIR [--frames chase|ramp|blink|rgb|off] [--seconds] [--fps] [--type]
+  [--outputs] [--config]` (one live controller, printing the log, statuses, messages and stats as they arrive).
 
 ## Why
 
@@ -354,8 +396,7 @@ Read-only unless noted. All follow existing conventions (confirm for destructive
 - `studio/plugins/sdk/python/vixen_plugin.py`: single file, stdlib only, decorators for controllers/tools/events,
   handles framing, base64 frames, logging, errors.
 - `studio/plugins/sdk/typescript/` (Node ≥20, zero runtime deps, not published to npm; docs explain vendoring).
-- `crates/vixen-plugin-sdk` (Rust, small, serde only; not a workspace member of the app build if that inflates builds —
-  excluded from the app target).
+- `crates/studio-plugin-sdk`, package `vixen-plugin-sdk` (Rust, small, serde_json only; the app never links it).
 - Swift: optional (template only if cheap).
 - Examples under `studio/plugins/examples/`: `console-output` (Python: prints channel values; the tutorial plugin),
   `udp-pixel-output` (TypeScript: RGB over UDP to a configurable host:port, with a `discover`-style tool), `rust-http-output`

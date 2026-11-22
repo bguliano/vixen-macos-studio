@@ -2630,6 +2630,16 @@ dependencies = [
  "vixen-xml",
 ]
 
+# STUDIO-BEGIN plugin-sdk-lock-entry: generated Rust plugin SDK crate entry
+[[package]]
+name = "vixen-plugin-sdk"
+version = "1.0.0"
+dependencies = [
+ "serde_json",
+ "studio-plugins",
+]
+# STUDIO-END plugin-sdk-lock-entry
+
 [[package]]
 name = "vixen-preview"
 version = "3.13.4"

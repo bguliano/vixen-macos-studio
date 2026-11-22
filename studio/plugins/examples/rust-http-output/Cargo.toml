@@ -1,0 +1,14 @@
+[package]
+name = "rust-http-output"
+version = "1.0.0"
+edition = "2021"
+publish = false
+
+# Its own workspace: build it on its own with ./build.sh, wherever the folder lives.
+[workspace]
+
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+strip = true

@@ -24,6 +24,12 @@ if ("# STUDIO" + "-BEGIN plugins-lock-dependency") not in text:
     end = text.index(chr(10) + '[[package]]', start + len(anchor))
     text = (text[:start] + ('# STUDIO' + '-BEGIN plugins-lock-dependency: generated plugin host crate dependency entry') + chr(10)
             + text[start:end].rstrip() + chr(10) + ('# STUDIO' + '-END plugins-lock-dependency') + chr(10) + text[end:])
+if ("# STUDIO" + "-BEGIN plugin-sdk-lock-entry") not in text:
+    anchor = '[[package]]' + chr(10) + 'name = "vixen-plugin-sdk"'
+    start = text.index(anchor)
+    end = text.index(chr(10) + '[[package]]', start + len(anchor))
+    text = (text[:start] + ('# STUDIO' + '-BEGIN plugin-sdk-lock-entry: generated Rust plugin SDK crate entry') + chr(10)
+            + text[start:end].rstrip() + chr(10) + ('# STUDIO' + '-END plugin-sdk-lock-entry') + chr(10) + text[end:])
 def mark(text, package, dependencies):
     anchor = '[[package]]' + chr(10) + 'name = "' + package + '"'
     start = text.index(anchor)

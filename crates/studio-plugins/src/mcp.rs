@@ -40,7 +40,7 @@ pub fn tools() -> Vec<Value> {
         tool("plugin_list", "Installed and development plugins: id, name, version, source (installed/dev), enabled, state (running, stopped, starting, restarting, crashed, disabled, invalid, incompatible), pid, uptimeMs, restartCount, problem, lastError, contributed controller types/tools/commands/events; plus agentsMayManage (the local Allow agents to manage plugins switch) and each plugin tool's MCP name.", json!({}), &[], true),
         tool("plugin_info", "One plugin in detail: manifest, permissions, negotiated API version, capabilities, data folder, log file, lastLatencyMs of its last request, each started controller instance (status, live, framesSent, framesDropped, lastFrameAgeMs, counters, configErrors) and its MCP tool names.", json!({"id": id}), &["id"], true),
         tool("plugin_logs", "The newest log entries of one plugin, oldest first: its stderr, its log messages and the host's notes (starts, exits, restarts, protocol errors). Also written to Plugins/logs/<id>.log.", json!({"id": id, "limit": {"type": "integer", "minimum": 1, "maximum": 2000, "default": 100}, "level": {"enum": ["debug", "info", "warn", "error"], "default": "debug", "description": "Lowest level to include."}}), &["id"], true),
-        tool("plugin_scaffold", "Create a working plugin from a template in a new folder under ~/Library/Application Support/Vixen Studio/Plugins/dev/ (only there; an existing folder is never touched): vixen-plugin.json, the main file and a README. kind controller adds an output type that logs the channel values it gets; tools adds an agent tool. Returns the folder, files and next steps. Doesn't link or start it.", json!({"id": id, "name": {"type": "string", "maxLength": 80, "description": "Display name: letters, digits, spaces and . _ ( ) -."}, "language": {"enum": ["python", "typescript"], "description": "python (python3, standard library only) or typescript (Node 20+, no dependencies; plain ES module)."}, "kind": {"enum": ["controller", "tools"]}, "folder": {"type": "string", "description": "Folder name under Plugins/dev (default: the last part of the id)."}}), &["id", "name", "language", "kind"], false),
+        tool("plugin_scaffold", "Create a working plugin from a template in a new folder under ~/Library/Application Support/Vixen Studio/Plugins/dev/ (only there; an existing folder is never touched): vixen-plugin.json, the main file, the language's SDK file next to it (it speaks the protocol; leave it as it is) and a README. kind controller adds an output type that logs the channel values it gets; tools adds an agent tool. Returns the folder, files and next steps (a Rust plugin needs ./build.sh before it runs). Doesn't link or start it. Same templates as `vixen-studio-mcp plugin new`.", json!({"id": id, "name": {"type": "string", "maxLength": 80, "description": "Display name: letters, digits, spaces and . _ ( ) -."}, "language": {"enum": crate::scaffold::LANGUAGES, "description": "python (python3, standard library only), typescript (Node 20+, no dependencies; plain ES module with .d.ts types) or rust (cargo; serde_json only)."}, "kind": {"enum": ["controller", "tools"]}, "folder": {"type": "string", "description": "Folder name under Plugins/dev (default: the last part of the id)."}}), &["id", "name", "language", "kind"], false),
         tool("plugin_validate", "Check a plugin: manifest and configSchema, then the conformance harness runs it on its own (never through the show or real output): initialize, per controller type create/configure with a valid and an invalid configuration/setOutputCount/destroy, then shutdown and exit. Returns passed, every check (pass, warn, fail, skip with ms and detail), what the plugin reported and its log. controller.start and 40 fps frame bursts in each encoding it accepts run only with liveOutput:true, which needs confirm:true, Live Output on and the local Allow agents to control live output setting, since a real output plugin lights real lights. path: a folder under Plugins/dev or an installed/linked plugin's folder; or give its id.", json!({"id": id, "path": {"type": "string", "description": "Absolute plugin folder."}, "liveOutput": {"type": "boolean", "default": false}, "confirm": confirm, "burstMs": {"type": "integer", "minimum": 100, "maximum": 10000, "default": 1000, "description": "Length of each encoding's frame burst."}}), &[], true),
         tool("plugin_install", &format!("Install a plugin from a folder or a .vixenplugin package (a zip of the folder, manifest at its root) into Plugins/<id>/<version>/, replacing any other version, enable and start it. Shows its permissions in the result. Symlinks and paths outside the package are refused; the download quarantine flag is cleared. {manage}"), json!({"path": {"type": "string", "description": "Absolute path."}, "confirm": confirm}), &["path", "confirm"], false),
         tool("plugin_uninstall", &format!("Stop an installed plugin and remove its files and registry entry. Its data folder and log stay. Shows that use its controllers keep them, with health \"Needs plugin …\". {manage}"), json!({"id": id, "confirm": confirm}), &["id", "confirm"], false),
@@ -191,8 +191,9 @@ pub fn resources(host: &PluginHost) -> Vec<Value> {
         json!({"uri": "plugins://schema/manifest", "name": "vixen-plugin.json JSON Schema", "mimeType": "application/schema+json"}),
         json!({"uri": "plugins://schema/protocol", "name": "Plugin protocol JSON Schema (every method's params and result)", "mimeType": "application/schema+json"}),
     ];
-    for language in crate::scaffold::LANGUAGES {
-        list.push(json!({"uri": format!("plugins://examples/{language}"), "name": format!("Example {language} plugin"), "description": "A complete controller plugin: manifest and main file, as plugin_scaffold writes it.", "mimeType": "text/markdown"}));
+    for (language, example) in EXAMPLES {
+        list.push(json!({"uri": format!("plugins://examples/{language}"), "name": format!("Example {language} plugin: {}", example.folder), "description": example.about, "mimeType": "text/markdown"}));
+        list.push(json!({"uri": format!("plugins://sdk/{language}"), "name": format!("The {language} plugin SDK ({})", sdk(language).map(|(file, _)| file).unwrap_or_default()), "description": "The one file a plugin copies next to its main file to speak the protocol.", "mimeType": "text/plain"}));
     }
     for plugin in host.list()["plugins"].as_array().into_iter().flatten() {
         if let Some(id) = plugin["id"].as_str().filter(|_| plugin.get("version").is_some()) {
@@ -215,6 +216,10 @@ pub fn read_resource(host: &PluginHost, uri: &str) -> Option<Result<Value, Strin
             Some(markdown) => text("text/markdown", markdown),
             None => Err(format!("no example for that language; there are {}", crate::scaffold::LANGUAGES.join(", "))),
         },
+        _ if rest.starts_with("sdk/") => match sdk(&rest["sdk/".len()..]) {
+            Some((_, source)) => text("text/plain", source.to_string()),
+            None => Err(format!("no SDK for that language; there are {}", crate::scaffold::LANGUAGES.join(", "))),
+        },
         _ => match rest.strip_suffix("/manifest") {
             Some(id) => host.info(id).and_then(|info| match info.get("manifest") {
                 Some(manifest) => text("application/json", serde_json::to_string_pretty(manifest).expect("serializes")),
@@ -225,16 +230,73 @@ pub fn read_resource(host: &PluginHost, uri: &str) -> Option<Result<Value, Strin
     })
 }
 
+/// An example plugin from `studio/plugins/examples/`, served as Markdown (its SDK file is `plugins://sdk/<language>`).
+pub struct Example {
+    pub folder: &'static str,
+    pub about: &'static str,
+    pub files: &'static [(&'static str, &'static str)],
+}
+
+pub const EXAMPLES: [(&str, Example); 3] = [
+    ("python", Example {
+        folder: "console-output",
+        about: "The tutorial plugin: a controller type that prints channel values to its log; settings, status, a tool with a menu command, an event and storage.",
+        files: &[
+            ("vixen-plugin.json", include_str!("../../../studio/plugins/examples/console-output/vixen-plugin.json")),
+            ("main.py", include_str!("../../../studio/plugins/examples/console-output/main.py")),
+        ],
+    }),
+    ("typescript", Example {
+        folder: "udp-pixel-output",
+        about: "A controller type sending raw RGB over UDP to host:port, with a discover tool.",
+        files: &[
+            ("vixen-plugin.json", include_str!("../../../studio/plugins/examples/udp-pixel-output/vixen-plugin.json")),
+            ("main.mjs", include_str!("../../../studio/plugins/examples/udp-pixel-output/main.mjs")),
+        ],
+    }),
+    ("rust", Example {
+        folder: "rust-http-output",
+        about: "A controller type POSTing colours as JSON to a URL, rate-limited from a worker thread: the shape a cloud-API light needs.",
+        files: &[
+            ("vixen-plugin.json", include_str!("../../../studio/plugins/examples/rust-http-output/vixen-plugin.json")),
+            ("Cargo.toml", include_str!("../../../studio/plugins/examples/rust-http-output/Cargo.toml")),
+            ("build.sh", include_str!("../../../studio/plugins/examples/rust-http-output/build.sh")),
+            ("src/main.rs", include_str!("../../../studio/plugins/examples/rust-http-output/src/main.rs")),
+        ],
+    }),
+];
+
+/// The SDK file a plugin in `language` copies next to its main file.
+pub fn sdk(language: &str) -> Option<(&'static str, &'static str)> {
+    match language {
+        "python" => Some(("vixen_plugin.py", crate::scaffold::PYTHON_SDK)),
+        "typescript" => Some(("vixen-plugin.mjs", crate::scaffold::TYPESCRIPT_SDK)),
+        "rust" => Some(("src/vixen_plugin_sdk.rs", crate::scaffold::RUST_SDK)),
+        _ => None,
+    }
+}
+
 fn example(language: &str) -> Option<String> {
-    let (file, template, _) = crate::scaffold::template_files(language)?;
-    let manifest = crate::scaffold::manifest("com.example.console-output", "Console Output", language, "controller");
-    let fence = if language == "python" { "python" } else { "javascript" };
-    Some(format!(
-        "# Example {language} plugin\n\nA controller plugin that logs the channel values it receives. `plugin_scaffold` writes the same files \
-         (with a new typeId).\n\n## vixen-plugin.json\n\n```json\n{}\n```\n\n## {file}\n\n```{fence}\n{}```\n",
-        serde_json::to_string_pretty(&manifest).expect("serializes"),
-        template.replace("{{NAME}}", "Console Output").replace("{{ID}}", "com.example.console-output"),
-    ))
+    let (_, example) = EXAMPLES.iter().find(|(l, _)| *l == language)?;
+    let (sdk_file, _) = sdk(language)?;
+    let mut out = format!(
+        "# Example {language} plugin: {}\n\n{}\n\nIt lives in studio/plugins/examples/{} in the Vixen Studio repository. Next to these files it has \
+         {sdk_file}, the {language} SDK (MCP resource plugins://sdk/{language}); `plugin_scaffold` writes the same SDK file.\n",
+        example.folder, example.about, example.folder
+    );
+    for (name, contents) in example.files {
+        let fence = match name.rsplit('.').next() {
+            Some("json") => "json",
+            Some("py") => "python",
+            Some("mjs") => "javascript",
+            Some("rs") => "rust",
+            Some("toml") => "toml",
+            Some("sh") => "sh",
+            _ => "",
+        };
+        out.push_str(&format!("\n## {name}\n\n```{fence}\n{}```\n", contents.trim_end().to_string() + "\n"));
+    }
+    Some(out)
 }
 
 pub const PROMPT_NAME: &str = "build_plugin";
@@ -247,13 +309,17 @@ pub fn prompt(goal: Option<&str>) -> String {
         "{goal}Build a Vixen Studio plugin. A plugin is a folder with vixen-plugin.json and a program in any language that Studio \
          runs and talks to with JSON-RPC 2.0 over stdin/stdout, one message per line (logs to stderr, never stdout).\n\
          1. Read plugins://api (design and every protocol method), plugins://schema/manifest and plugins://schema/protocol, and \
-         plugins://examples/python or plugins://examples/typescript.\n\
-         2. plugin_scaffold {{id (reverse-DNS, lowercase), name, language, kind: controller (an output type, e.g. a network \
-         light protocol) or tools (agent tools)}}. It writes a working plugin under Plugins/dev/ and returns the folder.\n\
+         plugins://examples/python, plugins://examples/typescript or plugins://examples/rust.\n\
+         2. plugin_scaffold {{id (reverse-DNS, lowercase), name, language (python, typescript or rust), kind: controller (an \
+         output type, e.g. a network light protocol) or tools (agent tools)}}. It writes a working plugin under Plugins/dev/, \
+         with the language's SDK file next to the main file (it speaks the protocol; don't edit it), and returns the folder. \
+         A Rust plugin needs ./build.sh before it runs.\n\
          3. Implement it in that folder with your own file tools: configSchema in the manifest (it becomes the controller \
-         inspector's form), controller.create/configure (refuse bad settings with error -32004 and data.errors \
-         [{{field, message}}]), controller.start/stop, controller.frame (a notification: never answer it; u8 values are base64, \
-         one byte per output), tool.call for tools. Keep the typeId forever: shows store it. Declare permissions honestly.\n\
+         inspector's form; the SDK checks configurations against it and fills in defaults), then the Controller class in the \
+         main file: configure (refuse what the schema can't express with ConfigError, which Studio shows next to the field), \
+         start/stop (connect and disconnect), frame (one 0-255 level per output; never block it for long: hand slow device \
+         I/O to a worker), and the tool functions. Keep the typeId forever: shows store it. Declare permissions honestly. \
+         Without an SDK, plugins://api has every protocol method.\n\
          4. plugin_validate {{path}} and fix every fail and warning. Frames and controller.start are only exercised with \
          liveOutput:true (the user must allow agents to control live output); never point a test at real lights without the \
          user's say-so.\n\
@@ -263,8 +329,8 @@ pub fn prompt(goal: Option<&str>) -> String {
          6. Controllers: controller_types lists the new type; controller_create and controller_configure {{config}} add it to the \
          show (undoable). Patch a test element to it, then plugin_send_test_frame (or output_test_pattern) once the user has \
          allowed live output; muted Studio sends nothing. Tools appear as plugin__<short-id>__<tool> after tools/list.\n\
-         7. Bump version in the manifest for each release; zip the folder with the manifest at its root as <id>.vixenplugin to \
-         share it, which plugin_install installs.\n\
+         7. Bump version in the manifest for each release; `vixen-studio-mcp plugin pack <folder>` makes <id>-<version>.vixenplugin \
+         (a zip with the manifest at its root, plus its SHA-256) to share, which plugin_install installs.\n\
          Don't build vendor-specific support into Studio itself: everything device-specific belongs in the plugin."
     )
 }

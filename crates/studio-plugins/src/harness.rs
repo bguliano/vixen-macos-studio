@@ -113,10 +113,10 @@ struct Seen {
 }
 
 /// A private, throwaway `pluginDataDir`, removed afterwards.
-struct Scratch(PathBuf);
+pub(crate) struct Scratch(pub(crate) PathBuf);
 
 impl Scratch {
-    fn new() -> Result<Scratch, String> {
+    pub(crate) fn new() -> Result<Scratch, String> {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let dir = std::env::temp_dir().join(format!("vixen-plugin-validate-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
         let _ = std::fs::remove_dir_all(&dir);

@@ -387,6 +387,10 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "bce67e439e56c29b"
  },
+ "block:plugin-sdk-lock-entry": {
+  "file": "Cargo.lock",
+  "hash": "056ee2e6e8adc7c0"
+ },
  "block:plugins-add-controller": {
   "file": "crates/vixen-session/src/setup/controllers.rs",
   "hash": "33b15ecc2e7c659e"
@@ -702,6 +706,10 @@
  "line:Cargo.toml:230f6039ffff686f": {
   "file": "Cargo.toml",
   "hash": "230f6039ffff686f"
+ },
+ "line:Cargo.toml:83431c5fc24abc71": {
+  "file": "Cargo.toml",
+  "hash": "83431c5fc24abc71"
  },
  "line:Cargo.toml:880754f0ccf1dff0": {
   "file": "Cargo.toml",

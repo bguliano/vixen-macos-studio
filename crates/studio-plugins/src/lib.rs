@@ -8,6 +8,7 @@
 //!
 //! Same-user permissions are the trust boundary, as for the MCP bridge: a plugin runs as the user, not in a sandbox.
 //! Declared permissions are enforced where Studio mediates (host API calls such as storage).
+pub mod cli;
 pub mod controllers;
 pub mod harness;
 pub mod host;
@@ -15,6 +16,7 @@ pub mod install;
 pub mod logs;
 pub mod manifest;
 pub mod mcp;
+pub mod pack;
 pub mod process;
 pub mod profile;
 pub mod registry;

@@ -7,11 +7,16 @@ use std::time::{Duration, Instant};
 use studio_mcp::lock::{self, Note};
 use studio_mcp::socket::SocketServer;
 
-const USAGE: &str = "usage: vixen-studio-mcp --profile PATH [--persist | --serve [--idle SECONDS] | call TOOL [JSON|-]]";
+const USAGE: &str = "usage: vixen-studio-mcp --profile PATH [--persist | --serve [--idle SECONDS] | call TOOL [JSON|-]]\n       vixen-studio-mcp plugin new|validate|pack|run … (vixen-studio-mcp plugin help)";
 /// How long a background session started by --persist or call stays up with no clients.
 const PERSIST_IDLE: Duration = Duration::from_secs(600);
 
 fn main() {
+    // The plugin developer commands need no profile, session or lock.
+    let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+    if args.first().map(String::as_str) == Some("plugin") {
+        std::process::exit(studio_plugins::cli::main(&args[1..]));
+    }
     if let Err(error) = run() {
         // Every failing exit says why, on stderr and in the Vixen logs.
         lock::note(Note::Error, &error.to_string());

@@ -1,0 +1,35 @@
+{
+  "id": "com.example.rust-http-output",
+  "name": "HTTP Output (Rust example)",
+  "version": "1.0.0",
+  "apiVersion": "^1.0",
+  "description": "Example plugin: POSTs each controller's colours as JSON to a URL, at most once per interval and only when they change. The shape a cloud-API light needs.",
+  "entry": { "command": "bin/rust-http-output" },
+  "permissions": { "network": ["http:lan"] },
+  "contributes": {
+    "controllers": [
+      {
+        "typeId": "5b0e7f3c-9d2a-4c61-8f43-2a1d6e9b7c05",
+        "name": "HTTP JSON (example)",
+        "configSchema": {
+          "type": "object",
+          "x-order": ["url", "minIntervalMs", "colorOrder"],
+          "properties": {
+            "url": { "type": "string", "title": "URL", "description": "Where to POST the colours (plain http:// in this example).", "default": "http://127.0.0.1:8080/lights", "minLength": 8, "maxLength": 300 },
+            "minIntervalMs": { "type": "integer", "title": "Minimum interval (ms)", "description": "At most one request per interval; unchanged colours aren't sent again.", "default": 1000, "minimum": 50, "maximum": 60000 },
+            "colorOrder": { "type": "string", "title": "Colour order", "enum": ["rgb", "grb", "bgr"], "x-enumNames": ["RGB", "GRB", "BGR"], "default": "rgb" }
+          },
+          "required": ["url"],
+          "additionalProperties": false
+        },
+        "defaultOutputs": 3,
+        "maxOutputs": 1536,
+        "outputNaming": "Light {n} {channel}",
+        "frameEncodings": ["u8"]
+      }
+    ],
+    "tools": [
+      { "name": "status", "description": "Each HTTP JSON controller: its URL, requests sent, failures and the last answer.", "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }, "readOnly": true }
+    ]
+  }
+}

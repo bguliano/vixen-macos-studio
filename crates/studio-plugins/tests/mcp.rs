@@ -185,7 +185,9 @@ fn scaffolded_plugins_pass_validation_in_every_language_and_kind() {
             let made = mcp::execute(&host, "plugin_scaffold", &json!({"id": id, "name": "My Lamp (LAN)", "language": language, "kind": kind}), &Context::default()).unwrap();
             let folder = PathBuf::from(made["folder"].as_str().unwrap());
             assert!(folder.starts_with(sandbox.root().join("dev")), "{folder:?}");
-            assert_eq!(made["files"].as_array().unwrap().len(), 3);
+            let sdk = if language == "python" { "vixen_plugin.py" } else { "vixen-plugin.mjs" };
+            assert!(made["files"].as_array().unwrap().iter().any(|f| f == sdk), "{made:#}");
+            assert!(folder.join(sdk).is_file());
             let report = harness::validate(&folder, &Options { live_output: true, ..quick() });
             assert_eq!(report["passed"], json!(true), "{language} {kind}: {report:#}");
             assert_eq!(report["warnings"], json!(0), "{language} {kind}: {report:#}");

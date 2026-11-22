@@ -1,0 +1,37 @@
+{
+  "id": "com.example.console-output",
+  "name": "Console Output (example)",
+  "version": "1.0.0",
+  "apiVersion": "^1.0",
+  "description": "The tutorial plugin: a controller type that prints the channel values it receives to its log, as levels or as colours.",
+  "entry": { "command": "python3", "args": ["main.py"] },
+  "permissions": { "files": ["plugin-data"] },
+  "contributes": {
+    "controllers": [
+      {
+        "typeId": "0f4c9e2a-6b1d-4a7e-9c35-8d2f1b6a4e90",
+        "name": "Console (example)",
+        "configSchema": {
+          "type": "object",
+          "x-order": ["label", "show", "perSecond", "maxChannels"],
+          "properties": {
+            "label": { "type": "string", "title": "Label", "description": "Printed in front of each line.", "default": "console", "maxLength": 40 },
+            "show": { "type": "string", "title": "Show values as", "enum": ["levels", "colours"], "x-enumNames": ["Levels (0-255)", "Colours (#RRGGBB per 3 outputs)"], "default": "levels" },
+            "perSecond": { "type": "number", "title": "Lines per second", "default": 2, "minimum": 0.1, "maximum": 40 },
+            "maxChannels": { "type": "integer", "title": "Channels per line", "default": 32, "minimum": 1, "maximum": 512 }
+          },
+          "additionalProperties": false
+        },
+        "defaultOutputs": 3,
+        "maxOutputs": 4096,
+        "outputNaming": "Console {n}",
+        "frameEncodings": ["u8"]
+      }
+    ],
+    "tools": [
+      { "name": "frames_seen", "description": "How many frames each console controller has printed and received since the plugin started (also kept across restarts).", "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false }, "readOnly": true }
+    ],
+    "commands": [{ "id": "frames_seen", "title": "Frames Seen", "tool": "frames_seen" }],
+    "events": ["liveOutput.changed"]
+  }
+}
