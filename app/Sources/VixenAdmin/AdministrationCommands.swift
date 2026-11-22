@@ -187,7 +187,7 @@ private struct HelpMenuItems: View {
         Group {
             Button("Online Help") { open("https://www.vixenlights.com/docs/") }
             Button("Vixen YouTube Channel") { open("https://www.youtube.com/user/VixenLightsSoftware") }
-            Button("Check for Updates") { admin.sheet = .checkForUpdates }
+            Button("Official Vixen Releases…") { admin.sheet = .checkForUpdates } // STUDIO: Check for Updates… is Studio's own updater (B53)
                 .disabled(admin.version.isTestBuild || state.isBusy)
             Button("Release Notes") { openWindow(id: WindowID.releaseNotes) }
             // STUDIO: About lives only in the app menu, its one place on the Mac

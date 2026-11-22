@@ -875,6 +875,10 @@
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
   "hash": "a80511a1c709127b"
  },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:d5a540c166aa1c73": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "d5a540c166aa1c73"
+ },
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:04bbdbb6039c5bf1": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "04bbdbb6039c5bf1"

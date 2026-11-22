@@ -130,7 +130,9 @@ def main():
             {"action": "hook", "name": "studio.updater", "path": ["status"]}, {"action": "quit"}]}, WORK / "run-nofeed", data)
         assert all(s["ok"] for s in steps), steps
         assert hook_status(steps)["enabled"] is False, steps
-        assert "Check for Updates…" not in (WORK / "run-nofeed/menus.txt").read_text()
+        nofeed_menus = (WORK / "run-nofeed/menus.txt").read_text()
+        assert "Check for Updates" not in nofeed_menus, nofeed_menus[:800]
+        assert "Official Vixen Releases…" in nofeed_menus, nofeed_menus[:800]
         print("ok  no feed: updater off, no menu item")
 
         # The new build, signed with the test key, and an appcast offering it.
@@ -170,7 +172,7 @@ def main():
             {"action": "hook", "name": "studio.updater", "path": ["status"]}, {"action": "quit"}]}, WORK / "run-info", data)
         assert all(s["ok"] for s in steps), steps
         menus = (WORK / "run-info/menus.txt").read_text()
-        assert "Check for Updates…" in menus, menus[:800]
+        assert menus.count("Check for Updates") == 1, menus[:800]
         # The grouped form's rows aren't in the harness's accessibility dump: look at settings.png (KEEP_UPDATER_E2E=1).
         assert (WORK / "run-info/settings.png").stat().st_size > 10_000
         status = hook_status(steps)
