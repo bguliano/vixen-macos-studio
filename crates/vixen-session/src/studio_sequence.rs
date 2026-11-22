@@ -862,11 +862,19 @@ fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEff
 }
 const BAND_FIELDS: &[&str] = &["fromPct", "toPct", "color", "level"];
 /// Wipe parameters that hold a still horizontal band from `from` to `to` percent of the targets' height, counted from the
-/// bottom: Vertical, Movement mode, a flat MovementCurve and a pulse as wide as the band.
-fn band_params(from: f64, to: f64, color: &str, level: f64) -> Value {
+/// bottom: Vertical, Movement mode, a flat MovementCurve and a pulse as wide as the band. A band lights the rows above
+/// `from` up to `to`, plus the lowest light when `from` is 0. The whole height needs two Wipes, its lower and upper half:
+/// one Wipe's pulse is at most the height, one row short of reaching both the lowest and the highest light.
+fn band_params(from: f64, to: f64, color: &str, level: f64) -> Vec<Value> {
+    if from <= 0.0 && to >= 100.0 {
+        return [(0.0, 50.0), (50.0, 100.0)].into_iter().flat_map(|(f, t)| band_params(f, t, color, level)).collect();
+    }
+    // A band touching an end stretches its pulse to the whole height past that end, where there are no lights, so
+    // rounding the edge to a preview row can't leave the lowest light or the top row dark.
+    let (from, to) = if from <= 0.0 { (to - 100.0, to) } else if to >= 100.0 { (from, 100.0 + from) } else { (from, to) };
     // Movement mode spreads the curve over the height plus one band width, and lights the band below that point.
     let position = 100.0 * to / (100.0 + (to - from));
-    json!({
+    vec![json!({
         "Direction": "Vertical",
         "WipeMovement": "Movement",
         "TargetNodeHandling": "Group",
@@ -874,7 +882,7 @@ fn band_params(from: f64, to: f64, color: &str, level: f64) -> Value {
         "PulsePercent": to - from,
         "ColorGradient": [color],
         "Curve": [[0, level], [100, level]],
-    })
+    })]
 }
 /// effect_band and the batch band op: a native Wipe set up as a still band, so the show stays readable everywhere.
 fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEffect>, String> {
@@ -891,8 +899,12 @@ fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEf
     let mut add = a.as_object().cloned().unwrap_or_default();
     add.retain(|k, _| !BAND_FIELDS.contains(&k.as_str()) && k != "op");
     add.insert("typeId".into(), json!(wipe.type_id.to_string()));
-    add.insert("params".into(), band_params(from, to, color, level));
-    plan_add(core, s, &Value::Object(add))
+    let mut planned = Vec::new();
+    for params in band_params(from, to, color, level) {
+        add.insert("params".into(), params);
+        planned.extend(plan_add(core, s, &Value::Object(add.clone()))?);
+    }
+    Ok(planned)
 }
 /// Adds a planned effect with its parameters and layer, with no undo record. The added effect's undo keeps both.
 fn apply_add(s: &mut SequenceSession, new: NewEffect) -> EffectId {
@@ -1195,7 +1207,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp, plus what its window's title bar and toolbar show: title, subtitle (the song, or No audio), song, songMissing, rendering and renderingPercent (rendered of all effects).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs, millisecond times and label (the words VoiceOver reads for the effect on the timeline).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
-        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Returns effectId and effectIds.",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
+        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Returns effectId and effectIds.",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
         ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,layerId?} (as effect_band), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
         ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
         ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
@@ -1698,7 +1710,7 @@ mod tests {
         use vixen_core::element::{property_ids, PropertyData, PropertyInstance};
         let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").unwrap();
         assert_eq!(vixen_effect_registry::all().iter().filter(|d| d.name == "Wipe").count(), 1);
-        for (pixels, spacing) in [(50usize, 2i32), (37, 3), (100, 1), (24, 5)] {
+        for (pixels, spacing) in [(50usize, 2i32), (37, 3), (100, 1), (24, 5), (28, 7)] {
             let mut tree = vixen_core::ElementTree::new();
             let group = vixen_effects::testing::grid(&mut tree, "T", 6, pixels);
             let mut located = Vec::new();
@@ -1712,17 +1724,24 @@ mod tests {
             }
             let max_y = located.iter().map(|l| l.1).max().unwrap();
             let height = (max_y - 20) as f64;
-            for (from, to) in [(40.0, 60.0), (0.0, 20.0), (80.0, 100.0), (10.0, 90.0), (0.0, 100.0), (45.0, 50.0)] {
-                let values = parameter_values(wipe, &band_params(from, to, "#ff0000", 100.0)).unwrap();
-                let out = vixen_effects::testing::render_with(wipe, &tree, &[group], 1000, |p| {
-                    for (name, value) in values {
-                        p.set(name, value);
-                    }
-                });
+            for (from, to) in [(40.0, 60.0), (0.0, 20.0), (80.0, 100.0), (10.0, 90.0), (0.0, 100.0), (45.0, 50.0), (0.0, 34.0), (87.0, 100.0), (34.0, 100.0), (0.0, 99.0), (1.0, 100.0)] {
+                // A whole-height band is two Wipes; the lights are lit where any of them is.
+                let outs: Vec<_> = band_params(from, to, "#ff0000", 100.0)
+                    .iter()
+                    .map(|band| {
+                        let values = parameter_values(wipe, band).unwrap();
+                        vixen_effects::testing::render_with(wipe, &tree, &[group], 1000, |p| {
+                            for (name, value) in values {
+                                p.set(name, value);
+                            }
+                        })
+                    })
+                    .collect();
+                assert_eq!(outs.len(), if from == 0.0 && to == 100.0 { 2 } else { 1 });
                 let lit_at = |ms: f64| -> Vec<f64> {
                     let mut rows: Vec<f64> = located
                         .iter()
-                        .filter(|(e, _)| out.nodes_for(e).is_some_and(|n| n.iter().any(|i| i.contains(TimeSpan::from_ms(ms)))))
+                        .filter(|(e, _)| outs.iter().any(|out| out.nodes_for(e).is_some_and(|n| n.iter().any(|i| i.contains(TimeSpan::from_ms(ms))))))
                         .map(|(_, y)| (max_y - y) as f64 / height * 100.0)
                         .collect();
                     rows.sort_by(f64::total_cmp);
@@ -1735,6 +1754,19 @@ mod tests {
                 let slack = (1.0 + spacing as f64) / height * 100.0 + 1e-9;
                 assert!(rows[0] >= from - slack && rows[0] <= from + slack, "{pixels}px {from}-{to}: bottom {rows:?}");
                 assert!(*rows.last().unwrap() <= to + slack && *rows.last().unwrap() >= to - slack, "{pixels}px {from}-{to}: top {rows:?}");
+                // No gaps: every row between the band's edges is lit.
+                let mut all: Vec<f64> = located.iter().map(|(_, y)| (max_y - y) as f64 / height * 100.0).collect();
+                all.sort_by(f64::total_cmp);
+                all.dedup();
+                all.retain(|r| *r >= rows[0] && r <= rows.last().unwrap());
+                assert_eq!(rows, all, "{pixels}px {from}-{to}: a row inside the band is dark");
+                // 0 and 100 include the lowest and highest light exactly.
+                if from == 0.0 {
+                    assert_eq!(rows[0], 0.0, "{pixels}px {from}-{to}: the lowest light is lit");
+                }
+                if to == 100.0 {
+                    assert_eq!(*rows.last().unwrap(), 100.0, "{pixels}px {from}-{to}: the highest light is lit");
+                }
                 assert_eq!(lit_at(10.0), rows, "{pixels}px {from}-{to}: the band holds still");
                 assert_eq!(lit_at(990.0), rows, "{pixels}px {from}-{to}: the band holds still");
             }
@@ -1972,10 +2004,11 @@ mod tests {
         assert!(list.iter().all(|e| e["typeId"] == wipe && e["targets"][0] == tree));
         let spans: Vec<(f64, f64)> = list.iter().map(|e| (e["startMs"].as_f64().unwrap(), e["startMs"].as_f64().unwrap() + e["durationMs"].as_f64().unwrap())).collect();
         assert_eq!(spans, vec![(0.0, 2000.0), (500.0, 2000.0), (1000.0, 2000.0), (1500.0, 2000.0), (2000.0, 2500.0)]);
+        // The bottom and top bands stretch their pulse to the whole height past their end, so they reach the end lights.
         let pulse_width: Vec<f64> = list.iter().map(|e| param(e, "PulsePercent").as_f64().unwrap()).collect();
-        assert_eq!(pulse_width, vec![25.0; 5]);
+        assert_eq!(pulse_width, vec![100.0, 25.0, 25.0, 100.0, 100.0]);
         let positions: Vec<f64> = list.iter().map(|e| param(e, "MovementCurve")[0][1].as_f64().unwrap()).collect();
-        let expected: Vec<f64> = [25.0, 50.0, 75.0, 100.0, 25.0].iter().map(|to| 100.0 * to / (100.0 + 25.0)).collect();
+        let expected = [12.5, 100.0 * 50.0 / 125.0, 100.0 * 75.0 / 125.0, 87.5, 12.5];
         assert!(positions.iter().zip(&expected).all(|(p, e)| (p - e).abs() < 0.01), "{positions:?}");
         assert_eq!(param(&list[1], "ColorGradient"), param(&list[3], "ColorGradient"));
         assert_ne!(param(&list[0], "ColorGradient"), param(&list[1], "ColorGradient"));

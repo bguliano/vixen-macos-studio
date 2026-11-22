@@ -306,18 +306,20 @@ pub(super) fn effect_step(core: &AppCore, s: &mut SequenceSession, a: &Value, ag
                     continue;
                 }
                 for (first, last) in runs(lit) {
-                    let params = parameter_values(wipe, &band_params(pct(first), pct(last + 1), colors[k % colors.len()], level))?;
-                    for (target, target_name) in targets {
-                        planned.push(NewEffect {
-                            type_id: wipe.type_id,
-                            target: *target,
-                            target_name: target_name.clone(),
-                            start: TimeSpan::from_ms(*on),
-                            duration: TimeSpan::from_ms(off - on),
-                            params: params.clone(),
-                            layer,
-                            level: None,
-                        });
+                    for band in band_params(pct(first), pct(last + 1), colors[k % colors.len()], level) {
+                        let params = parameter_values(wipe, &band)?;
+                        for (target, target_name) in targets {
+                            planned.push(NewEffect {
+                                type_id: wipe.type_id,
+                                target: *target,
+                                target_name: target_name.clone(),
+                                start: TimeSpan::from_ms(*on),
+                                duration: TimeSpan::from_ms(off - on),
+                                params: params.clone(),
+                                layer,
+                                level: None,
+                            });
+                        }
                     }
                 }
             }
