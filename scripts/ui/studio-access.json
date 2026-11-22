@@ -406,6 +406,67 @@
       ]
     },
     {
+      "action": "mouse",
+      "x": 700,
+      "y": 550
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "key",
+      "key": "tab",
+      "modifiers": [
+        "control"
+      ]
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "focus",
+        "timeline"
+      ]
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
+      "action": "mouse",
+      "x": 700,
+      "y": 550
+    },
+    {
+      "action": "wait",
+      "seconds": 0.3
+    },
+    {
+      "action": "hook",
+      "name": "studio.access",
+      "path": [
+        "report",
+        "timeline"
+      ]
+    },
+    {
       "action": "closeWindow"
     },
     {

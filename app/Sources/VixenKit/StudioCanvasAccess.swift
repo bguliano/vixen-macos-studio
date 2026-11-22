@@ -94,13 +94,38 @@ public enum StudioCanvasAccess {
     /// The canvas's own help, read after its name.
     public static let keysHelp = "Tab and Shift-Tab select the next and previous item. Control-Tab moves to the next control."
 
+    // MARK: Focus ring
+
+    /// Canvases a click gave the keyboard to. Their focus ring stays hidden, as a button's does after a click, until the
+    /// keyboard (Tab, ⌃Tab, the harness's `focus`) brings focus back.
+    private static let clickFocused = NSHashTable<NSView>.weakObjects()
+
+    /// From the canvas's `becomeFirstResponder`: whether a mouse press gave it the keyboard decides its ring.
+    public static func noteFocus(_ view: NSView) {
+        switch NSApp.currentEvent?.type {
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown: clickFocused.add(view)
+        default: clickFocused.remove(view)
+        }
+        view.noteFocusRingMaskChanged()
+    }
+
+    /// From the canvas's mouse presses, for a canvas that already has the keyboard.
+    public static func noteClick(_ view: NSView) {
+        guard !clickFocused.contains(view) else { return }
+        clickFocused.add(view)
+        view.noteFocusRingMaskChanged()
+    }
+
+    /// Whether the canvas draws its focus ring while it has the keyboard.
+    public static func showsFocusRing(_ view: NSView) -> Bool { !clickFocused.contains(view) }
+
     // MARK: Harness
 
     /// `{ "action": "hook", "name": "studio.access", "path": [...] }`, with the canvas named as `studioAccessName`
     /// says:
     /// - `focus <canvas>`: gives that canvas in the key window the keyboard, as clicking it or tabbing to it would.
     /// - `report <canvas>`: answers `focused=<0|1> role=<role> label=<label> items=<n> frames=<selected items' x,y,w,h>
-    ///   selected=<labels> said=<last announcement>` and writes the canvas's items, one per line (`*` before selected ones, then `@ x,y,w,h` in
+    ///   selected=<labels> said=<last announcement> ring=<0|1>` (ring: focused and drawing its focus ring) and writes the canvas's items, one per line (`*` before selected ones, then `@ x,y,w,h` in
     ///   screen points), to `access-<canvas>.txt`.
     /// - `menu <canvas>`: the titles of the menu Return opens for the selected item, `|` between them, `>` before a
     ///   submenu's.
@@ -129,7 +154,7 @@ public enum StudioCanvasAccess {
                 let selected = chosen.compactMap { $0.accessibilityLabel() }
                 let frames = chosen.map { let f = $0.accessibilityFrame(); return "\(Int(f.minX)),\(Int(f.minY)),\(Int(f.width)),\(Int(f.height))" }
                 let focused = canvas.window?.firstResponder === canvas
-                return "focused=\(focused ? 1 : 0) role=\(canvas.accessibilityRole()?.rawValue ?? "") label=\(canvas.accessibilityLabel() ?? "") items=\(items.count) frames=\(frames.joined(separator: ";")) selected=\(selected.joined(separator: " | ")) said=\(lastAnnouncement)"
+                return "focused=\(focused ? 1 : 0) role=\(canvas.accessibilityRole()?.rawValue ?? "") label=\(canvas.accessibilityLabel() ?? "") items=\(items.count) frames=\(frames.joined(separator: ";")) selected=\(selected.joined(separator: " | ")) said=\(lastAnnouncement) ring=\(focused && showsFocusRing(canvas) ? 1 : 0)"
             case "menu":
                 guard let menu = canvas.studioAccessMenu() else { return "FAIL no menu" }
                 return menu.items.filter { !$0.isSeparatorItem }.map { item in

@@ -12,7 +12,9 @@ Runs scripts/ui/studio-access.json, which drives each canvas with keys only, thr
   as one step (the pane reloads into the Simple view, so the script picks Graphical again); ⇧Tab moves the selection;
   ⌃Tab leaves;
 - the timeline of "Christmas Can-Can": effects read as "Set Level on White Bottom, 0:00.476 to 0:01.497"; ↓ gives the
-  grid a row, → and Tab step along it, ⇧→ extends, ⇧Tab steps back, ↑ and ⌥← read the row, ⌃Tab leaves;
+  grid a row, → and Tab step along it, ⇧→ extends, ⇧Tab steps back, ↑ and ⌥← read the row, ⌃Tab leaves; a click
+  gives the grid the keyboard without a focus ring, leaving and coming back without a click
+  brings the ring back, and a click hides it again (#60);
 - the preview designer for "Christmas Tree 2019": thirteen labelled props; Tab selects the first, Tab Tab ⇧Tab the
   second ("linked to White Bottom") with its properties shown; → → moves it two points; ⌃Tab leaves.
 Snapshots graph-keyboard.png, timeline-keyboard.png (designer-keyboard.png is Metal: capture it on screen).
@@ -81,7 +83,7 @@ assert "White Bottom, element, to Output 1" in labels and "White Middle, element
 
 # The timeline
 text, r = report()
-assert r["focused"] == "1" and r["label"] == "Timeline" and int(r["items"]) > 0 and r["selected"] == "", text
+assert r["focused"] == "1" and r["label"] == "Timeline" and int(r["items"]) > 0 and r["selected"] == "" and r["ring"] == "1", text
 text, r = report()
 assert r["selected"] == "Set Level on White Bottom, 0:00.476 to 0:01.497" and r["said"] == r["selected"], text
 text, r = report()
@@ -95,6 +97,12 @@ text, r = report()
 assert r["said"].startswith("Relays, collapsed"), "⌥← closes it: " + text
 text, r = report()
 assert r["focused"] == "0", "⌃Tab leaves the timeline: " + text
+text, r = report()
+assert r["focused"] == "1" and r["ring"] == "0", "a click gives the grid the keyboard without a focus ring (#60): " + text
+text, r = report()
+assert r["focused"] == "1" and r["ring"] == "1", "leaving and coming back without a click brings the ring back: " + text
+text, r = report()
+assert r["focused"] == "1" and r["ring"] == "0", "a click on the focused grid hides the ring: " + text
 
 # The designer
 text, r = report()

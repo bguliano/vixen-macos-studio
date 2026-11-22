@@ -33,8 +33,28 @@ extension GridCanvasView: StudioAccessCanvas {
 
     // MARK: Focus ring
 
-    override var focusRingMaskBounds: NSRect { bounds }
-    override func drawFocusRingMask() { bounds.insetBy(dx: 1, dy: 1).fill() }
+    /// Only when the keyboard brought focus here (#60): a click already shows where it landed.
+    override var focusRingMaskBounds: NSRect { StudioCanvasAccess.showsFocusRing(self) ? bounds : .zero }
+    override func drawFocusRingMask() {
+        if StudioCanvasAccess.showsFocusRing(self) { bounds.insetBy(dx: 1, dy: 1).fill() }
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        guard super.becomeFirstResponder() else { return false }
+        StudioCanvasAccess.noteFocus(self)
+        return true
+    }
+
+    // A click on a grid that already has the keyboard hides the ring too.
+    override func mouseDown(with event: NSEvent) {
+        StudioCanvasAccess.noteClick(self)
+        super.mouseDown(with: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        StudioCanvasAccess.noteClick(self)
+        super.rightMouseDown(with: event)
+    }
 
     // MARK: Keys
 
