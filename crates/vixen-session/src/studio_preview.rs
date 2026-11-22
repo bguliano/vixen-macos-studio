@@ -20,6 +20,9 @@ pub use video::Codec;
 #[path = "studio_geometry.rs"]
 pub mod geometry;
 
+#[path = "studio_activity.rs"]
+pub mod activity;
+
 const OMITTED: [&str; 3] = ["background artwork", "fixture beams", "GPU antialiasing"];
 const GPU_OMITTED: [&str; 1] = ["fixture beams"];
 
@@ -259,6 +262,22 @@ impl Renderer {
     /// Whether frames come from the app's preview renderer.
     pub fn is_gpu(&self) -> bool {
         self.gpu.is_some()
+    }
+
+    /// Each linked light's level at `time_ms`, 0 to 1: its brightest channel (or a discrete colour's intensity), as the
+    /// preview draws it.
+    pub fn levels(&mut self, time_ms: f64, out: &mut Vec<f32>) {
+        self.schedule.evaluate(
+            TimeSpan::from_ms(time_ms),
+            &mut self.scratch,
+            &mut self.states,
+        );
+        out.clear();
+        out.extend(self.lights.iter().map(|l| {
+            self.states.get(l.index).map_or(0.0, |state| {
+                f32::from(crate::preview::light_color(state, l.discrete).to_le_bytes()[3]) / 255.0
+            })
+        }));
     }
 
     /// Paints the lights at `time_ms` onto black (or the background artwork, on the GPU), returning how many were lit.
@@ -554,6 +573,11 @@ pub fn video(
     let started = std::time::Instant::now();
     let codec = options.encoding.codec(width + width % 2, height + height % 2, range.fps);
     let (frames, audio, width, height, lit) = encode(&mut renderer, &times, codec, range.fps, range.start_ms, range.end_ms, audio, path, &mut |_, _| {})?;
+    // Dead air across the whole preview at the default thresholds, from the same schedule: cheap next to painting.
+    let thresholds = activity::Thresholds::DEFAULT;
+    let mut whole = [activity::Group::whole(&renderer)];
+    activity::measure(&mut renderer, &times, thresholds.level, &mut whole);
+    let (dark, dark_ms) = activity::dark_json(&times, range.end_ms, &whole[0].series, thresholds);
     Ok(json!({
         "path": path,
         "width": width,
@@ -567,6 +591,9 @@ pub fn video(
         "audio": audio,
         "lights": renderer.total,
         "maxIlluminated": lit,
+        "dark": dark,
+        "darkMs": dark_ms,
+        "darkThresholds": thresholds.to_json(),
         "seconds": (started.elapsed().as_secs_f64() * 100.0).round() / 100.0,
         "codec": format!("{}, AAC audio, {}", codec.describe(), if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("mov")) { "MOV" } else { "MP4" }),
         "renderer": renderer_note,
@@ -619,6 +646,35 @@ pub fn encode(
         },
     )?;
     Ok((written.frames, written.audio, width, height, lit))
+}
+
+/// sequence_activity: the lit share of the preview (and of each of `elements`, with their names) at every frame of the
+/// range, and the dark runs, without painting anything. The session lock is held only to render effects.
+pub fn activity(
+    core: &AppCore,
+    shared: &Arc<Mutex<SequenceSession>>,
+    range: &Range,
+    thresholds: activity::Thresholds,
+    elements: &[(Uuid, String, HashSet<Uuid>)],
+    series: bool,
+) -> Result<Value, String> {
+    let mut renderer = Renderer::new(core, &mut shared.lock(), range.preview_id, 1.0, false)?;
+    let mut groups = vec![activity::Group::whole(&renderer)];
+    groups.extend(elements.iter().map(|(id, name, under)| activity::Group::of(&renderer, *id, name.clone(), under)));
+    let times: Vec<f64> = range.times().collect();
+    activity::measure(&mut renderer, &times, thresholds.level, &mut groups);
+    let mut out = activity::group_json(&groups[0], &times, range.end_ms, thresholds, series);
+    out["previewId"] = json!(range.preview_id.to_string());
+    out["startMs"] = json!(range.start_ms);
+    out["endMs"] = json!(range.end_ms);
+    out["fps"] = json!(range.fps);
+    out["frames"] = json!(times.len());
+    out["thresholds"] = thresholds.to_json();
+    if !elements.is_empty() {
+        out["elements"] = json!(groups[1..].iter().map(|g| activity::group_json(g, &times, range.end_ms, thresholds, series)).collect::<Vec<_>>());
+    }
+    out["source"] = json!("rendered schedule intensities of the preview's linked lights (brightest channel), not a decoded video");
+    Ok(out)
 }
 
 /// Tiles the range's frames into one PNG, each captioned with its sequence time, for reviewing a passage as one image.

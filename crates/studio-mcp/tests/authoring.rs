@@ -174,6 +174,28 @@ fn real_music_thirty_second_show_via_stdio_only() {
         assert_eq!(video["frames"], 100, "{video}");
         assert_eq!(video["audio"], song.as_str(), "{video}");
         assert!(video["maxIlluminated"].as_u64().unwrap() > 0, "{video}");
+        assert!(video["dark"].is_array() && video["darkThresholds"]["minMs"] == 1000.0, "{video}");
+        // Dead air from the schedule's intensities: the Pulsed prop is lit on its beats and dark between them.
+        let active = call(
+            "sequence_activity",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"startMs":start,"endMs":start+4000.0,"elements":[element],"minMs":0,"series":true}),
+        );
+        assert_eq!(active["frames"], 80, "{active}");
+        assert_eq!(active["series"].as_array().unwrap().len(), 80, "{active}");
+        assert!(active["lights"].as_u64().unwrap() > 0, "{active}");
+        let prop = &active["elements"][0];
+        assert!(prop["lights"].as_u64().unwrap() > 0, "{active}");
+        assert!(prop["lit"]["max"].as_f64().unwrap() > 0.5, "{active}");
+        assert!(prop["lit"]["min"].as_f64().unwrap() < 0.05, "{active}");
+        assert!(!prop["dark"].as_array().unwrap().is_empty(), "{active}");
+        // A sequence with no effects is one dark stretch from start to end.
+        let empty = call("sequence_create", json!({"lengthMs":5000}));
+        let quiet = call("sequence_activity", json!({"sequenceId":empty["sequenceId"],"previewId":preview["id"]}));
+        assert_eq!(quiet["frames"], 100, "{quiet}");
+        assert_eq!(quiet["darkMs"], 5000.0, "{quiet}");
+        assert_eq!(quiet["dark"][0]["startMs"], 0.0, "{quiet}");
+        assert_eq!(quiet["lit"]["max"], 0.0, "{quiet}");
+        call("sequence_close", json!({"sequenceId":empty["sequenceId"],"confirm":true}));
         let mp4 = std::fs::read(root.join("Export/MCP-music-test.mp4")).unwrap();
         assert_eq!(&mp4[4..8], b"ftyp");
         // Drawn by the app's preview renderer at twice the canvas size by default, not upscaled afterwards.

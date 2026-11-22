@@ -411,6 +411,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "preview_video" || name == "preview_sheet" {
         return preview_range(core, &shared, name, a);
     }
+    if name == "sequence_activity" {
+        return activity(core, &shared, a);
+    }
     if name == "sequence_onset_marks" {
         return mark_effects::onset_marks(core, &shared, a, agent);
     }
@@ -1200,6 +1203,54 @@ fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &st
     }
 }
 
+/// An element's name and the element ids of it and everything under it.
+fn element_and_below(core: &AppCore, target: Uuid) -> Result<(String, std::collections::HashSet<Uuid>), String> {
+    let system = core.system.read();
+    let node = system.tree.find(&target).ok_or(format!("element {target} not found"))?;
+    let elements = system
+        .tree
+        .leaves(node)
+        .into_iter()
+        .chain([node])
+        .filter_map(|n| system.tree.node(n).element_id)
+        .collect();
+    Ok((system.tree.node(node).name.clone(), elements))
+}
+
+/// sequence_activity: how much of a preview, and of chosen props, is lit across a span, and where it goes dark.
+fn activity(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Value) -> Result<Value, String> {
+    use crate::studio_preview::activity::Thresholds;
+    let length = shared.lock().length().total_ms();
+    let start = if a.get("startMs").is_some() { ms(a, "startMs")? } else { 0.0 };
+    let end = if a.get("endMs").is_some() { ms(a, "endMs")?.min(length) } else { length };
+    if start >= end {
+        return Err(format!("startMs must be before endMs and inside the sequence (0..{length})"));
+    }
+    let fps = a.get("fps").map_or(Some(20.0), Value::as_f64).filter(|f| (0.5..=100.0).contains(f)).ok_or("fps must be in 0.5..100")?;
+    if (end - start) * fps / 1000.0 > 200_000.0 {
+        return Err("At most 200000 frames: lower fps or shorten the span".into());
+    }
+    let share = |k: &str, default: f32| {
+        a.get(k).map_or(Some(f64::from(default)), Value::as_f64).filter(|v| (0.0..=1.0).contains(v)).map(|v| v as f32).ok_or(format!("{k} must be in 0..1"))
+    };
+    let thresholds = Thresholds {
+        level: share("level", Thresholds::DEFAULT.level)?,
+        min_lit: share("minLit", Thresholds::DEFAULT.min_lit)?,
+        min_ms: a.get("minMs").map_or(Some(Thresholds::DEFAULT.min_ms), Value::as_f64).filter(|v| (0.0..=600_000.0).contains(v)).ok_or("minMs must be in 0..600000")?,
+    };
+    let mut elements = Vec::new();
+    for value in a.get("elements").map_or(Some(&[][..]), |v| v.as_array().map(Vec::as_slice)).ok_or("elements must be a list of element ids")? {
+        let id = value.as_str().and_then(|v| Uuid::parse_str(v).ok()).ok_or("elements must be a list of element ids")?;
+        let (name, below) = element_and_below(core, id)?;
+        elements.push((id, name, below));
+    }
+    if elements.len() > 64 {
+        return Err("At most 64 elements".into());
+    }
+    let range = crate::studio_preview::Range { preview_id: uuid(a, "previewId")?, start_ms: start, end_ms: end, fps, glow: false };
+    crate::studio_preview::activity(core, shared, &range, thresholds, &elements, a["series"] == true)
+}
+
 /// preview_video's framing, size, renderer and encoding.
 fn video_options(core: &AppCore, a: &Value) -> Result<crate::studio_preview::VideoOptions, String> {
     use crate::studio_preview::{Encoding, Framing, Size, VideoOptions};
@@ -1218,16 +1269,7 @@ fn video_options(core: &AppCore, a: &Value) -> Result<crate::studio_preview::Vid
     let framing = match (a.get("fit"), a.get("crop")) {
         (Some(_), Some(_)) => return Err("Give fit or crop, not both".into()),
         (Some(_), None) => {
-            let target = uuid(a, "fit")?;
-            let system = core.system.read();
-            let node = system.tree.find(&target).ok_or(format!("fit: element {target} not found"))?;
-            let elements: std::collections::HashSet<Uuid> = system
-                .tree
-                .leaves(node)
-                .into_iter()
-                .chain([node])
-                .filter_map(|n| system.tree.node(n).element_id)
-                .collect();
+            let (_, elements) = element_and_below(core, uuid(a, "fit")?).map_err(|e| format!("fit: {e}"))?;
             let padding = a.get("padding").map_or(Some(12.0), Value::as_f64).filter(|p| (0.0..=2000.0).contains(p)).ok_or("padding must be in 0..2000")?;
             Framing::Fit { elements, padding: padding as f32 }
         }
@@ -1288,7 +1330,8 @@ pub fn tools() -> Vec<Value> {
 
         ("effect_set_parameter","Set one typed parameter through native setters, with undo. See effect_catalog schemas. File-path parameters are not accepted.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"parameter":string,"value":{}}),vec!["sequenceId","effectId","parameter","value"],false),
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
-        ("preview_video","Render a sequence span as a video of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, the app's own GPU preview renderer (antialiased lights and background artwork, as the preview window draws them; renderer cpu gives inspection frames), scale 2 (pixels per preview unit, drawn at that size, not upscaled; less when that would pass the 4096x2304 H.264 limit; or give width and/or height for the largest scale that fits), the whole preview canvas (fit an element id to frame its lights with padding preview units around them, or crop a preview rectangle), H.264 High at quality high in .mp4 or .mov (standard, high or max; or bitrateKbps). codec prores writes a ProRes 4444 .mov master. At most 4096 px a side. Up to 15 minutes. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"renderer":{"type":"string","enum":["gpu","cpu"]},"scale":{"type":"number","minimum":0.1,"maximum":4},"width":{"type":"integer","minimum":16,"maximum":4096},"height":{"type":"integer","minimum":16,"maximum":4096},"fit":string,"padding":{"type":"number","minimum":0,"maximum":2000},"crop":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"width":{"type":"number","minimum":1},"height":{"type":"number","minimum":1}},"required":["x","y","width","height"],"additionalProperties":false},"codec":{"type":"string","enum":["h264","prores"]},"quality":{"type":"string","enum":["standard","high","max"]},"bitrateKbps":{"type":"integer","minimum":500,"maximum":200000},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
+        ("preview_video","Render a sequence span as a video of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, the app's own GPU preview renderer (antialiased lights and background artwork, as the preview window draws them; renderer cpu gives inspection frames), scale 2 (pixels per preview unit, drawn at that size, not upscaled; less when that would pass the 4096x2304 H.264 limit; or give width and/or height for the largest scale that fits), the whole preview canvas (fit an element id to frame its lights with padding preview units around them, or crop a preview rectangle), H.264 High at quality high in .mp4 or .mov (standard, high or max; or bitrateKbps). codec prores writes a ProRes 4444 .mov master. At most 4096 px a side. Up to 15 minutes. Also reports dark: the stretches of at least 1 s where under 5% of the preview's lights are at 10% or brighter (sequence_activity measures other thresholds and single props). Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"renderer":{"type":"string","enum":["gpu","cpu"]},"scale":{"type":"number","minimum":0.1,"maximum":4},"width":{"type":"integer","minimum":16,"maximum":4096},"height":{"type":"integer","minimum":16,"maximum":4096},"fit":string,"padding":{"type":"number","minimum":0,"maximum":2000},"crop":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"width":{"type":"number","minimum":1},"height":{"type":"number","minimum":1}},"required":["x","y","width","height"],"additionalProperties":false},"codec":{"type":"string","enum":["h264","prores"]},"quality":{"type":"string","enum":["standard","high","max"]},"bitrateKbps":{"type":"integer","minimum":500,"maximum":200000},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
+        ("sequence_activity","Measure dead air without rendering a video: the share of a preview's linked lights lit (at level or brighter, 0 to 1, a light's brightest channel as the preview draws it, so a red tree is lit) at every frame of a span, from the rendered schedule's exact intensities. Returns lit min/mean/max and dark: every stretch of at least minMs where fewer than minLit of the lights are lit (startMs, endMs, durationMs, meanLit, peakLit), plus darkMs in total. elements (element or group ids) adds the same per prop, measured on its lights in this preview; series adds the lit share of every frame. Defaults: whole sequence, 20 fps, level 0.1, minLit 0.05, minMs 1000. preview_video reports the same dark stretches for the whole preview at the defaults.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.5,"maximum":100},"level":{"type":"number","minimum":0,"maximum":1},"minLit":{"type":"number","minimum":0,"maximum":1},"minMs":{"type":"number","minimum":0,"maximum":600000},"elements":{"type":"array","items":string,"maxItems":64},"series":boolean}),vec!["sequenceId","previewId"],true),
         ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
