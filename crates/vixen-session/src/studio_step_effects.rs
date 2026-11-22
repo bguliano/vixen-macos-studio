@@ -18,7 +18,7 @@ const MODES: &[&str] = &["walk", "alternate", "stack", "jump"];
 const SEGMENT_LIMIT: usize = 100;
 const STEP_LIMIT: usize = 10_000;
 
-pub(super) const DESCRIPTION: &str = "Add a discrete, segmented on/off figure stepped in time with the music, for staccato hits (\"do do do do\" stabs) where smooth chases, spins and sweeps are wrong. One call replaces one effect per segment per hit, in one undo step with one render pass. Step times: markCollection (id or exact name; range [startMs,endMs] and minStrength as effects_on_marks, each mark's text its strength) or stepsMs, an explicit list of times. segments: {axis:\"around\", groupId, count?} splits the group's children (e.g. a megatree's strings) into count contiguous segments (default one per child), each lit as native Set Level effects on its children; or {axis:\"vertical\", targetId|targetIds|targetSlice, count} splits the targets' height into count horizontal bands (2..100), each lit as a still band Wipe as effect_band (elements need Vixen's Location property; element_location sets it). mode: \"walk\" lights width segments (default 1) and steps them one segment per hit, wrapping; \"alternate\" lights the even segments, then the odd ones, per hit (count 2 gives front/back halves); \"stack\" adds width segments (default 1) per hit from the bottom (or first segment), keeping earlier ones lit, and starts again after every segment is lit; \"jump\" lights width segments at seeded random positions (seed, default 1), never reusing a segment lit on the previous hit (needs width at most half of count). reverse:true walks the other way, stacks from the top (or last segment), or starts alternate on the odd segments. colors: #RRGGBB list cycled per hit (default white); a stacked segment keeps its hit's colour. level: brightness percent (default 100). Each hit lasts holdFraction (default 0.8) of the time to the next hit, so staccato gaps stay dark; stacked segments all go dark together, holdFraction of the way from the stack's last hit to the next reset. cutAtMs ends the run: later steps are dropped and the last hit ends there (times holdFraction); without it the last hit lasts as long as the median gap between hits. layerId puts every effect on a layer. Returns effectIds, steps used, segments and skipped steps.";
+pub(super) const DESCRIPTION: &str = "Add a discrete, segmented on/off figure stepped in time with the music, for staccato hits (\"do do do do\" stabs) where smooth chases, spins and sweeps are wrong. One call replaces one effect per segment per hit, in one undo step with one render pass. Step times: markCollection (id or exact name; range [startMs,endMs] and minStrength as effects_on_marks, each mark's text its strength) or stepsMs, an explicit list of times. segments: {axis:\"around\", groupId, count?} splits the group's children (e.g. a megatree's strings) into count contiguous segments (default one per child), each lit as native Set Level effects on its children; or {axis:\"vertical\", targetId|targetIds|targetSlice, count} splits the targets' height into count horizontal bands (2..100), each lit as a still band Wipe as effect_band (elements need Vixen's Location property; element_location sets it). mode: \"walk\" lights width segments (default 1) and steps them one segment per hit, wrapping; \"alternate\" lights the even segments, then the odd ones, per hit (count 2 gives front/back halves); \"stack\" adds width segments (default 1) per hit from the bottom (or first segment), keeping earlier ones lit, and starts again after every segment is lit; \"jump\" lights width segments at seeded random positions (seed, default 1), never reusing a segment lit on the previous hit (needs width at most half of count). reverse:true walks the other way, stacks from the top (or last segment), or starts alternate on the odd segments. colors: #RRGGBB list cycled per hit (default white); a stacked segment keeps its hit's colour. level: brightness percent (default 100). Each hit lasts holdFraction (default 0.8) of the time to the next hit, so staccato gaps stay dark; stacked segments all go dark together, holdFraction of the way from the stack's last hit to the next reset. maxMs caps each hold after holdFraction (as effects_on_marks), so sparse hits stay short stabs. cutAtMs ends the run: later steps are dropped and the last hit ends there (times holdFraction); without it the last hit lasts as long as the median gap between hits. layerId puts every effect on a layer. Returns effectIds, steps used, segments and skipped steps.";
 
 pub(super) fn schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
@@ -36,6 +36,7 @@ pub(super) fn schema() -> Value {
         "colors": {"type":"array","items":string,"minItems":1,"maxItems":64},
         "level": {"type":"number","minimum":0,"maximum":100},
         "holdFraction": {"type":"number","minimum":0.05,"maximum":1},
+        "maxMs": {"type":"number","minimum":1,"maximum":3600000},
         "cutAtMs": number,
         "seed": {"type":"integer","minimum":0},
         "layerId": string,
@@ -233,6 +234,7 @@ pub(super) fn effect_step(core: &AppCore, s: &mut SequenceSession, a: &Value, ag
     let (times, run_end, weak) = step_times(s, a, length)?;
     let reverse = a["reverse"] == true;
     let hold = a.get("holdFraction").and_then(Value::as_f64).unwrap_or(0.8);
+    let max = a.get("maxMs").and_then(Value::as_f64).unwrap_or(f64::INFINITY);
     let level = a.get("level").and_then(Value::as_f64).unwrap_or(100.0);
     let colors: Vec<&str> = match a.get("colors") {
         Some(list) => list.as_array().unwrap().iter().map(|c| c.as_str().unwrap()).collect(),
@@ -260,14 +262,14 @@ pub(super) fn effect_step(core: &AppCore, s: &mut SequenceSession, a: &Value, ag
         for (k, &t) in times.iter().enumerate() {
             let j = k % per_cycle;
             let cycle_last = (k - j + per_cycle - 1).min(times.len() - 1);
-            let off = times[cycle_last] + (next(cycle_last) - times[cycle_last]) * hold;
+            let off = times[cycle_last] + ((next(cycle_last) - times[cycle_last]) * hold).min(max);
             let lit = (j * width..((j + 1) * width).min(count)).map(|i| if reverse { count - 1 - i } else { i }).collect();
             spans.push((lit, t, off, k));
         }
     } else {
         let lit = pattern(mode, count, width, reverse, times.len(), a.get("seed").and_then(Value::as_u64).unwrap_or(1));
         for (k, (lit, &t)) in lit.into_iter().zip(&times).enumerate() {
-            spans.push((lit, t, t + (next(k) - t) * hold, k));
+            spans.push((lit, t, t + ((next(k) - t) * hold).min(max), k));
         }
     }
 

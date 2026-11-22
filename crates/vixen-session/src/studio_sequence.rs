@@ -2023,6 +2023,16 @@ mod tests {
         run("sequence_render", json!({"sequenceId":id}));
         run("sequence_undo", json!({"sequenceId":id}));
 
+        // maxMs caps each hold after holdFraction, so a sparse run stays staccato (#65).
+        run("effect_step", json!({"sequenceId":id,"mode":"walk","segments":{"axis":"around","groupId":tree,"count":8},"stepsMs":[1000,1250,1500,2500,4000],"cutAtMs":5000,"maxMs":264}));
+        let holds: Vec<(f64, f64)> = [1000.0, 1250.0, 1500.0, 2500.0, 4000.0].iter().map(|t| summary().into_iter().find(|e| e.0 == *t).map(|e| (e.0, e.1)).unwrap()).collect();
+        assert_eq!(holds, vec![(1000.0, 200.0), (1250.0, 200.0), (1500.0, 264.0), (2500.0, 264.0), (4000.0, 264.0)]);
+        run("sequence_undo", json!({"sequenceId":id}));
+        run("effect_step", json!({"sequenceId":id,"mode":"stack","segments":{"axis":"around","groupId":tree,"count":2},"stepsMs":[0,500,1000],"cutAtMs":3000,"holdFraction":1,"maxMs":300}));
+        assert!(summary().iter().filter(|e| e.0 < 1000.0).all(|e| e.0 + e.1 == 800.0), "a stack goes dark together, maxMs after its last hit");
+        assert!(summary().iter().filter(|e| e.0 == 1000.0).all(|e| e.1 == 300.0));
+        run("sequence_undo", json!({"sequenceId":id}));
+
         // jump: seeded, two strings per hit, never the previous hit's strings.
         let args = json!({"sequenceId":id,"mode":"jump","segments":{"axis":"around","groupId":tree,"width":2},"stepsMs":[0,200,400,600,800,1000],"seed":3});
         run("effect_step", args.clone());
