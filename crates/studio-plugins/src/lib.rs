@@ -8,6 +8,7 @@
 //!
 //! Same-user permissions are the trust boundary, as for the MCP bridge: a plugin runs as the user, not in a sandbox.
 //! Declared permissions are enforced where Studio mediates (host API calls such as storage).
+pub mod controllers;
 pub mod host;
 pub mod logs;
 pub mod manifest;
@@ -15,6 +16,7 @@ pub mod process;
 pub mod profile;
 pub mod registry;
 pub mod rpc;
+pub mod schema;
 pub mod semver;
 
 pub use host::{HostOptions, PluginHost, State};
@@ -30,7 +32,7 @@ pub const HOST_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-studio");
 
 /// What `initialize` tells plugins this host can do; later stages turn the rest on.
 pub fn host_capabilities() -> Value {
-    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": false, "tools": false})
+    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": false})
 }
 
 /// `~/Library/Application Support/Vixen Studio/Plugins`.

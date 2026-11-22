@@ -14,3 +14,11 @@ path = "src/bin/studio-plugin-fixture.rs"
 [dependencies]
 libc = "0.2"
 serde_json.workspace = true
+uuid.workspace = true
+vixen-output = { path = "../vixen-output" }
+vixen-xml = { path = "../vixen-xml" }
+
+[dev-dependencies]
+vixen-core = { path = "../vixen-core" }
+vixen-io = { path = "../vixen-io" }
+vixen-session = { path = "../vixen-session" }

@@ -54,7 +54,7 @@
         "properties": {
           "instanceId": { "type": "string" }, "seq": { "type": "integer" }, "timeMs": { "type": "integer" },
           "encoding": { "enum": ["u8", "json", "u16"] },
-          "values": { "description": "u8: base64, one byte per output; u16: base64 little-endian; json: array of null | integer | {r,g,b} | string." }
+          "values": { "description": "u8: base64, one byte per output (an output without an 8-bit value sends 0, as byte-oriented controllers do); u16: base64 little-endian, 8-bit values scaled to the full range (x257); json: array of null | integer | {r,g,b} | string. The encoding is the first one the controller type lists in frameEncodings. Frames are latest-wins per instance: a plugin that reads slowly receives fewer frames, never stale ones." }
         } } },
     "tool.call": { "kind": "request", "available": "P3",
       "params": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "arguments": { "type": "object" } } },
@@ -78,7 +78,7 @@
       "params": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" }, "packetsSent": { "type": "integer" }, "bytesSent": { "type": "integer" }, "errors": { "type": "integer" } } } },
     "controller.message": { "kind": "notification", "available": "P2",
       "params": { "type": "object", "required": ["instanceId", "title", "text"], "properties": { "instanceId": { "type": "string" }, "title": { "type": "string" }, "heading": { "type": "string" }, "text": { "type": "string" } } } },
-    "display.snapshot": { "kind": "request", "available": "P2", "params": { "type": "object" }, "result": { "type": "object" },
+    "display.snapshot": { "kind": "request", "available": "P2b", "params": { "type": "object" }, "result": { "type": "object" },
       "description": "Requires permissions.display = read." },
     "tools.changed": { "kind": "notification", "available": "P3", "params": { "type": "object" } }
   },

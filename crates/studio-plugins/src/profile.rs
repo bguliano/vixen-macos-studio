@@ -54,6 +54,21 @@ pub fn require(profile: &Path, id: &str, version_range: &str) -> Result<bool, St
     write(profile, &requirements).map(|_| true)
 }
 
+/// Makes the file list exactly `requirements` (no file is created for none). Returns whether it changed.
+pub fn replace(profile: &Path, requirements: &[Requirement]) -> Result<bool, String> {
+    let mut current = read(profile)?;
+    let mut wanted = requirements.to_vec();
+    current.sort_by(|a, b| a.id.cmp(&b.id));
+    wanted.sort_by(|a, b| a.id.cmp(&b.id));
+    if current == wanted {
+        return Ok(false);
+    }
+    for r in &wanted {
+        Range::parse(&r.version_range)?;
+    }
+    write(profile, &wanted).map(|_| true)
+}
+
 /// Drops `id` once no controller in the show uses it. Returns whether it changed.
 pub fn release(profile: &Path, id: &str) -> Result<bool, String> {
     let mut requirements = read(profile)?;

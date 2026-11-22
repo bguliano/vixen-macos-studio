@@ -387,9 +387,25 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "bce67e439e56c29b"
  },
+ "block:plugins-add-controller": {
+  "file": "crates/vixen-session/src/setup/controllers.rs",
+  "hash": "33b15ecc2e7c659e"
+ },
  "block:plugins-lock-dependency": {
   "file": "Cargo.lock",
-  "hash": "314f2dd350f9b5dd"
+  "hash": "da62169e9a5143bd"
+ },
+ "block:plugins-module-counters": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "79bdd3fb6c196349"
+ },
+ "block:plugins-store-config": {
+  "file": "crates/vixen-session/src/dialogs/store.rs",
+  "hash": "f7099effff60a1c2"
+ },
+ "block:plugins-store-entries": {
+  "file": "crates/vixen-session/src/setup/controllers.rs",
+  "hash": "957ee8156d2775c4"
  },
  "block:polygon-live": {
   "file": "app/Sources/VixenTools/PolygonEditor.swift",
@@ -1707,6 +1723,10 @@
   "file": "crates/vixen-ffi/Cargo.toml",
   "hash": "bbc987fca87a953b"
  },
+ "line:crates/vixen-ffi/src/admin.rs:2c34884cb61ba2bb": {
+  "file": "crates/vixen-ffi/src/admin.rs",
+  "hash": "2c34884cb61ba2bb"
+ },
  "line:crates/vixen-ffi/src/admin.rs:e6687d4596f82cd6": {
   "file": "crates/vixen-ffi/src/admin.rs",
   "hash": "e6687d4596f82cd6"
@@ -1871,6 +1891,42 @@
   "file": "crates/vixen-io/src/file.rs",
   "hash": "658915e8cd98c064"
  },
+ "line:crates/vixen-output/src/modules/mod.rs:1527c4091f6fe3d4": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "1527c4091f6fe3d4"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:35d9c940335a84fa": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "35d9c940335a84fa"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:3698535af3318d37": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "3698535af3318d37"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:3aa205022cfb001c": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "3aa205022cfb001c"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:4b8b270a02388834": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "4b8b270a02388834"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:78eb59f2ca3cf3ff": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "78eb59f2ca3cf3ff"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:9c27d686f4b1549b": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "9c27d686f4b1549b"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:b3b3fab8bc48a805": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "b3b3fab8bc48a805"
+ },
+ "line:crates/vixen-output/src/modules/mod.rs:ed31bf934f167bb2": {
+  "file": "crates/vixen-output/src/modules/mod.rs",
+  "hash": "ed31bf934f167bb2"
+ },
  "line:crates/vixen-preview/src/session.rs:1f2140749feeef34": {
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "1f2140749feeef34"
@@ -1914,6 +1970,10 @@
  "line:crates/vixen-session/src/boot.rs:71502977b0e1270c": {
   "file": "crates/vixen-session/src/boot.rs",
   "hash": "71502977b0e1270c"
+ },
+ "line:crates/vixen-session/src/boot.rs:9fa5db39910e150e": {
+  "file": "crates/vixen-session/src/boot.rs",
+  "hash": "9fa5db39910e150e"
  },
  "line:crates/vixen-session/src/boot.rs:e0e2fb453a030826": {
   "file": "crates/vixen-session/src/boot.rs",
@@ -2015,6 +2075,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "f65b9dcdd7524099"
  },
+ "line:crates/vixen-session/src/lib.rs:fab51cdbe2e14f7b": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "fab51cdbe2e14f7b"
+ },
  "line:crates/vixen-session/src/preview.rs:bc77178e83943822": {
   "file": "crates/vixen-session/src/preview.rs",
   "hash": "bc77178e83943822"
@@ -2046,6 +2110,14 @@
  "line:crates/vixen-session/src/sequencer/state.rs:0a47ae48bfb5d66b": {
   "file": "crates/vixen-session/src/sequencer/state.rs",
   "hash": "0a47ae48bfb5d66b"
+ },
+ "line:crates/vixen-session/src/setup/controllers.rs:589e93f82e20fe81": {
+  "file": "crates/vixen-session/src/setup/controllers.rs",
+  "hash": "589e93f82e20fe81"
+ },
+ "line:crates/vixen-session/src/setup/controllers.rs:68a3d34d4c46190f": {
+  "file": "crates/vixen-session/src/setup/controllers.rs",
+  "hash": "68a3d34d4c46190f"
  },
  "line:crates/vixen-session/src/setup/controllers.rs:88bcc4063efca1e8": {
   "file": "crates/vixen-session/src/setup/controllers.rs",

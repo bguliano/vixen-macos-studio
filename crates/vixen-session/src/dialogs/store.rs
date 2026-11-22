@@ -37,6 +37,11 @@ pub fn store_controller_config(store: &mut ModuleStore, config: &ControllerConfi
         None => {
             if let Some(descriptor) = ids::controller_descriptor(&module_ids.type_id) {
                 store.set_instance(ModuleEntry { element: ids::module_element(descriptor, &module_ids, new_plain) });
+            // STUDIO-BEGIN plugins-store-config: plugin controller data is written under the plugin's type id
+            } else if matches!(config, ControllerConfig::External(_)) {
+                use vixen_output::modules::studio_external::{ASSEMBLY_NAME, DATA_MODEL_TYPE};
+                store.set_instance(ModuleEntry::new(DATA_MODEL_TYPE, &module_ids.type_id, &module_ids.instance_id, ASSEMBLY_NAME, new_plain));
+            // STUDIO-END plugins-store-config
             }
         }
     }

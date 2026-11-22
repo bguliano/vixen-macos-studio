@@ -7,7 +7,7 @@ use crate::registry::{Discovered, Registry, Source as PluginSource};
 use crate::rpc::{self, RpcError};
 use crate::API_VERSION;
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
@@ -215,13 +215,15 @@ impl Slot {
     }
 }
 
-struct Inner {
+pub(crate) struct Inner {
     options: HostOptions,
     registry: Mutex<Registry>,
     slots: Mutex<BTreeMap<String, Slot>>,
     muted: AtomicBool,
     profile: Mutex<Option<(String, String)>>,
     stopping: AtomicBool,
+    /// Started plugin controller instances by instance id, for routing a plugin's `controller.*` messages.
+    instances: Mutex<HashMap<String, Weak<crate::controllers::Instance>>>,
 }
 
 impl Inner {
@@ -252,6 +254,7 @@ impl PluginHost {
             muted: AtomicBool::new(true),
             profile: Mutex::new(None),
             stopping: AtomicBool::new(false),
+            instances: Mutex::new(HashMap::new()),
         });
         let host = PluginHost { inner };
         host.refresh();
@@ -357,9 +360,17 @@ impl PluginHost {
         })
     }
 
-    /// One plugin in detail: manifest, permissions, process and negotiated API.
+    /// The engine's view of this host's controller types, for `vixen_output::modules::studio_external::register`.
+    pub fn controllers(&self) -> Arc<crate::controllers::PluginControllers> {
+        Arc::new(crate::controllers::PluginControllers::new(Arc::downgrade(&self.inner)))
+    }
+
+    /// One plugin in detail: manifest, permissions, process, negotiated API and its started controller instances.
     pub fn info(&self, id: &str) -> Result<Value, String> {
         let mut info = self.inner.slots().get(id).map(|s| s.to_json(true)).ok_or_else(|| unknown(id))?;
+        let mut instances: Vec<Value> = live_instances(&self.inner).iter().filter(|i| i.plugin_id == id).map(|i| i.to_json()).collect();
+        instances.sort_by(|a, b| a["instanceId"].as_str().cmp(&b["instanceId"].as_str()));
+        info["instances"] = Value::Array(instances);
         let registry = self.inner.registry();
         info["dataFolder"] = json!(registry.data_dir(id).to_string_lossy());
         info["logFile"] = json!(registry.log_path(id).to_string_lossy());
@@ -473,6 +484,91 @@ impl Drop for PluginHost {
     }
 }
 
+// ---- For the controller layer ------------------------------------------------------------------------------------
+
+/// Every controller type in every valid manifest, with its plugin's state.
+pub(crate) fn controller_types(inner: &Inner) -> Vec<crate::controllers::TypeInfo> {
+    let slots = inner.slots();
+    let mut out = Vec::new();
+    for slot in slots.values() {
+        let Some(manifest) = &slot.manifest else { continue };
+        for controller in &manifest.controllers {
+            out.push(crate::controllers::TypeInfo {
+                plugin_id: manifest.id.clone(),
+                plugin_name: manifest.name.clone(),
+                version: manifest.version.clone(),
+                state: slot.state,
+                runnable: slot.runnable(),
+                controller: controller.clone(),
+            });
+        }
+    }
+    out
+}
+
+pub(crate) fn plugin_state(inner: &Inner, id: &str) -> Option<State> {
+    inner.slots().get(id).map(|s| s.state)
+}
+
+pub(crate) fn plugin_version(inner: &Inner, id: &str) -> Option<crate::semver::Version> {
+    inner.slots().get(id).and_then(|s| s.manifest.as_ref()).map(|m| m.version.clone())
+}
+
+pub(crate) fn manifest(inner: &Inner, id: &str) -> Option<Manifest> {
+    inner.slots().get(id).and_then(|s| s.manifest.clone())
+}
+
+/// The plugin's process, once it has answered `initialize`.
+pub(crate) fn running_process(inner: &Inner, id: &str) -> Option<Arc<PluginProcess>> {
+    inner.slots().get(id).filter(|s| s.state == State::Running).and_then(|s| s.process.clone())
+}
+
+/// Starts an enabled, stopped plugin on its own thread, for a controller that needs it. Returns whether it started one.
+pub(crate) fn start_for_controller(inner: &Arc<Inner>, id: &str) -> bool {
+    let wanted = inner.slots().get(id).is_some_and(|s| s.runnable() && s.state == State::Stopped);
+    if wanted {
+        let inner = inner.clone();
+        let id = id.to_string();
+        let _ = thread::Builder::new().name(format!("plugin-start-{id}")).spawn(move || {
+            if let Some(slot) = inner.slots().get(&id) {
+                slot.logs.push(Level::Info, Source::Host, "starting for a controller");
+            }
+            let _ = start(&inner, &id, false);
+        });
+    }
+    wanted
+}
+
+pub(crate) fn request_timeout(inner: &Inner) -> Duration {
+    inner.options.request_timeout
+}
+
+fn instances(inner: &Inner) -> MutexGuard<'_, HashMap<String, Weak<crate::controllers::Instance>>> {
+    inner.instances.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+pub(crate) fn add_instance(inner: &Inner, instance: &Arc<crate::controllers::Instance>) {
+    let mut map = instances(inner);
+    map.retain(|_, i| i.strong_count() > 0);
+    map.insert(instance.id.clone(), Arc::downgrade(instance));
+}
+
+/// Forgets the instance, unless a newer module for the same instance id has replaced it.
+pub(crate) fn remove_instance(inner: &Inner, instance: &Arc<crate::controllers::Instance>) {
+    let mut map = instances(inner);
+    if map.get(&instance.id).is_some_and(|i| i.as_ptr() == Arc::as_ptr(instance)) {
+        map.remove(&instance.id);
+    }
+}
+
+pub(crate) fn instance(inner: &Inner, id: &str) -> Option<Arc<crate::controllers::Instance>> {
+    instances(inner).get(id).and_then(Weak::upgrade)
+}
+
+fn live_instances(inner: &Inner) -> Vec<Arc<crate::controllers::Instance>> {
+    instances(inner).values().filter_map(Weak::upgrade).collect()
+}
+
 fn refresh(inner: &Inner) {
     let found = inner.registry().discover();
     let mut gone = Vec::new();
@@ -545,7 +641,13 @@ fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
     if inner.stopping.load(Ordering::SeqCst) {
         return Err("the plugin host is shutting down".into());
     }
-    let spawned = PluginProcess::spawn(Launch { manifest: &manifest, dir: &dir, data_dir: &data_dir, logs: logs.clone() });
+    let weak = Arc::downgrade(inner);
+    let plugin = id.to_string();
+    let controllers: crate::process::ControllerSink = Arc::new(move |method: &str, params: &Value| match weak.upgrade() {
+        Some(inner) => crate::controllers::route(&inner, &plugin, method, params),
+        None => Err(RpcError::new(rpc::PLUGIN_EXITED, "the plugin host has stopped")),
+    });
+    let spawned = PluginProcess::spawn(Launch { manifest: &manifest, dir: &dir, data_dir: &data_dir, logs: logs.clone(), controllers: Some(controllers) });
     let process = match spawned {
         Ok(process) => process,
         Err(why) => {

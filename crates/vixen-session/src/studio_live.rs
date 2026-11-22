@@ -5,7 +5,7 @@ use std::sync::atomic::Ordering;
 use uuid::Uuid;
 pub fn tools() -> Vec<Value> {
     [
-        ("output_start","Start one E1.31/DDP controller only after execution is opened locally and the local Allow agents to control live output setting is enabled.",json!({"controllerId":{"type":"string"},"confirm":{"type":"boolean"}}),vec!["controllerId","confirm"]),
+        ("output_start","Start one E1.31, DDP or plugin controller only after execution is opened locally and the local Allow agents to control live output setting is enabled.",json!({"controllerId":{"type":"string"},"confirm":{"type":"boolean"}}),vec!["controllerId","confirm"]),
         ("output_stop","Stop one controller. Requires explicit confirmation. Can stop even if agent output permission has been revoked.",json!({"controllerId":{"type":"string"},"confirm":{"type":"boolean"}}),vec!["controllerId","confirm"]),
         ("output_test_pattern","Run a commissioning test without a sequence, the Display pane's Test submenu: pattern movingPixel (one light at a time in wire order, stepMs per light, default 100), colorBars (every light red, green, blue, then white, stepMs per color, default 1500) or allOn, at brightnessPct (default 25), on one element/group (targetId) or everything patched to one running controller (controllerId), for durationMs (default 60000, at most 600000) or until output_test_stop. pattern pulse (the default, needs targetId) renders a Pulse for durationMs 25..5000. One test runs at a time; a new one replaces it. Requires local agent-output permission, Live Output already on (execution open) and explicit confirmation.",json!({"targetId":{"type":"string"},"controllerId":{"type":"string"},"pattern":{"type":"string","enum":["pulse","movingPixel","colorBars","allOn"]},"brightnessPct":{"type":"integer","minimum":1,"maximum":100},"stepMs":{"type":"integer","minimum":crate::studio_commission::STEP_RANGE_MS.0,"maximum":crate::studio_commission::STEP_RANGE_MS.1},"durationMs":{"type":"integer","minimum":25,"maximum":crate::studio_commission::MAX_DURATION_MS},"confirm":{"type":"boolean"}}),vec!["confirm"]),
         ("output_test_stop","Stop the running commissioning test or test Pulse, whoever started it. Always allowed, even after agent output permission has been revoked. Returns stopped:false when nothing was running.",json!({}),vec![]),
@@ -93,8 +93,9 @@ pub fn execute(core: &AppCore, name: &str, a: &Value) -> Result<Value, String> {
         if name == "output_start"
             && c.hardware_type_id != vixen_output::ids::E131
             && c.hardware_type_id != vixen_output::ids::DDP
+            && !vixen_output::modules::studio_external::is_external_type(&c.hardware_type_id)
         {
-            return Err("Agent startup is limited to E1.31/DDP controllers".into());
+            return Err("Agent startup is limited to E1.31, DDP and plugin controllers".into());
         }
         drop(system);
         core.playback

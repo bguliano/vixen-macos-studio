@@ -8,7 +8,7 @@ keeps it current, including the status below.
 | Stage | State |
 |---|---|
 | P1 Host core | Shipped: `crates/studio-plugins`, schemas in `studio/plugins/schema/`, FFI in `crates/vixen-ffi/src/studio_plugins.rs`. |
-| P2 Controllers | Not started. |
+| P2 Controllers | Shipped: `crates/studio-plugins/src/controllers.rs` (+ `schema.rs`), the engine hook `crates/vixen-output/src/modules/studio_external.rs`. `display.snapshot` moved to P2b. |
 | P3 MCP | Not started. |
 | P4 UI | Not started. |
 | P5 SDKs, examples, CLI | Not started. |
@@ -45,8 +45,48 @@ What P1 settled, beyond the design below:
   `studio_plugin_logs`, `studio_plugin_set_enabled`, `studio_plugin_reload`, `studio_plugin_link_dev`,
   `studio_plugin_unlink_dev`, `studio_plugins_start_enabled`, `studio_plugins_set_muted`, `studio_plugins_required`
   (StudioPlugins.json against what is installed) and `studio_plugins_shutdown`. Not yet called by the Swift app (P4).
-- **Deferred:** the `sandbox-exec` profile derived from permissions (a later stage); re-creating controller instances
-  after a restart (P2, with controllers).
+- **Deferred:** the `sandbox-exec` profile derived from permissions (a later stage).
+
+What P2 settled:
+
+- **Engine hook.** vixen-output has one marked `ControllerConfig::External` variant and a process-wide provider
+  (`studio_external::register`). Without a provider (vanilla, Windows-format tests) nothing changes: plugin data is an
+  unknown module type, left alone. The app registers the shared host's provider before a profile loads
+  (`VixenCore::start`), so plugin controllers compile into the output graph like built-in ones.
+- **Module data** (`ModuleStore.xml`, under the plugin's `typeId`, `dataModelType`
+  `VixenStudio.Plugins.PluginControllerData, StudioPlugins`): `<PluginControllerData>` with `ModuleInstanceId`,
+  `ModuleTypeId`, `PluginId`, `PluginName`, `PluginVersion` and `Config` (the configuration as JSON text, escaped
+  rather than CDATA, which reads the same). The element is kept whole, so a save without the plugin, or by an older
+  or newer Studio, writes it back unchanged (tested through Studio with and without a plugin host). Windows Vixen
+  can't resolve the data type, so it skips the entry while loading and leaves it out of its own next save; the
+  controller itself survives there with its outputs.
+- **Requirements.** Each system save rewrites `StudioPlugins.json` from the plugin controllers in the show, needing
+  `^major.minor` of the version each was set up with (`^0.minor.patch` for 0.x).
+- **Missing, disabled, too old or crashed plugin:** the controller, its outputs and patches stay; health is `error`
+  with `Needs plugin Lamp Output (com.example.lamp) ^1.2 — not installed` (or `— version 1.1.0 is installed`, `— it
+  is disabled`); nothing is sent. Installing or enabling the plugin brings it back without an edit.
+- **Lifecycle.** `OutputModule::start` only happens when Live Output is on and not muted (the runner's rule), so
+  muted/headless never sends `controller.start` or frames. A starting controller starts its enabled plugin if it isn't
+  running. Each module has a worker thread: `controller.create` (the plugin may normalise `config`) →
+  `controller.start` (15 s) → frames; `set_config` → `controller.configure` (a `-32004` refusal keeps
+  `data.errors` for the inspector and sets the status); output count → `controller.setOutputCount`; pause/resume;
+  stop → `controller.stop` + `controller.destroy`. When the plugin restarts, the worker creates, configures and
+  starts the instance again. `outputNames` answers are not applied yet (P4, with the inspector).
+- **Frames** use the first encoding the type lists. Each instance has one frame slot; a newer frame replaces one not
+  yet written (`framesDropped`), and frames are only written once the plugin has read all but 1 KiB of its stdin
+  pipe, so a slow plugin is never a pipe's worth of stale frames behind and requests never queue behind frames. The
+  engine's `update` never blocks.
+- **Plugin → host:** `controller.status` sets the module status (running / unavailable / error),
+  `controller.stats` raises the packet, byte and error counters `controller_overview` reads, `controller.message`
+  queues a `ControllerMessage`. A plugin can only address its own instances.
+- **Session:** plugin types join `controller_types` and `controller_create`; `controller_configure` takes `config`
+  (validated against `configSchema`: the subset in `schema.rs`) and `outputs`; `controller_network`/`controller_info`
+  show `plugin` (ids, versions, config, schema, problem); `controller_overview` health reports the plugin's problem or
+  its error status; `output_start` accepts plugin controllers under the same live-output permission as E1.31/DDP, and
+  commissioning tests reach them as frames (tested end to end with the fixture plugin).
+- **`plugin_info`** lists each started instance: status, live, framesSent/framesDropped, lastFrameAgeMs, counters
+  and configErrors.
+- **P2b:** `display.snapshot` (needs a read-only display view from the open profile).
 
 ## Why
 

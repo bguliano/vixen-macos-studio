@@ -201,8 +201,12 @@ mod tests {
         for method in ["initialize", "shutdown", "event"] {
             assert_eq!(schema["x-hostToPlugin"][method]["available"], json!("P1"), "{method}");
         }
+        for method in ["controller.create", "controller.configure", "controller.setOutputCount", "controller.start", "controller.stop", "controller.pause", "controller.resume", "controller.destroy", "controller.frame"] {
+            assert_eq!(schema["x-hostToPlugin"][method]["available"], json!("P2"), "{method}");
+        }
         for method in crate::process::HOST_METHODS {
-            assert_eq!(schema["x-pluginToHost"][method]["available"], json!("P1"), "{method}");
+            let stage = if crate::process::CONTROLLER_METHODS.contains(&method) { "P2" } else { "P1" };
+            assert_eq!(schema["x-pluginToHost"][method]["available"], json!(stage), "{method}");
         }
     }
 }

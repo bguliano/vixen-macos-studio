@@ -9,6 +9,15 @@ fn host() -> Result<&'static studio_plugins::PluginHost, FfiError> {
     studio_plugins::shared().map_err(FfiError::new)
 }
 
+/// Makes installed plugins' controller types load, save and run like built-in ones. Called before a profile loads, so
+/// its plugin controllers compile into the output graph; a controller starts its enabled plugin when it starts itself.
+pub(crate) fn register_controllers() {
+    match studio_plugins::shared() {
+        Ok(host) => vixen_output::modules::studio_external::register(Some(host.controllers())),
+        Err(why) => vixen_session::logging::error("Vixen.Studio.Plugins", "Could not open the plugin folder", Some(&why)),
+    }
+}
+
 /// `{apiVersion, folder, muted, plugins: [{id, name, version, source, enabled, state, folder, pid?, uptimeMs?, restartCount,
 /// problem?, lastError?, nextRestartMs?, controllerTypes, tools, commands, events}]}`.
 #[uniffi::export]

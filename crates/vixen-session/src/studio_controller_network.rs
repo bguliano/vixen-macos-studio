@@ -10,7 +10,8 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
 use vixen_output::modules::e131::UniverseEntry;
-use vixen_output::{ids, ControllerConfig};
+use vixen_output::modules::studio_external;
+use vixen_output::{ids, ControllerConfig, ModuleStatus};
 
 pub const MAX_UNIVERSE: u64 = 63999;
 pub const DEFAULT_UNIVERSE_SIZE: u64 = 510;
@@ -142,11 +143,50 @@ pub fn info(c: &ControllerEntry) -> Value {
             v["destination"] = json!(if config.address.is_some() { "unicast" } else { "none" });
             v["layout"] = json!(format!("{} in one DDP stream", plural(outputs, "channel", "channels")));
         }
+        Some(ControllerConfig::External(config)) => {
+            v["protocol"] = Value::Null;
+            v["plugin"] = studio_external::describe(config).and_then(|d| serde_json::from_str(&d).ok()).unwrap_or(Value::Null);
+        }
         _ => {
             v["protocol"] = Value::Null;
         }
     }
     v
+}
+
+/// `controller_configure` for a plugin controller: its configuration (checked against the plugin's `configSchema`) and
+/// output count. The running plugin gets the new configuration through `controller.configure` once the edit is applied.
+fn configure_plugin(s: &mut SetupSession, slot: usize, a: &Value) -> Result<Value, String> {
+    if let Some(key) = a.as_object().into_iter().flat_map(|o| o.keys()).find(|k| !matches!(k.as_str(), "id" | "config" | "outputs")) {
+        return Err(format!("{key} doesn't apply to a plugin controller; give config (an object matching the plugin's configSchema) and/or outputs"));
+    }
+    let outputs = number(a, "outputs", 1..=u64::from(output_limit(&s.controllers[slot].type_id)))?;
+    let Some(ControllerConfig::External(current)) = s.controllers[slot].config.clone() else { unreachable!("checked by the caller") };
+    let data = match a.get("config") {
+        None | Some(Value::Null) => None,
+        Some(config @ Value::Object(_)) => Some(studio_external::reconfigure(&current, &config.to_string()).map_err(|errors| {
+            let list: Vec<String> = serde_json::from_str::<Value>(&errors)
+                .ok()
+                .and_then(|v| v.as_array().cloned())
+                .unwrap_or_default()
+                .iter()
+                .map(|e| format!("{}: {}", e["field"].as_str().unwrap_or("/"), e["message"].as_str().unwrap_or_default()))
+                .collect();
+            format!("Invalid configuration: {}", list.join("; "))
+        })?),
+        Some(_) => return Err("config must be an object".into()),
+    };
+    let id = s.controllers[slot].id;
+    if let Some(n) = outputs {
+        s.set_output_count(id, n as u32);
+    }
+    let c = &mut s.controllers[slot];
+    if let Some(data) = data {
+        c.config = Some(ControllerConfig::External(studio_external::ExternalConfig { ids: current.ids, data }));
+    }
+    c.config_changed = true;
+    s.controllers_changed();
+    Ok(json!({"configured":true,"outputStarted":false,"controller":info(&s.controllers[slot])}))
 }
 
 fn number(a: &Value, key: &str, range: std::ops::RangeInclusive<u64>) -> Result<Option<u64>, String> {
@@ -197,6 +237,9 @@ fn switch_protocol(s: &mut SetupSession, slot: usize, type_id: Uuid) -> u32 {
 pub fn configure(s: &mut SetupSession, a: &Value) -> Result<Value, String> {
     let id = a["id"].as_str().and_then(|t| Uuid::parse_str(t).ok()).ok_or("id must be a controller UUID")?;
     let mut slot = s.slot_of(id).ok_or("Controller not found")? as usize;
+    if matches!(s.controllers[slot].config, Some(ControllerConfig::External(_))) {
+        return configure_plugin(s, slot, a);
+    }
     let preset = match a.get("preset").and_then(Value::as_str) {
         None => None,
         Some(name) => Some(
@@ -315,10 +358,11 @@ pub fn status(core: &AppCore, id: Uuid) -> Value {
                 shared.map_or(0, |s| s.packets_sent()),
                 shared.map_or(0, |s| s.error_count()),
                 shared.and_then(|s| s.last_error()),
+                runner.status(i),
             )
         })
     });
-    let (running, packets, errors, last_error) = found.unwrap_or((false, 0, 0, None));
+    let (running, packets, errors, last_error, module_status) = found.unwrap_or((false, 0, 0, None, ModuleStatus::Stopped));
     let now = Instant::now();
     let ago = {
         let mut guard = LAST_SEEN.lock();
@@ -350,7 +394,11 @@ pub fn status(core: &AppCore, id: Uuid) -> Value {
             None => "Running, no packets sent yet".to_string(),
         }
     };
-    json!({"running":running,"liveOutput":open && !muted,"muted":muted,"packetsSent":packets,"lastPacketMsAgo":ago.map(|d|d.as_millis() as u64),"errors":errors,"lastError":last_error,"text":text})
+    let module_problem = match module_status {
+        ModuleStatus::Error(m) | ModuleStatus::Unavailable(m) | ModuleStatus::UnsupportedOnMacOs(m) => Some(m),
+        _ => None,
+    };
+    json!({"running":running,"liveOutput":open && !muted,"muted":muted,"packetsSent":packets,"lastPacketMsAgo":ago.map(|d|d.as_millis() as u64),"errors":errors,"lastError":last_error,"moduleProblem":module_problem,"text":text})
 }
 
 /// Whether anything answers at `address`: a TCP connection to port 80, where WLED and most pixel controllers serve
@@ -424,6 +472,10 @@ fn overview_row(s: &SetupSession, slot: u32, c: &ControllerEntry, info: &Value, 
 /// engine reports errors), `warning` (no address, nothing patched, or packets stalled), `ok` (sending), `stopped`, `off`
 /// (Live Output off or muted) and `pending` (added since the last publish).
 fn health(c: &ControllerEntry, info: &Value, status: Option<&Value>, problems: &[String], patched: usize) -> (&'static str, String) {
+    // A plugin controller whose plugin is missing, disabled or too old stays in the show, silent, and says what it needs.
+    if let Some(problem) = c.config.as_ref().and_then(studio_external::problem) {
+        return ("error", problem);
+    }
     // Universes are generated once there's an address, so a missing one comes before the table's problems.
     if info["protocol"].is_string() && info["destination"] == "none" {
         return ("warning", "No address: enter the controller's IP address".into());
@@ -447,6 +499,9 @@ fn health(c: &ControllerEntry, info: &Value, status: Option<&Value>, problems: &
     }
     if !c.running || status["running"] != true {
         return ("stopped", "Stopped: not sending".into());
+    }
+    if let Some(problem) = status["moduleProblem"].as_str().filter(|_| matches!(c.config, Some(ControllerConfig::External(_)))) {
+        return ("error", problem.to_string());
     }
     if let Some(error) = status["lastError"].as_str().filter(|_| status["errors"].as_u64().unwrap_or(0) > 0) {
         return ("error", format!("Send errors ({}): {error}", status["errors"]));

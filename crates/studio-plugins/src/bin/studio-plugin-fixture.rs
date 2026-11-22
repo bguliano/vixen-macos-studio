@@ -1,6 +1,10 @@
 //! A tiny plugin for the host's tests. Its arguments pick a behaviour:
 //! `normal` (default), `exit-after-init`, `garbage`, `silent`, `old-api`, `crash`, plus `--storage` (exercise
 //! storage.set/get after initialize) and `--stubborn` (ignore shutdown and end of input).
+//!
+//! It is also a controller plugin: it logs every `controller.*` request and frame to stderr, adds `"seen": true` to the
+//! configuration it is given, refuses a configuration containing `"bad"` with field errors, and with `--report` sends
+//! status, stats and a message after `controller.start`. `--slow-frames` sleeps 50 ms per frame.
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
@@ -15,6 +19,8 @@ fn main() {
     let mode = args.iter().find(|a| !a.starts_with("--")).map(String::as_str).unwrap_or("normal");
     let storage = args.iter().any(|a| a == "--storage");
     let stubborn = args.iter().any(|a| a == "--stubborn");
+    let report = args.iter().any(|a| a == "--report");
+    let slow_frames = args.iter().any(|a| a == "--slow-frames");
     if mode == "crash" {
         eprintln!("fixture crashing at start");
         std::process::exit(7);
@@ -63,6 +69,37 @@ fn main() {
                 std::process::exit(0);
             }
             "event" => eprintln!("event {} {}", message["params"]["name"], message["params"]["data"]),
+            "controller.frame" => {
+                let p = &message["params"];
+                eprintln!("frame {} seq={} {} {}", p["instanceId"].as_str().unwrap_or(""), p["seq"], p["encoding"].as_str().unwrap_or(""), p["values"]);
+                if slow_frames {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+            }
+            "controller.create" | "controller.configure" => {
+                let p = &message["params"];
+                let instance = p["instanceId"].as_str().unwrap_or("");
+                eprintln!("{method} {instance} outputs={} config={}", p["outputCount"], p["config"]);
+                if p["config"].get("bad").is_some() {
+                    send(json!({"jsonrpc": "2.0", "id": id, "error": {"code": -32004, "message": "bad is not allowed", "data": {"errors": [{"field": "/bad", "message": "is not allowed"}]}}}));
+                } else {
+                    let mut config = p["config"].clone();
+                    config["seen"] = json!(true);
+                    send(json!({"jsonrpc": "2.0", "id": id, "result": {"config": config}}));
+                }
+            }
+            "controller.start" | "controller.stop" | "controller.pause" | "controller.resume" | "controller.destroy" | "controller.setOutputCount" => {
+                let p = &message["params"];
+                let instance = p["instanceId"].as_str().unwrap_or("").to_string();
+                eprintln!("{method} {instance} outputs={}", p["outputCount"]);
+                send(json!({"jsonrpc": "2.0", "id": id, "result": {}}));
+                if report && method == "controller.start" {
+                    send(json!({"jsonrpc": "2.0", "method": "controller.stats", "params": {"instanceId": instance, "packetsSent": 10, "bytesSent": 300, "errors": 1}}));
+                    send(json!({"jsonrpc": "2.0", "method": "controller.message", "params": {"instanceId": instance, "title": "Lamp", "text": "found 2 lamps"}}));
+                    send(json!({"jsonrpc": "2.0", "method": "controller.status", "params": {"instanceId": instance, "state": "unavailable", "message": "lamp 2 is offline"}}));
+                    send(json!({"jsonrpc": "2.0", "id": 900, "method": "controller.status", "params": {"instanceId": "not-mine", "state": "running"}}));
+                }
+            }
             "" => {
                 // A response to one of our requests.
                 if let Some(result) = message.get("result") {

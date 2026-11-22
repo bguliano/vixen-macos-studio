@@ -458,6 +458,7 @@ impl VixenCore {
         progress: Box<dyn StartupProgressListener>,
     ) -> Result<Arc<VixenCore>, FfiError> {
         let forwarder = ProgressForwarder(progress);
+        crate::studio_plugins::register_controllers(); // STUDIO: plugin controller types load with the profile
         let core = AppCore::start(PathBuf::from(root), profile_name, options.into(), lock_path.map(PathBuf::from), &forwarder)
             .inspect_err(|error| logging::error("Vixen.Sys.VixenSystem", "Error during system startup!", Some(&error.to_string())))?;
         let weak = Arc::downgrade(&core);

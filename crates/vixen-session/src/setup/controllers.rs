@@ -67,7 +67,9 @@ impl ControllerEntry {
     }
 
     pub fn type_name(&self) -> &'static str {
-        controller_descriptor(&self.type_id).map_or("Unknown Controller", |d| d.type_name)
+        controller_descriptor(&self.type_id).map(|d| d.type_name)
+            .or_else(|| vixen_output::modules::studio_external::type_name(&self.type_id, self.config.as_ref())) // STUDIO: plugin controller types
+            .unwrap_or("Unknown Controller")
     }
 
     /// `HasSetup`. Only the debug controller has none.
@@ -245,6 +247,7 @@ fn parse_row(id: &str) -> Option<(ControllerRowKind, u32, u32)> {
 /// The controller types for the "Add:" list, sorted by name (F76).
 pub fn controller_types() -> Vec<(Uuid, &'static str)> {
     let mut list: Vec<(Uuid, &'static str)> = CONTROLLER_DESCRIPTORS.iter().map(|d| (d.type_id, d.type_name)).collect();
+    list.extend(vixen_output::modules::studio_external::types()); // STUDIO: installed plugin controller types
     // A sorted `ComboBox` compares by culture, which puts "Debugging Values" before "DMX Open".
     list.sort_by_cached_key(|t| t.1.to_lowercase());
     list
@@ -567,8 +570,12 @@ impl SetupSession {
 
     /// F77: `AddNewControllerOfTypeWithPrompts` once its two prompts are answered. An empty name is the type's name.
     pub fn add_controller(&mut self, type_id: Uuid, name: &str, outputs: u32) -> Result<u32, String> {
-        let descriptor = controller_descriptor(&type_id).ok_or_else(|| "That controller type isn't available.".to_string())?;
-        let name = if name.is_empty() { descriptor.type_name } else { name };
+        // STUDIO-BEGIN plugins-add-controller: installed plugin controller types can be added like built-in ones
+        let type_name = controller_descriptor(&type_id).map(|d| d.type_name)
+            .or_else(|| vixen_output::modules::studio_external::types().into_iter().find(|t| t.0 == type_id).map(|t| t.1));
+        let type_name = type_name.ok_or_else(|| "That controller type isn't available.".to_string())?;
+        let name = if name.is_empty() { type_name } else { name };
+        // STUDIO-END plugins-add-controller
         let instance_id = Uuid::new_v4();
         let config = ControllerConfig::new_default(&type_id, instance_id);
         let slot = self.controllers.len() as u32;
@@ -821,6 +828,13 @@ impl SetupSession {
     pub(crate) fn controller_store_entries(&self) -> Vec<ModuleEntry> {
         let mut out = Vec::new();
         for c in self.controllers.iter().filter(|c| c.alive && (c.is_new || c.config_changed)) {
+            // STUDIO-BEGIN plugins-store-entries: plugin controller data is written under the plugin's type id
+            if let Some(ControllerConfig::External(config)) = &c.config {
+                use vixen_output::modules::studio_external::{ASSEMBLY_NAME, DATA_MODEL_TYPE};
+                out.push(ModuleEntry::new(DATA_MODEL_TYPE, &c.type_id, &c.instance_id, ASSEMBLY_NAME, config.to_xml()));
+                continue;
+            }
+            // STUDIO-END plugins-store-entries
             let Some(descriptor) = controller_descriptor(&c.type_id) else { continue };
             let Some(data) = c.config.as_ref().and_then(ControllerConfig::to_xml) else { continue };
             out.push(ModuleEntry::new(descriptor.data_model_type.unwrap_or_default(), &c.type_id, &c.instance_id, descriptor.assembly_name, data));

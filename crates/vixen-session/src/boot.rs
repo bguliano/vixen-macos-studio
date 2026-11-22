@@ -349,6 +349,7 @@ impl AppCore {
         };
         self.snapshot_disabled_devices();
         vixen_io::system::save_system_config_file(&self.system.read(), &self.paths)?;
+        crate::studio_plugin_controllers::system_saved(&self.system.read(), &self.paths); // STUDIO: record the plugins the show needs
         logging::info(SYSTEM_LOGGER, "System Config saved.");
         Ok(true)
     }

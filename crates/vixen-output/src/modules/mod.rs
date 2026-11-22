@@ -13,6 +13,7 @@ pub mod launcher;
 pub mod open_dmx;
 pub mod rds;
 pub mod renard;
+pub mod studio_external; // STUDIO: plugin controller types (studio/PLUGINS-DESIGN.md)
 
 pub use ddp::{DdpConfig, DdpModule};
 pub use debug::{DebugConfig, DebugModule};
@@ -233,6 +234,15 @@ impl ModuleShared {
         self.bytes_sent.load(Ordering::Relaxed)
     }
 
+    // STUDIO-BEGIN plugins-module-counters: a plugin controller reports its own packet, byte and error totals
+    /// Raises the counters to totals a controller counted elsewhere (a plugin process). Never lowers them.
+    pub fn raise_counters(&self, packets: u64, bytes: u64, errors: u64) {
+        self.packets_sent.fetch_max(packets, Ordering::Relaxed);
+        self.bytes_sent.fetch_max(bytes, Ordering::Relaxed);
+        self.errors.fetch_max(errors, Ordering::Relaxed);
+    }
+    // STUDIO-END plugins-module-counters
+
     pub(crate) fn request_stop(&self, stop: bool) {
         self.stop.store(stop, Ordering::Relaxed);
     }
@@ -260,6 +270,7 @@ pub enum ControllerConfig {
     Rds(RdsConfig),
     Launcher(LauncherConfig),
     Debug(DebugConfig),
+    External(studio_external::ExternalConfig), // STUDIO: a plugin controller's data, kept whole
 }
 
 impl ControllerConfig {
@@ -278,7 +289,7 @@ impl ControllerConfig {
             ids::RDS => ControllerConfig::Rds(RdsConfig { ids: m, ..Default::default() }),
             ids::LAUNCHER => ControllerConfig::Launcher(LauncherConfig { ids: m, ..Default::default() }),
             ids::DEBUG_CONTROLLER => ControllerConfig::Debug(DebugConfig { ids: m }),
-            _ => return None,
+            _ => return studio_external::new_default(type_id, instance_id), // STUDIO: plugin controller types
         })
     }
 
@@ -298,7 +309,7 @@ impl ControllerConfig {
             ids::RDS => ControllerConfig::Rds(RdsConfig::from_xml(data)),
             ids::LAUNCHER => ControllerConfig::Launcher(LauncherConfig::from_xml(data)),
             ids::DEBUG_CONTROLLER => ControllerConfig::Debug(DebugConfig::from_xml(data)),
-            _ => return None,
+            _ => studio_external::from_xml(type_id, data)?, // STUDIO: plugin controller types
         };
         if let Some(w) = wrapper_ids {
             *config.ids_mut() = w;
@@ -320,6 +331,7 @@ impl ControllerConfig {
             ControllerConfig::Rds(c) => c.to_xml(),
             ControllerConfig::Launcher(c) => c.to_xml(),
             ControllerConfig::Debug(_) => return None,
+            ControllerConfig::External(c) => c.to_xml(), // STUDIO: plugin controller data
         })
     }
 
@@ -336,6 +348,7 @@ impl ControllerConfig {
             ControllerConfig::Rds(c) => &c.ids,
             ControllerConfig::Launcher(c) => &c.ids,
             ControllerConfig::Debug(c) => &c.ids,
+            ControllerConfig::External(c) => &c.ids, // STUDIO: plugin controller data
         }
     }
 
@@ -352,6 +365,7 @@ impl ControllerConfig {
             ControllerConfig::Rds(c) => &mut c.ids,
             ControllerConfig::Launcher(c) => &mut c.ids,
             ControllerConfig::Debug(c) => &mut c.ids,
+            ControllerConfig::External(c) => &mut c.ids, // STUDIO: plugin controller data
         }
     }
 
@@ -362,6 +376,7 @@ impl ControllerConfig {
             ControllerConfig::Rds(_) | ControllerConfig::Launcher(_) | ControllerConfig::Debug(_) => {
                 DataPolicy::DISCARD_EXCESS_8BIT
             }
+            ControllerConfig::External(c) => studio_external::data_policy(c), // STUDIO: the plugin's dataPolicy
             _ => DataPolicy::HIGHEST_WINS_8BIT,
         }
     }
@@ -381,6 +396,7 @@ pub fn create_module(config: ControllerConfig) -> Box<dyn OutputModule> {
         ControllerConfig::Rds(c) => Box::new(RdsModule::new(c)),
         ControllerConfig::Launcher(c) => Box::new(LauncherModule::new(c)),
         ControllerConfig::Debug(c) => Box::new(DebugModule::new(c)),
+        ControllerConfig::External(c) => studio_external::create(c), // STUDIO: plugin controllers
     }
 }
 
