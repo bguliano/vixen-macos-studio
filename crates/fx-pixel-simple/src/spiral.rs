@@ -6,6 +6,7 @@ use vixen_effects::prelude::*;
 pub static DESCRIPTOR: EffectDescriptor = EffectDescriptor {
     render,
     visibility: Some(visibility),
+    param_changed_ctx: Some(studio_param_changed_ctx), // STUDIO: spiral-step-marks picks a mark collection
     supports_location: true,
     ported: true,
     ..gen::BASE
@@ -21,7 +22,29 @@ fn visibility(p: &Params, _t: &TargetInfo, v: &mut Visibility) {
     v.set("SpeedCurve", speed);
     v.set("Speed", !speed);
     v.set("Direction", !speed);
+
+    // STUDIO-BEGIN spiral-step-visibility: Step on Marks replaces the movement settings while it is on (B51)
+    let steps = p.boolean("StepToMarks");
+    v.set("StepToMarks", true);
+    v.set("MarkCollectionId", steps);
+    v.set("StepsPerCycle", steps);
+    if steps {
+        v.set("MovementType", false);
+        v.set("Speed", false);
+        v.set("SpeedCurve", false);
+        v.set("Direction", true);
+    }
+    // STUDIO-END spiral-step-visibility
 }
+
+// STUDIO-BEGIN spiral-step-marks-select: turning Step on Marks on, or the sequence's collections changing, picks a collection
+/// Like the C# effects that read marks: while stepping, keep the chosen collection if it still exists, else take the first.
+fn studio_param_changed_ctx(c: &ParamChange, p: &mut Params) {
+    if matches!(c.name, MARK_COLLECTIONS | "StepToMarks") {
+        normalize_mark_selection(p, c.info, p.boolean("StepToMarks"), None, true);
+    }
+}
+// STUDIO-END spiral-step-marks-select
 
 #[derive(Copy, Clone, PartialEq)]
 enum Direction {
@@ -46,6 +69,8 @@ struct Spiral {
     rotation_curve: Curve,
     position: f64,
     neg_position: bool,
+    /// Step on Marks: the effect's marks and the steps per cycle, when on.
+    studio_steps: Option<(vixen_effects::studio_mark_steps::MarkSteps, i32)>, // STUDIO: spiral-step-marks
 }
 
 fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
@@ -74,7 +99,15 @@ fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
         rotation_curve: p.curve("RotationCurve"),
         position: 0.0,
         neg_position: false,
+        studio_steps: None, // STUDIO: spiral-step-marks
     };
+    // STUDIO-BEGIN spiral-step-marks-render: the marks Step on Marks counts, taken once per render
+    if p.boolean("StepToMarks") {
+        let marks = ctx.mark_collection(p.guid("MarkCollectionId"));
+        let steps = vixen_effects::studio_mark_steps::MarkSteps::new(marks, ctx.start_time, ctx.time_span);
+        e.studio_steps = Some((steps, p.int("StepsPerCycle")));
+    }
+    // STUDIO-END spiral-step-marks-render
     render_pixel_effect(ctx, p, &mut e)
 }
 
@@ -114,6 +147,11 @@ impl Spiral {
 
     /// The position and spiral state, shared by both render paths. Returns `(position, spiral_state)`.
     fn position_state(&mut self, interval_pos: f64, interval_pos_factor: f64, wi: i32, info: &PixelInfo) -> (f64, i32) {
+        // STUDIO-BEGIN spiral-step-marks-position: Step on Marks sets the rotation from the marks passed
+        if let Some(state) = self.studio_step_state(interval_pos, wi, info) {
+            return state;
+        }
+        // STUDIO-END spiral-step-marks-position
         let position;
         if !self.movement_speed {
             position = (interval_pos * self.speed as f64) % 1.0;
@@ -139,6 +177,27 @@ impl Spiral {
         }
         (position, spiral_state)
     }
+
+    // STUDIO-BEGIN spiral-step-marks-helper: each mark turns the spiral 1 / StepsPerCycle of one color pattern
+    /// The position and spiral state Step on Marks gives, when it is on. One color pattern is a stripe per colour
+    /// (`delta_strands` columns each); the steps keep adding up, so the spiral turns all the way round, gap included.
+    fn studio_step_state(&self, interval_pos: f64, wi: i32, info: &PixelInfo) -> Option<(f64, i32)> {
+        let (steps, per_cycle) = self.studio_steps.as_ref()?;
+        let ms = (interval_pos * info.time_span.total_ms()).round();
+        let spiral_count = self.colors.len() as i32 * self.repeat.max(1);
+        if wi <= 0 || spiral_count <= 0 {
+            return Some((0.0, 0));
+        }
+        let pattern = (wi / spiral_count * self.colors.len() as i32) as f64;
+        let columns = (steps.passed(ms) as f64 * pattern / (*per_cycle).max(1) as f64).round() as i64 % wi as i64;
+        let state = match self.direction {
+            Direction::Forward => columns as i32 * 10,
+            Direction::Backwards => -(columns as i32) * 10,
+            Direction::None => 0,
+        };
+        Some((columns as f64 / wi as f64, state))
+    }
+    // STUDIO-END spiral-step-marks-helper
 
     fn thickness_state(&self, position: f64, spiral_gap: i32) -> i32 {
         let gap = spiral_gap as f64;
@@ -326,6 +385,7 @@ mod tests {
             rotation_curve: Curve::flat(50.0),
             position: 0.0,
             neg_position: false,
+            studio_steps: None, // STUDIO: spiral-step-marks
         }
     }
 

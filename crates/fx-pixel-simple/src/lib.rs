@@ -12,6 +12,7 @@ pub mod plasma;
 pub mod snow_storm;
 pub mod spiral;
 pub mod spirograph;
+mod studio_spiral_steps; // STUDIO: tests for Spiral's Step on Marks (B51)
 pub mod tree;
 #[cfg(test)]
 mod test_util;

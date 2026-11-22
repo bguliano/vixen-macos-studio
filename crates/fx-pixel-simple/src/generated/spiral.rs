@@ -20,7 +20,7 @@ pub static ENUM_SpiralDirection: EnumDesc = EnumDesc { name: "SpiralDirection", 
 pub static ENUM_StringOrientation: EnumDesc = EnumDesc { name: "StringOrientation", members: &[EnumMember { name: "Horizontal", label: "Horizontal" }, EnumMember { name: "Vertical", label: "Vertical" }] };
 pub static ENUM_TargetPositioningType: EnumDesc = EnumDesc { name: "TargetPositioningType", members: &[EnumMember { name: "Strings", label: "Strings" }, EnumMember { name: "Locations", label: "Locations" }] };
 
-pub static PARAMS: [ParamDesc; 17] = [
+pub static PARAMS: [ParamDesc; 20] = [ // STUDIO: three Step on Marks members (B51)
     ParamDesc {
         name: "TargetPositioning",
         xml: "TargetPositioning",
@@ -344,6 +344,65 @@ pub static PARAMS: [ParamDesc; 17] = [
         bool_labels: None,
         default: || ParamValue::Curve(Curve::from_points(vec![(0.0, 60.0), (100.0, 60.0)])),
     },
+    // STUDIO-BEGIN spiral-step-marks: Step on Marks rotates the spiral one notch per mark (B51)
+    ParamDesc {
+        name: "StepToMarks",
+        xml: "StepToMarks",
+        xml_ns: "VixenModules.Effect.Spiral",
+        xml_level: 1,
+        kind: ParamKind::Bool,
+        category: "Configuration",
+        category_order: 1,
+        label: "Step on Marks",
+        description: "Rotates the spiral one step at each mark of a mark collection, such as a beat track, instead of continuously.",
+        order: 1,
+        browsable: true,
+        is_value: true,
+        exclude_from_default: false,
+        editor: Editor::Default,
+        display: Display::Stored,
+        bool_labels: None,
+        default: || ParamValue::Bool(false),
+    },
+    ParamDesc {
+        name: "MarkCollectionId",
+        xml: "MarkCollectionId",
+        xml_ns: "VixenModules.Effect.Spiral",
+        xml_level: 1,
+        kind: ParamKind::Guid,
+        category: "Configuration",
+        category_order: 1,
+        label: "Mark Collection",
+        description: "The mark collection whose marks step the spiral.",
+        order: 2,
+        browsable: true,
+        is_value: true,
+        exclude_from_default: true,
+        editor: Editor::Selection,
+        display: Display::Stored,
+        bool_labels: None,
+        default: || ParamValue::Guid(Uuid::nil()),
+    },
+    ParamDesc {
+        name: "StepsPerCycle",
+        xml: "StepsPerCycle",
+        xml_ns: "VixenModules.Effect.Spiral",
+        xml_level: 1,
+        kind: ParamKind::Int,
+        category: "Configuration",
+        category_order: 1,
+        label: "Steps per Cycle",
+        description: "How many marks it takes the spiral to turn one full color pattern. With as many steps as Colors, each mark moves it one stripe.",
+        order: 3,
+        browsable: true,
+        is_value: true,
+        exclude_from_default: false,
+        editor: Editor::Slider { min: 1.0, max: 32.0, step: 1.0 },
+        display: Display::Stored,
+        bool_labels: None,
+        default: || ParamValue::Int(3),
+    },
+    // STUDIO-END spiral-step-marks
 ];
 
 /// All the table data. Effect modules override `render` and friends with struct update syntax.

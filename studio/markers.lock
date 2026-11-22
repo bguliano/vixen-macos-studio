@@ -659,6 +659,30 @@
   "file": "app/Info.plist",
   "hash": "31a7d8bceb2b93ae"
  },
+ "block:spiral-step-marks": {
+  "file": "crates/fx-pixel-simple/src/generated/spiral.rs",
+  "hash": "6a5a25d5cd37b996"
+ },
+ "block:spiral-step-marks-helper": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "81df2315d96ea348"
+ },
+ "block:spiral-step-marks-position": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "ab93743cf3af4c0d"
+ },
+ "block:spiral-step-marks-render": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "c1be9fa5f2b2e0ef"
+ },
+ "block:spiral-step-marks-select": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "41870782c9add110"
+ },
+ "block:spiral-step-visibility": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "bddc68759d099344"
+ },
  "block:state-mapper-live": {
   "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
   "hash": "1fb4be0150f3322d"
@@ -1898,6 +1922,26 @@
  "line:crates/fx-pixel-motion/src/lib.rs:496cad2a5af12935": {
   "file": "crates/fx-pixel-motion/src/lib.rs",
   "hash": "496cad2a5af12935"
+ },
+ "line:crates/fx-pixel-simple/src/generated/spiral.rs:11c2a01b27816a65": {
+  "file": "crates/fx-pixel-simple/src/generated/spiral.rs",
+  "hash": "11c2a01b27816a65"
+ },
+ "line:crates/fx-pixel-simple/src/lib.rs:d014b5bcadcace5c": {
+  "file": "crates/fx-pixel-simple/src/lib.rs",
+  "hash": "d014b5bcadcace5c"
+ },
+ "line:crates/fx-pixel-simple/src/spiral.rs:234ed55dcc23e746": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "234ed55dcc23e746"
+ },
+ "line:crates/fx-pixel-simple/src/spiral.rs:424f32f4f3fb7ffb": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "424f32f4f3fb7ffb"
+ },
+ "line:crates/fx-pixel-simple/src/spiral.rs:ff7bdffcdd69e198": {
+  "file": "crates/fx-pixel-simple/src/spiral.rs",
+  "hash": "ff7bdffcdd69e198"
  },
  "line:crates/vixen-effects/src/lib.rs:8a1ed0e3fdd3dc83": {
   "file": "crates/vixen-effects/src/lib.rs",
