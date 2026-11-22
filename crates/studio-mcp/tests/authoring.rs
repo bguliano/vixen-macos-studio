@@ -16,11 +16,20 @@ fn copy_dir(src: &Path, dst: &Path) {
         }
     }
 }
+/// Removes the test's profile copy when the test ends, pass or panic.
+struct ProfileDir(std::path::PathBuf);
+impl Drop for ProfileDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
 #[test]
 fn real_music_thirty_second_show_via_stdio_only() {
     let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
     let source = target.join("show-copy");
-    let root = target.join(format!("studio-mcp-e2e-{}", std::process::id()));
+    let profile = ProfileDir(target.join(format!("studio-mcp-e2e-{}", std::process::id())));
+    let root = profile.0.clone();
+    let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
     copy_dir(&source.join("SystemData"), &root.join("SystemData"));
     copy_dir(
@@ -308,8 +317,7 @@ fn real_music_thirty_second_show_via_stdio_only() {
             > 32
     );
     println!(
-        "MCP authored and rendered {} beat-synced effects over 30000 ms; TIM/FSEQ artifacts in {}",
-        selected.len(),
-        root.display()
+        "MCP authored and rendered {} beat-synced effects over 30000 ms; TIM/FSEQ artifacts verified",
+        selected.len()
     );
 }
