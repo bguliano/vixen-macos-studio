@@ -131,6 +131,20 @@
   },
   {
    "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "sandbox"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "copyProfile"
+   ]
+  },
+  {
+   "action": "hook",
    "name": "studio.layout",
    "path": [
     "snapshot",

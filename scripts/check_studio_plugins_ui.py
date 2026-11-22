@@ -9,6 +9,7 @@ Checks:
 - a show whose StudioPlugins.json needs a plugin that isn't installed shows the missing-plugin banner;
 - Settings ▸ Plugins links a development folder, which starts; the install sheet lists the package's permissions;
   Install installs and starts it; the log sheet opens;
+- the selected running plugin's details show Sandboxed, and Copy Profile puts its sandbox-exec profile on the pasteboard;
 - the Plugins menu lists the plugin's command under its name, then Manage Plugins…;
 - Add ▸ Lamp adds a plugin controller; its inspector shows the configSchema form; an invalid address stays in the form
   with its error and isn't applied; valid edits apply; each edit is one Undo step.
@@ -80,6 +81,10 @@ def check() -> None:
     lists = [h for h in hooks if h.startswith("com.example")]
     assert lists[0] == "com.example.lamp=running", lists
     assert lists[1] == "com.example.lamp=running,io.github.someone.porch-output=running", lists
+    sandbox = next(h for h in hooks if h.startswith(("sandboxed", "unsandboxed", "none")))
+    assert re.fullmatch(r"sandboxed profile=[1-9][0-9]*", sandbox), sandbox
+    copied = subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+    assert "sandbox for com.example.lamp" in copied and "(allow default)" in copied, copied[:200]
     # The install sheet's text isn't in the accessibility tree a test window gives; 03-install-sheet.png shows it.
     assert (WORK / "out/03-install-sheet.png").is_file()
     menus = (WORK / "out/06-menus.txt").read_text()

@@ -189,6 +189,9 @@ struct StudioPluginsSettings: View {
             if !plugin.tools.isEmpty {
                 LabeledContent("Agent tools", value: plugin.tools.joined(separator: ", "))
             }
+            if let sandboxed = plugin.sandboxed {
+                sandboxRow(sandboxed: sandboxed, profile: details?.id == plugin.id ? details?.sandboxProfile : nil)
+            }
             if let details, details.id == plugin.id {
                 LabeledContent("It can") {
                     if details.permissionText.isEmpty {
@@ -213,6 +216,30 @@ struct StudioPluginsSettings: View {
                     .disabled(working)
             }
         }
+    }
+
+    /// Whether the running plugin is inside its sandbox, with its profile to copy for plugin authors checking what it may
+    /// touch (the same text `vixen-studio-mcp plugin sandbox` prints).
+    private func sandboxRow(sandboxed: Bool, profile: String?) -> some View {
+        LabeledContent("Sandbox") {
+            HStack(spacing: StudioMetrics.spacingS) {
+                if let profile {
+                    Button("Copy Profile") { Self.copy(profile) }
+                        .controlSize(.small)
+                        .help("Copy the sandbox-exec profile the plugin runs under, built from its permissions")
+                }
+                StudioStatusBadge(sandboxed ? "Sandboxed" : "Not sandboxed", systemImage: sandboxed ? "lock.shield" : nil,
+                                  tone: sandboxed ? .active : .warning)
+                    .help(sandboxed
+                          ? "It can reach only its own folders and what its permissions allow"
+                          : "Started without the sandbox: sandbox-exec is missing or VIXEN_PLUGIN_SANDBOX is off")
+            }
+        }
+    }
+
+    private static func copy(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     private func loadDetails() async {
@@ -298,7 +325,8 @@ struct StudioPluginsSettings: View {
 
     /// `{ "action": "hook", "name": "studio.plugins", "path": [...] }`: `inspect <path>` (the install sheet), `confirm`
     /// and `cancel` (its buttons), `install <path>`, `link <path>`, `select <id>`, `log <id>`, `closeLog`, `list` (ids and
-    /// states). The file pickers aren't scriptable.
+    /// states), `sandbox` (the selected plugin's sandbox row) and `copyProfile` (its Copy Profile button). The file
+    /// pickers aren't scriptable.
     private func installHarnessHook() {
         guard UITestHarness.isActive else { return }
         UITestHarness.hooks["studio.plugins"] = { args in
@@ -321,6 +349,16 @@ struct StudioPluginsSettings: View {
             case "list":
                 await model.refresh()
                 return model.plugins.map { "\($0.id)=\($0.state)" }.joined(separator: ",")
+            case "sandbox":
+                await loadDetails()
+                guard let plugin = selectedPlugin else { return "FAIL no selection" }
+                guard let sandboxed = plugin.sandboxed else { return "none" }
+                let profile = details?.id == plugin.id ? details?.sandboxProfile : nil
+                return "\(sandboxed ? "sandboxed" : "unsandboxed") profile=\(profile?.count ?? 0)"
+            case "copyProfile":
+                await loadDetails()
+                guard let profile = details?.sandboxProfile else { return "FAIL no profile" }
+                Self.copy(profile)
             default: return "FAIL unknown \(args.first ?? "")"
             }
             try? await Task.sleep(for: .milliseconds(400))
@@ -385,14 +423,17 @@ struct StudioPluginPackage: Decodable, Identifiable {
 struct StudioPluginDetails: Decodable, Equatable {
     let id: String
     let permissionText: [String]
+    /// The sandbox-exec profile the running plugin was started with; nil when it isn't running or runs unsandboxed.
+    let sandboxProfile: String?
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         permissionText = (try? c.decode([String].self, forKey: .permissionText)) ?? []
+        sandboxProfile = try? c.decodeIfPresent(String.self, forKey: .sandboxProfile)
     }
 
-    enum CodingKeys: String, CodingKey { case id, permissionText }
+    enum CodingKeys: String, CodingKey { case id, permissionText, sandboxProfile }
 }
 
 /// The install confirmation: what the plugin is, what it adds and what it says it can do, before anything is copied.

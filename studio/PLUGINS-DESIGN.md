@@ -290,7 +290,8 @@ What B39 settled (the sandbox):
   `mDNSResponder` socket for lookups. Serial adds writes to `/dev/cu.*` and `/dev/tty.*`. SBPL can't filter by host
   name or subnet, so ports are the walls; the docs say so. Paths are canonicalized (`/tmp` is `/private/tmp`).
 - **Visible:** `plugin_list`/`studio_plugins_list` show `sandboxed` for a running plugin, `plugin_info` adds
-  `sandboxProfile`, and `vixen-studio-mcp plugin sandbox DIR` prints the profile.
+  `sandboxProfile`, and `vixen-studio-mcp plugin sandbox DIR` prints the profile. Settings ▸ Plugins shows a running
+  plugin's Sandbox row (Sandboxed / Not sandboxed) with Copy Profile (backlog B43).
 - **Tests:** unit tests on the generated text; `tests/sandbox.rs` runs a python3 probe with no permissions (own folder
   readable; a home-folder file, own-folder and data-folder writes and UDP refused) and with `udp:lan` + `plugin-data`
   (data write and UDP allowed, the packet arrives); it fails with the sandbox off. The three examples (python3, node

@@ -135,6 +135,8 @@ nonisolated public struct StudioPlugin: Decodable, Equatable, Identifiable, Send
     public let restartCount: Int
     public let problem: String?
     public let lastError: String?
+    /// Whether the running plugin was started under its macOS sandbox profile; nil while it isn't running.
+    public let sandboxed: Bool?
     private let controllerTypesList: [ControllerType]?
     private let toolsList: [String]?
     private let commandsList: [String]?
@@ -146,7 +148,7 @@ nonisolated public struct StudioPlugin: Decodable, Equatable, Identifiable, Send
     public var isDev: Bool { source == "dev" }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, version, description, source, enabled, state, folder, restartCount, problem, lastError
+        case id, name, version, description, source, enabled, state, folder, restartCount, problem, lastError, sandboxed
         case controllerTypesList = "controllerTypes", toolsList = "tools", commandsList = "commands"
     }
 
