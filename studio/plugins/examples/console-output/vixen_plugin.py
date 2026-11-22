@@ -94,6 +94,9 @@ def triplets(values, order="rgb"):
     return [tuple(values[i + k] for k in index) for i in range(0, len(values) - 2, 3)]
 
 
+_stats_lock = threading.Lock()
+
+
 class Controller:
     """One controller instance. Override what you need; every method may raise (the error goes back to Studio)."""
 
@@ -137,11 +140,14 @@ class Controller:
         self.plugin.notify("controller.status", params)
 
     def stats(self, packets_sent=None, bytes_sent=None, errors=None):
-        """Adds to the counters controller_overview shows."""
-        params = {"instanceId": self.instance_id}
-        for key, value in (("packetsSent", packets_sent), ("bytesSent", bytes_sent), ("errors", errors)):
-            if value is not None:
-                params[key] = int(value)
+        """Adds to the counters controller_overview shows: pass what you sent since the last call. The SDK keeps the
+        totals and sends them, as controller.stats wants."""
+        with _stats_lock:
+            totals = self.__dict__.setdefault("_stats_totals", {"packetsSent": 0, "bytesSent": 0, "errors": 0})
+            for key, value in (("packetsSent", packets_sent), ("bytesSent", bytes_sent), ("errors", errors)):
+                if value is not None:
+                    totals[key] += int(value)
+            params = {"instanceId": self.instance_id, **totals}
         self.plugin.notify("controller.stats", params)
 
     def message(self, title, text, heading=None):

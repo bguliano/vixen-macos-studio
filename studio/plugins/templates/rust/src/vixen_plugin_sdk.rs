@@ -149,6 +149,8 @@ pub struct Instance {
     pub config: Value,
     pub running: bool,
     pub paused: bool,
+    /// Packets, bytes and errors reported so far, shared by every clone of this instance.
+    counted: Arc<Mutex<[u64; 3]>>,
 }
 
 impl Instance {
@@ -161,9 +163,18 @@ impl Instance {
         self.host.notify("controller.status", params);
     }
 
-    /// Adds to the counters `controller_overview` shows.
+    /// Adds to the counters `controller_overview` shows: pass what you sent since the last call. The SDK keeps the
+    /// totals and sends them, as `controller.stats` wants.
     pub fn stats(&self, packets_sent: u64, bytes_sent: u64, errors: u64) {
-        self.host.notify("controller.stats", json!({"instanceId": self.instance_id, "packetsSent": packets_sent, "bytesSent": bytes_sent, "errors": errors}));
+        self.host.notify("controller.stats", self.count(packets_sent, bytes_sent, errors));
+    }
+
+    fn count(&self, packets_sent: u64, bytes_sent: u64, errors: u64) -> Value {
+        let mut counted = self.counted.lock().unwrap_or_else(|p| p.into_inner());
+        for (total, add) in counted.iter_mut().zip([packets_sent, bytes_sent, errors]) {
+            *total = total.saturating_add(add);
+        }
+        json!({"instanceId": self.instance_id, "packetsSent": counted[0], "bytesSent": counted[1], "errors": counted[2]})
     }
 
     /// An alert for the person at Studio; never blocks the show.
@@ -584,6 +595,7 @@ impl Plugin {
             config: json!({}),
             running: false,
             paused: false,
+            counted: Arc::default(),
         };
         let controller = factory(&instance);
         let mut slot = Slot { instance, controller };
@@ -875,6 +887,14 @@ pub fn fill_defaults(schema: &Value, config: &Value) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stats_send_running_totals() {
+        let instance = Instance { host: Host::new(), instance_id: "i".into(), type_id: "t".into(), output_count: 3, config: json!({}), running: true, paused: false, counted: Arc::default() };
+        instance.count(1, 100, 0);
+        let copy = instance.clone();
+        assert_eq!(copy.count(2, 50, 1), json!({"instanceId": "i", "packetsSent": 3, "bytesSent": 150, "errors": 1}));
+    }
 
     #[test]
     fn base64_round_trips() {

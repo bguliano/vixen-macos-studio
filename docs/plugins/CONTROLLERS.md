@@ -94,7 +94,8 @@ For each controller of your type in the show (see [PROTOCOL.md](PROTOCOL.md#life
 
 Report how it's going with `controller.status`: `running`, `unavailable` (can't reach the device; keep trying) or
 `error`. The Controllers section and `controller_overview` show it as the controller's health. Report counters with
-`controller.stats` (running totals, about once a second) and tell the user about something they must act on with
+`controller.stats` (running totals, about once a second; the SDKs' `stats()` takes what you sent since the last
+call and keeps the totals for you) and tell the user about something they must act on with
 `controller.message`.
 
 ## Talking to slow devices

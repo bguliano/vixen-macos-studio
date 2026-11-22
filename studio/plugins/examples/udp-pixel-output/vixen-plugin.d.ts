@@ -91,6 +91,7 @@ export class Controller {
   destroy(): Awaitable<void>;
   outputNames(): string[] | undefined;
   status(state: "running" | "unavailable" | "error", message?: string): void;
+  /** Adds what was sent since the last call; the SDK sends the running totals. */
   stats(counters?: { packetsSent?: number; bytesSent?: number; errors?: number }): void;
   message(title: string, text: string, heading?: string): void;
 }

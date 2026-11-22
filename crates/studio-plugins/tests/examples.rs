@@ -64,6 +64,34 @@ fn sdk_copies_match_the_sdks() {
     }
 }
 
+/// Runs `code` with `program` in the SDK's folder and returns what it printed.
+fn run_in(program: &str, args: &[&str], dir: &str) -> String {
+    let out = std::process::Command::new(program).args(args).current_dir(repo().join(dir)).output().unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    String::from_utf8_lossy(&out.stdout).trim().to_string()
+}
+
+/// `stats()` takes what was sent since the last call and sends running totals, which the host keeps (it raises its
+/// counters to them, so per-interval counts would show only the largest single report).
+#[test]
+fn sdk_stats_send_running_totals() {
+    let want = json!({"instanceId": "i", "packetsSent": 3, "bytesSent": 150, "errors": 1});
+    if available("python3") {
+        let code = "import json, vixen_plugin as vp\n\
+                    class P:\n    def notify(self, method, params): self.last = params\n\
+                    p = P(); c = vp.Controller(p, 'i', 't', 3)\n\
+                    c.stats(1, 100); c.stats(2, 50, 1)\nprint(json.dumps(p.last))";
+        let sent: Value = serde_json::from_str(&run_in("python3", &["-c", code], "studio/plugins/sdk/python")).unwrap();
+        assert_eq!(sent, want, "Python SDK");
+    }
+    if available("node") {
+        let code = "import { Controller } from './vixen-plugin.mjs'; let last; const c = new Controller({ notify: (m, p) => (last = p) }, 'i', 't', 3); \
+                    c.stats({ packetsSent: 1, bytesSent: 100 }); c.stats({ packetsSent: 2, bytesSent: 50, errors: 1 }); console.log(JSON.stringify(last));";
+        let sent: Value = serde_json::from_str(&run_in("node", &["--input-type=module", "-e", code], "studio/plugins/sdk/typescript")).unwrap();
+        assert_eq!(sent, want, "TypeScript SDK");
+    }
+}
+
 #[test]
 fn console_output_passes_with_frames() {
     if !available("python3") {

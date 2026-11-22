@@ -104,13 +104,13 @@ export class Controller {
   status(state, message) {
     this.plugin.notify("controller.status", { instanceId: this.instanceId, state, ...(message === undefined ? {} : { message }) });
   }
-  /** Adds to the counters controller_overview shows. */
+  /** Adds to the counters controller_overview shows: pass what you sent since the last call. The SDK keeps the totals and sends them, as controller.stats wants. */
   stats({ packetsSent, bytesSent, errors } = {}) {
-    const params = { instanceId: this.instanceId };
-    if (packetsSent !== undefined) params.packetsSent = Math.trunc(packetsSent);
-    if (bytesSent !== undefined) params.bytesSent = Math.trunc(bytesSent);
-    if (errors !== undefined) params.errors = Math.trunc(errors);
-    this.plugin.notify("controller.stats", params);
+    const totals = (this.statsTotals ??= { packetsSent: 0, bytesSent: 0, errors: 0 });
+    if (packetsSent !== undefined) totals.packetsSent += Math.trunc(packetsSent);
+    if (bytesSent !== undefined) totals.bytesSent += Math.trunc(bytesSent);
+    if (errors !== undefined) totals.errors += Math.trunc(errors);
+    this.plugin.notify("controller.stats", { instanceId: this.instanceId, ...totals });
   }
   /** An alert for the person at Studio; never blocks the show. */
   message(title, text, heading) {

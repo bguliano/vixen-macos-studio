@@ -406,7 +406,8 @@ Plugin → host · notification
 
 The instance's counters, which `controller_overview`, `controller_monitor` and `plugin_info` report. Each value is a
 **running total** since the instance was created: Studio raises its counter to it and never lowers it. Send them now
-and then (once a second is plenty), not per frame.
+and then (once a second is plenty), not per frame. The SDKs' `stats()` does the adding: pass it what you sent since
+the last call and it sends the totals.
 
 | Param | Type | Required | Meaning |
 |---|---|---|---|

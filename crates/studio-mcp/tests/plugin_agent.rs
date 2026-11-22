@@ -87,6 +87,7 @@ class Udp extends Controller {
   start() {
     this.socket = dgram.createSocket("udp4");
     this.sent = 0;
+    this.reported = 0;
     this.status("running", `sending to ${this.host}:${this.port}`);
   }
 
@@ -95,7 +96,10 @@ class Udp extends Controller {
     const data = Buffer.from(frame.values);
     this.socket.send(data, this.port, this.host, (error) => {
       this.sent += 1;
-      if (this.sent % 40 === 0 || error) this.stats({ packetsSent: this.sent, errors: error ? 1 : 0 });
+      if (this.sent % 40 === 0 || error) {
+        this.stats({ packetsSent: this.sent - this.reported, errors: error ? 1 : 0 });
+        this.reported = this.sent;
+      }
     });
   }
 
