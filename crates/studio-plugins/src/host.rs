@@ -103,6 +103,8 @@ struct Slot {
     logs: Arc<LogBuffer>,
     fingerprint: Option<Fingerprint>,
     changed: Option<Fingerprint>,
+    /// The tools the running plugin announced with `tools.changed`, in place of its manifest's, until it restarts.
+    runtime_tools: Option<Vec<crate::manifest::Tool>>,
 }
 
 impl Slot {
@@ -127,6 +129,7 @@ impl Slot {
             logs,
             fingerprint: None,
             changed: None,
+            runtime_tools: None,
         };
         slot.update(found);
         slot
@@ -337,6 +340,57 @@ impl PluginHost {
         self.reload(&manifest.id)
     }
 
+    /// Installs a plugin folder or `.vixenplugin` package into `Plugins/<id>/<version>/`, enabled, and starts it. A start
+    /// that fails leaves the plugin installed, with the reason as its `lastError`.
+    pub fn install(&self, source: &Path) -> Result<Value, String> {
+        let root = self.root();
+        let staged = crate::install::stage(&root, source)?;
+        let manifest = staged.manifest.clone().expect("stage reads the manifest");
+        if !manifest.api_version.matches(&API_VERSION) {
+            return Err(format!("{} needs plugin API {}; this Vixen Studio has {API_VERSION}", manifest.id, manifest.api_version.as_str()));
+        }
+        if self.inner.registry().record(&manifest.id).is_some_and(|r| r.source == PluginSource::Dev) {
+            return Err(format!("{} is linked as a development folder; unlink it first", manifest.id));
+        }
+        if self.inner.slots().contains_key(&manifest.id) {
+            stop(&self.inner, &manifest.id)?;
+        }
+        let folder = crate::install::commit(&root, &staged)?;
+        let record = crate::registry::Record { enabled: true, source: PluginSource::Installed, version: Some(manifest.version.to_string()), path: None, sha256: staged.sha256.clone() };
+        self.inner.registry().set_record(&manifest.id, &record)?;
+        // Older versions go; one version is active per plugin.
+        if let Ok(entries) = std::fs::read_dir(root.join(&manifest.id)) {
+            for entry in entries.flatten().filter(|e| e.path() != folder) {
+                let _ = std::fs::remove_dir_all(entry.path());
+            }
+        }
+        self.refresh();
+        let started = reload(&self.inner, &manifest.id);
+        let mut info = self.info(&manifest.id)?;
+        info["installed"] = json!({"folder": folder.to_string_lossy(), "files": staged.files, "bytes": staged.bytes, "sha256": staged.sha256});
+        if let Err(why) = started {
+            info["startError"] = json!(why);
+        }
+        Ok(info)
+    }
+
+    /// Stops and removes an installed plugin's files and registry entry. Its data folder and log stay.
+    pub fn uninstall(&self, id: &str) -> Result<Value, String> {
+        let record = self.inner.registry().record(id);
+        if record.as_ref().is_some_and(|r| r.source == PluginSource::Dev) {
+            return Err(format!("{id} is a linked development folder; use plugin_unlink_dev"));
+        }
+        if !self.inner.slots().contains_key(id) {
+            return Err(unknown(id));
+        }
+        stop(&self.inner, id)?;
+        crate::install::remove(&self.root(), id)?;
+        self.inner.registry().remove_record(id)?;
+        self.refresh();
+        let registry = self.inner.registry();
+        Ok(json!({"id": id, "removed": true, "keptData": registry.data_dir(id).to_string_lossy(), "keptLog": registry.log_path(id).to_string_lossy()}))
+    }
+
     /// Removes a development link (the folder itself is left alone).
     pub fn unlink_dev(&self, id: &str) -> Result<(), String> {
         let is_dev = self.inner.registry().record(id).is_some_and(|r| r.source == PluginSource::Dev);
@@ -449,6 +503,34 @@ impl PluginHost {
             })
             .collect();
         Ok(json!({"plugins": plugins}))
+    }
+
+    /// The agent tools of every plugin that can run (enabled, valid, not given up on), named for MCP as
+    /// `plugin__<short-id>__<tool>`; see [`crate::tools`].
+    pub fn contributed_tools(&self) -> Vec<crate::tools::Contributed> {
+        let slots = self.inner.slots();
+        let plugins: Vec<(String, Vec<crate::manifest::Tool>)> = slots
+            .values()
+            .filter(|s| s.runnable() && s.state != State::Crashed)
+            .filter_map(|s| {
+                let manifest = s.manifest.as_ref()?;
+                Some((manifest.id.clone(), s.runtime_tools.clone().unwrap_or_else(|| manifest.tools.clone())))
+            })
+            .collect();
+        crate::tools::name_all(plugins)
+    }
+
+    /// Calls a contributed tool by its MCP name, starting the plugin first when it isn't running. `Ok` is the plugin's
+    /// MCP-style answer `{content, isError}`; `Err` is a failure to reach it.
+    pub fn call_tool(&self, mcp_name: &str, arguments: Value) -> Result<Value, String> {
+        let tool = self.contributed_tools().into_iter().find(|t| t.mcp_name == mcp_name).ok_or_else(|| format!("no plugin tool {mcp_name}"))?;
+        if self.state(&tool.plugin_id) != Some(State::Running) {
+            start(&self.inner, &tool.plugin_id, true)?;
+        }
+        let answer = self
+            .request(&tool.plugin_id, "tool.call", json!({"name": tool.name, "arguments": arguments}), Some(crate::tools::CALL_TIMEOUT))
+            .map_err(|e| format!("{}: {}", tool.plugin_id, e.message))?;
+        crate::tools::check_answer(&tool.plugin_id, answer)
     }
 
     pub fn state(&self, id: &str) -> Option<State> {
@@ -620,6 +702,22 @@ fn unknown(id: &str) -> String {
     format!("no plugin with id {id}")
 }
 
+/// A plugin's `tools.changed`: `tools` replaces its manifest's tool list until it restarts; no `tools` goes back to it.
+fn tools_changed(inner: &Inner, id: &str, generation: u64, params: &Value) -> Result<Value, RpcError> {
+    let tools = match params.get("tools") {
+        None | Some(Value::Null) => None,
+        Some(list) => Some(Manifest::parse_tools(list).map_err(|why| RpcError::new(rpc::INVALID_PARAMS, why))?),
+    };
+    let mut slots = inner.slots();
+    if let Some(slot) = slots.get_mut(id).filter(|s| s.generation == generation) {
+        let names: Vec<&str> = tools.iter().flatten().map(|t| t.name.as_str()).collect();
+        let what = if tools.is_some() { format!("tools changed: {}", if names.is_empty() { "none".into() } else { names.join(", ") }) } else { "tools changed back to the manifest's".into() };
+        slot.logs.push(Level::Info, Source::Host, &what);
+        slot.runtime_tools = tools;
+    }
+    Ok(json!({}))
+}
+
 /// Starts `id` unless it is already starting or running. `wait` reports the outcome; a background start only logs it.
 fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
     // The registry lock is always taken before the slots lock, never inside it.
@@ -636,6 +734,7 @@ fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
         slot.generation += 1;
         slot.state = State::Starting;
         slot.next_restart = None;
+        slot.runtime_tools = None;
         (slot.generation, slot.manifest.clone().expect("runnable"), slot.dir.clone(), slot.logs.clone())
     };
     if inner.stopping.load(Ordering::SeqCst) {
@@ -647,7 +746,13 @@ fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
         Some(inner) => crate::controllers::route(&inner, &plugin, method, params),
         None => Err(RpcError::new(rpc::PLUGIN_EXITED, "the plugin host has stopped")),
     });
-    let spawned = PluginProcess::spawn(Launch { manifest: &manifest, dir: &dir, data_dir: &data_dir, logs: logs.clone(), controllers: Some(controllers) });
+    let weak = Arc::downgrade(inner);
+    let plugin = id.to_string();
+    let tools: crate::process::ToolsSink = Arc::new(move |params: &Value| match weak.upgrade() {
+        Some(inner) => tools_changed(&inner, &plugin, generation, params),
+        None => Err(RpcError::new(rpc::PLUGIN_EXITED, "the plugin host has stopped")),
+    });
+    let spawned = PluginProcess::spawn(Launch { manifest: &manifest, dir: &dir, data_dir: &data_dir, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools) });
     let process = match spawned {
         Ok(process) => process,
         Err(why) => {

@@ -205,8 +205,13 @@ mod tests {
             assert_eq!(schema["x-hostToPlugin"][method]["available"], json!("P2"), "{method}");
         }
         for method in crate::process::HOST_METHODS {
-            let stage = if crate::process::CONTROLLER_METHODS.contains(&method) { "P2" } else { "P1" };
+            let stage = match method {
+                "tools.changed" => "P3",
+                m if crate::process::CONTROLLER_METHODS.contains(&m) => "P2",
+                _ => "P1",
+            };
             assert_eq!(schema["x-pluginToHost"][method]["available"], json!(stage), "{method}");
         }
+        assert_eq!(schema["x-hostToPlugin"]["tool.call"]["available"], json!("P3"));
     }
 }

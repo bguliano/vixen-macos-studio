@@ -24,14 +24,16 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Plugin→host methods this host answers.
-pub const HOST_METHODS: [&str; 6] = ["log", "storage.get", "storage.set", "controller.status", "controller.stats", "controller.message"];
+pub const HOST_METHODS: [&str; 7] = ["log", "storage.get", "storage.set", "controller.status", "controller.stats", "controller.message", "tools.changed"];
 /// Plugin→host methods of API 1.0 a later stage of the host implements; answered with "not available yet".
-const LATER_METHODS: [&str; 3] = ["display.snapshot", "tools.changed", "tool.call"];
+const LATER_METHODS: [&str; 2] = ["display.snapshot", "tool.call"];
 /// Plugin→host controller methods, answered by the controller layer (`crate::controllers`).
 pub const CONTROLLER_METHODS: [&str; 3] = ["controller.status", "controller.stats", "controller.message"];
 
 /// Handles a plugin's `controller.*` message: `(method, params)`, answered as a request would be.
 pub type ControllerSink = Arc<dyn Fn(&str, &Value) -> Result<Value, RpcError> + Send + Sync>;
+/// Handles a plugin's `tools.changed`: its params, answered as a request would be.
+pub type ToolsSink = Arc<dyn Fn(&Value) -> Result<Value, RpcError> + Send + Sync>;
 
 /// Messages waiting for the plugin to read its stdin. A plugin that stops reading loses messages instead of stalling us.
 const WRITE_QUEUE: usize = 1024;
@@ -197,6 +199,8 @@ pub struct Launch<'a> {
     pub logs: Arc<LogBuffer>,
     /// Where the plugin's `controller.*` messages go; without one they are refused.
     pub controllers: Option<ControllerSink>,
+    /// Where the plugin's `tools.changed` goes; without one it is ignored.
+    pub tools: Option<ToolsSink>,
 }
 
 /// Resolves `entry.command`: a path containing `/` is absolute or inside the plugin folder; a bare name comes from PATH.
@@ -319,6 +323,7 @@ impl PluginProcess {
             data_dir: launch.data_dir.to_path_buf(),
             storage: manifest.permissions.files.iter().any(|f| f == "plugin-data"),
             controllers: launch.controllers.clone(),
+            tools: launch.tools.clone(),
         };
         thread::Builder::new().name(name("stdout")).spawn(move || reader.run(stdout)).map_err(|e| e.to_string())?;
         Ok(process)
@@ -483,6 +488,7 @@ struct Reader {
     data_dir: PathBuf,
     storage: bool,
     controllers: Option<ControllerSink>,
+    tools: Option<ToolsSink>,
 }
 
 impl Reader {
@@ -506,7 +512,7 @@ impl Reader {
                     let _ = self.writer.push(rpc::response(&id, answer));
                 }
                 Ok(Incoming::Notification { method, params }) => {
-                    if method == "log" || CONTROLLER_METHODS.contains(&method.as_str()) {
+                    if method == "log" || method == "tools.changed" || CONTROLLER_METHODS.contains(&method.as_str()) {
                         if let Err(error) = self.handle(&method, params) {
                             self.logs.push(Level::Warn, Source::Host, &format!("{method}: {}", error.message));
                         }
@@ -571,6 +577,10 @@ impl Reader {
                 write_atomic(&path, &bytes).map_err(|why| RpcError::new(rpc::INTERNAL_ERROR, why))?;
                 Ok(json!({}))
             }
+            "tools.changed" => match &self.tools {
+                Some(sink) => sink(&params),
+                None => Ok(json!({})),
+            },
             method if CONTROLLER_METHODS.contains(&method) => match &self.controllers {
                 Some(sink) => sink(method, &params),
                 None => Err(RpcError::new(rpc::METHOD_NOT_FOUND, format!("{method}: this plugin has no controller instances"))),

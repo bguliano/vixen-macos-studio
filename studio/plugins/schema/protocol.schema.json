@@ -56,7 +56,8 @@
           "encoding": { "enum": ["u8", "json", "u16"] },
           "values": { "description": "u8: base64, one byte per output (an output without an 8-bit value sends 0, as byte-oriented controllers do); u16: base64 little-endian, 8-bit values scaled to the full range (x257); json: array of null | integer | {r,g,b} | string. The encoding is the first one the controller type lists in frameEncodings. Frames are latest-wins per instance: a plugin that reads slowly receives fewer frames, never stale ones." }
         } } },
-    "tool.call": { "kind": "request", "available": "P3",
+    "tool.call": { "kind": "request", "available": "P3", "timeoutMs": 30000,
+      "description": "An MCP client called one of the plugin's tools (listed as plugin__<short-id>__<name>). Answer MCP-style content; isError true reports a failure the agent should read.",
       "params": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "arguments": { "type": "object" } } },
       "result": { "type": "object", "required": ["content"], "properties": { "content": { "type": "array" }, "isError": { "type": "boolean" } } } }
   },
@@ -80,7 +81,9 @@
       "params": { "type": "object", "required": ["instanceId", "title", "text"], "properties": { "instanceId": { "type": "string" }, "title": { "type": "string" }, "heading": { "type": "string" }, "text": { "type": "string" } } } },
     "display.snapshot": { "kind": "request", "available": "P2b", "params": { "type": "object" }, "result": { "type": "object" },
       "description": "Requires permissions.display = read." },
-    "tools.changed": { "kind": "notification", "available": "P3", "params": { "type": "object" } }
+    "tools.changed": { "kind": "notification", "available": "P3",
+      "description": "The plugin's agent tools changed (after discovery, say). 'tools' replaces the manifest's contributes.tools list until the plugin restarts, with the same rules for each tool; leaving it out goes back to the manifest's list. Studio then tells MCP clients the tool list changed. Also accepted as a request (answered {}).",
+      "params": { "type": "object", "properties": { "tools": { "type": "array", "maxItems": 64, "items": { "$ref": "manifest.schema.json#/$defs/tool" } } } } }
   },
   "$defs": {
     "instance": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" } } }

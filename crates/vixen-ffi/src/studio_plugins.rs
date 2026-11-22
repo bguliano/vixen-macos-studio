@@ -83,6 +83,30 @@ pub fn studio_plugins_required(profile: String) -> Result<String, FfiError> {
     host()?.requirements(Path::new(&profile)).map(|v| v.to_string()).map_err(FfiError::new)
 }
 
+/// The local "Allow agents to manage plugins" switch in Settings ▸ Plugins: off at every launch, and only this (the
+/// app's own UI) turns it on. MCP's plugin_install/uninstall/enable/disable/link_dev/unlink_dev/reload need it.
+#[uniffi::export]
+pub fn studio_plugins_agents_may_manage() -> bool {
+    studio_plugins::agents_may_manage()
+}
+
+#[uniffi::export]
+pub fn studio_plugins_set_agents_may_manage(allowed: bool) {
+    studio_plugins::set_agents_may_manage(allowed);
+}
+
+/// Installs a plugin folder or `.vixenplugin` package (absolute path) and starts it; the JSON of `plugin_install`.
+#[uniffi::export]
+pub fn studio_plugin_install(path: String) -> Result<String, FfiError> {
+    host()?.install(Path::new(&path)).map(|v| v.to_string()).map_err(FfiError::new)
+}
+
+/// Stops and removes an installed plugin; its data and log stay. The JSON of `plugin_uninstall`.
+#[uniffi::export]
+pub fn studio_plugin_uninstall(id: String) -> Result<String, FfiError> {
+    host()?.uninstall(&id).map(|v| v.to_string()).map_err(FfiError::new)
+}
+
 /// Stops every plugin. Call when the app quits.
 #[uniffi::export]
 pub fn studio_plugins_shutdown() {

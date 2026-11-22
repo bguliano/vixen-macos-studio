@@ -38,6 +38,10 @@ pub struct Server {
     core: Option<Arc<AppCore>>,
     /// Serving the running app's core. A headless bridge opens its own muted core on demand, which the app never sees.
     shared: bool,
+    /// The plugin host; `None` uses the process's shared one (`studio_plugins::shared`), opened on first use.
+    plugins: Option<&'static studio_plugins::PluginHost>,
+    /// The plugin tools as of the client's last `tools/list`, to tell it when they change.
+    listed_plugin_tools: Option<Vec<Value>>,
 }
 impl Server {
     /// The live display when serving a core, otherwise the snapshot loaded at startup, with its revision.
@@ -67,6 +71,8 @@ impl Server {
             client_id: None,
             core: None,
             shared: false,
+            plugins: None,
+            listed_plugin_tools: None,
         })
     }
     pub fn from_core(core: Arc<AppCore>) -> Self {
@@ -90,7 +96,35 @@ impl Server {
             client_id: Some(client),
             core: Some(core),
             shared,
+            plugins: None,
+            listed_plugin_tools: None,
         }
+    }
+    /// Uses `host` instead of the shared plugin host (tests).
+    pub fn with_plugin_host(mut self, host: &'static studio_plugins::PluginHost) -> Self {
+        self.plugins = Some(host);
+        self
+    }
+    fn plugin_host(&self) -> Result<&'static studio_plugins::PluginHost, String> {
+        match self.plugins {
+            Some(host) => Ok(host),
+            None => studio_plugins::shared(),
+        }
+    }
+    /// Every plugin tool as `tools/list` shows it; none when the plugin folder can't be opened.
+    fn plugin_tools(&self) -> Vec<Value> {
+        self.plugin_host().map(|h| h.contributed_tools().iter().map(|t| t.to_mcp()).collect()).unwrap_or_default()
+    }
+    /// Notifications to send before the next response: `notifications/tools/list_changed` once the plugin tools differ
+    /// from what the client last listed (a plugin started, stopped, was enabled or sent `tools.changed`).
+    pub fn notifications(&mut self) -> Vec<Value> {
+        let Some(listed) = &self.listed_plugin_tools else { return Vec::new() };
+        let now = self.plugin_tools();
+        if &now == listed {
+            return Vec::new();
+        }
+        self.listed_plugin_tools = Some(now);
+        vec![json!({"jsonrpc":"2.0","method":"notifications/tools/list_changed"})]
     }
     pub fn dispatch(&mut self, request: Value) -> Option<Value> {
         let id = request.get("id").cloned();
@@ -123,7 +157,7 @@ impl Server {
                     return Some(error(id, -32602, "Missing initialize fields"));
                 }
                 self.initialized = true;
-                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION")},"instructions":"Shared undoable display and sequence authoring. Hardware requires local permission and explicit confirmation; headless stays muted. Save/export is never implicit."})
+                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION")},"instructions":"Shared undoable display and sequence authoring. Hardware requires local permission and explicit confirmation; headless stays muted. Save/export is never implicit."})
             }
             "ping" => json!({}),
             "tools/list" => {
@@ -136,10 +170,18 @@ impl Server {
                 tools.push(vixen_session::studio_controller_network::overview_tool());
                 tools.push(vixen_session::studio_patch::ranges_tool());
                 tools.push(vixen_session::studio_palette::tool());
+                tools.extend(studio_plugins::mcp::tools());
+                tools.push(send_test_frame_tool());
+                let plugin_tools = self.plugin_tools();
+                tools.extend(plugin_tools.iter().cloned());
+                self.listed_plugin_tools = Some(plugin_tools);
                 json!({"tools":tools})
             }
             "tools/call" => {
                 let name = p["name"].as_str().unwrap_or("");
+                if let Some(answer) = self.call_plugin_tool(name, &p) {
+                    return Some(json!({"jsonrpc":"2.0","id":id,"result":answer}));
+                }
                 if !vixen_session::studio_live::tools()
                     .iter()
                     .any(|t| t["name"] == name)
@@ -183,7 +225,18 @@ impl Server {
                 }
             }
             "resources/list" => {
-                json!({"resources":[{"uri":"studio://contract","name":"Studio MCP contract","mimeType":"text/markdown"},{"uri":"display://summary","name":"Display prop orientation summary","description":"Every preview prop's type, size, Px1 end, S1 position and numbering direction; read once at the start of a session.","mimeType":"application/json"}]})
+                let mut resources = vec![json!({"uri":"studio://contract","name":"Studio MCP contract","mimeType":"text/markdown"}),json!({"uri":"display://summary","name":"Display prop orientation summary","description":"Every preview prop's type, size, Px1 end, S1 position and numbering direction; read once at the start of a session.","mimeType":"application/json"})];
+                if let Ok(host) = self.plugin_host() {
+                    resources.extend(studio_plugins::mcp::resources(host));
+                }
+                json!({"resources":resources})
+            }
+            "resources/read" if p["uri"].as_str().is_some_and(|u| u.starts_with("plugins://")) => {
+                let read = self.plugin_host().and_then(|host| studio_plugins::mcp::read_resource(host, p["uri"].as_str().unwrap_or("")).unwrap_or(Err("Unknown resource".into())));
+                match read {
+                    Ok(contents) => json!({"contents":contents}),
+                    Err(message) => return Some(error(id, -32602, &message)),
+                }
             }
             "resources/read" if p["uri"] == "studio://contract" => {
                 json!({"contents":[{"uri":"studio://contract","mimeType":"text/markdown","text":include_str!("../../../studio/MCP.md")}]})
@@ -194,7 +247,11 @@ impl Server {
             }
             "resources/read" => return Some(error(id, -32602, "Unknown resource")),
             "prompts/list" => {
-                json!({"prompts":[{"name":"build_show","description":"Safe music-synchronized show workflow and current capability limits"}]})
+                json!({"prompts":[{"name":"build_show","description":"Safe music-synchronized show workflow and current capability limits"},{"name":studio_plugins::mcp::PROMPT_NAME,"description":studio_plugins::mcp::PROMPT_DESCRIPTION,"arguments":[{"name":"goal","description":"What the plugin should do, e.g. drive LAN lamps as a controller.","required":false}]}]})
+            }
+            "prompts/get" if p["name"] == studio_plugins::mcp::PROMPT_NAME => {
+                let text = studio_plugins::mcp::prompt(p["arguments"]["goal"].as_str());
+                json!({"description":studio_plugins::mcp::PROMPT_DESCRIPTION,"messages":[{"role":"user","content":{"type":"text","text":text}}]})
             }
             "prompts/get" if p["name"] == "build_show" => {
                 json!({"messages":[{"role":"user","content":{"type":"text","text":"Inspect studio_status, display_elements, controller_list, preview_list and diagnostics_report, and read display://summary (or display_geometry) for which way each prop runs: Px1 end, S1 position and numbering direction. Analyze real profile audio with music_analyze. Create a sequence with media, place effects on detected beats, add marks (sequence_onset_marks writes the hits as editable mark collections; effects_on_marks places an effect on every mark in one undo step; effect_step turns staccato stabs into discrete segment walks, alternations, stacks or jumps), then sequence_render and preview_frame; review whole passages with preview_sheet (one tiled PNG) or preview_video (MP4 with the song) instead of many preview_frame calls. Validate diagnostics and render results before confirmed sequence_save, profile_save and sequence_export_fseq. Use shared undo to correct edits. Never enable hardware merely to author a show. New schedules start turned off; schedules run only while the user has the scheduler on (Scheduler > Enabled). Unsupported parameter codecs and heuristic onset/section estimates must not be misrepresented as exact."}}]})
@@ -202,6 +259,65 @@ impl Server {
             _ => return Some(error(id, -32601, "Method not found")),
         };
         Some(json!({"jsonrpc":"2.0","id":id,"result":result}))
+    }
+    /// `tools/call` for the plugin developer tools, `plugin_send_test_frame` and plugin-contributed tools; `None` for
+    /// any other tool.
+    fn call_plugin_tool(&mut self, name: &str, p: &Value) -> Option<Value> {
+        let known = studio_plugins::mcp::is_tool(name) || name == "plugin_send_test_frame" || name.starts_with(studio_plugins::tools::PREFIX);
+        if !known {
+            return None;
+        }
+        let args = p.get("arguments").cloned().unwrap_or(json!({}));
+        if let Some(c) = &self.core {
+            c.studio_display.activity("commandStarted", name);
+        }
+        let outcome = match self.plugin_host() {
+            Err(why) => Err(format!("The plugin folder can't be opened: {why}")),
+            Ok(host) if name.starts_with(studio_plugins::tools::PREFIX) => host.call_tool(name, args),
+            Ok(_) if name == "plugin_send_test_frame" => self.send_test_frame(&args).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
+            Ok(host) => {
+                let context = studio_plugins::mcp::Context { live_output_allowed: self.core.as_ref().is_some_and(|c| vixen_session::studio_live::allowed(c)) };
+                studio_plugins::mcp::execute(host, name, &args, &context).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false}))
+            }
+        };
+        let answer = outcome.unwrap_or_else(|message| json!({"content":[{"type":"text","text":message}],"isError":true}));
+        if let Some(c) = &self.core {
+            let failed = answer["isError"] == json!(true);
+            c.studio_display.activity(if failed { "commandFailed" } else { "commandFinished" }, name);
+        }
+        Some(answer)
+    }
+    /// A commissioning test pattern on one plugin controller: `output_test_pattern` with its gating, after checking the
+    /// controller belongs to a plugin.
+    fn send_test_frame(&mut self, args: &Value) -> Result<Value, String> {
+        let object = args.as_object().ok_or("arguments must be an object")?;
+        let allowed = ["controllerId", "pattern", "brightnessPct", "stepMs", "durationMs", "confirm"];
+        if let Some(key) = object.keys().find(|k| !allowed.contains(&k.as_str())) {
+            return Err(format!("Unknown argument {key}"));
+        }
+        let core = self.core.clone().ok_or("Test patterns need the running app with Live Output on, not a headless snapshot")?;
+        let id = args["controllerId"].as_str().ok_or("controllerId is required")?;
+        let plugin = {
+            let setup = SetupSession::open(&core);
+            let controller = setup.controllers.iter().find(|c| c.alive && c.id.to_string() == id).ok_or("No such controller")?;
+            match &controller.config {
+                Some(vixen_output::ControllerConfig::External(config)) => vixen_output::modules::studio_external::describe(config)
+                    .and_then(|d| serde_json::from_str::<Value>(&d).ok())
+                    .map(|d| d["pluginId"].clone())
+                    .unwrap_or(Value::Null),
+                _ => return Err(format!("{} is not a plugin controller; use output_test_pattern", controller.name)),
+            }
+        };
+        let mut forwarded = args.clone();
+        if forwarded.get("pattern").is_none() {
+            forwarded["pattern"] = json!("movingPixel");
+        }
+        if forwarded["pattern"] == "pulse" {
+            return Err("pulse needs an element; use movingPixel, colorBars or allOn".into());
+        }
+        let mut result = vixen_session::studio_live::execute(&core, "output_test_pattern", &forwarded)?;
+        result["pluginId"] = json!(plugin);
+        Ok(result)
     }
     fn call(&mut self, name: &str, args: &Value) -> Result<Value, String> {
         if vixen_session::studio_live::tools()
@@ -322,6 +438,9 @@ impl Server {
         )
     }
 }
+fn send_test_frame_tool() -> Value {
+    json!({"name":"plugin_send_test_frame","description":"Drive one plugin controller with a commissioning test pattern, like output_test_pattern on that controller: pattern movingPixel (default; one output at a time, stepMs each), colorBars or allOn, at brightnessPct, for durationMs or until output_test_stop. Same gating: the local Allow agents to control live output setting, Live Output on (the controller running) and confirm:true. Muted Studio sends nothing.","inputSchema":{"type":"object","properties":{"controllerId":{"type":"string"},"pattern":{"enum":["movingPixel","colorBars","allOn"]},"brightnessPct":{"type":"integer","minimum":1,"maximum":100},"stepMs":{"type":"integer","minimum":vixen_session::studio_commission::STEP_RANGE_MS.0,"maximum":vixen_session::studio_commission::STEP_RANGE_MS.1},"durationMs":{"type":"integer","minimum":25,"maximum":vixen_session::studio_commission::MAX_DURATION_MS},"confirm":{"type":"boolean"}},"required":["controllerId","confirm"],"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":true,"openWorldHint":true}})
+}
 fn error(id: Value, code: i32, message: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }
@@ -347,6 +466,9 @@ pub fn serve(
             Ok(v) => server.dispatch(v),
             Err(_) => Some(error(Value::Null, -32700, "Parse error")),
         };
+        for note in server.notifications() {
+            writeln!(output, "{note}")?;
+        }
         if let Some(value) = response {
             let encoded = value.to_string();
             if encoded.len() > 8 * MAX_MESSAGE {

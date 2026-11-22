@@ -1923,8 +1923,10 @@ version = "3.13.4"
 dependencies = [
  "libc",
  "serde_json",
+ "studio-plugins",
  "vixen-effect-registry",
  "vixen-io",
+ "vixen-output",
  "vixen-session",
 ]
 
@@ -1940,6 +1942,7 @@ dependencies = [
  "vixen-output",
  "vixen-session",
  "vixen-xml",
+ "zip",
 ]
 
 [[package]]

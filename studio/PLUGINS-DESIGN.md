@@ -9,7 +9,7 @@ keeps it current, including the status below.
 |---|---|
 | P1 Host core | Shipped: `crates/studio-plugins`, schemas in `studio/plugins/schema/`, FFI in `crates/vixen-ffi/src/studio_plugins.rs`. |
 | P2 Controllers | Shipped: `crates/studio-plugins/src/controllers.rs` (+ `schema.rs`), the engine hook `crates/vixen-output/src/modules/studio_external.rs`. `display.snapshot` moved to P2b. |
-| P3 MCP | Not started. |
+| P3 MCP | Shipped: `crates/studio-plugins/src/{mcp,tools,harness,scaffold,install}.rs`, templates in `studio/plugins/templates/`, wired in `crates/studio-mcp`. |
 | P4 UI | Not started. |
 | P5 SDKs, examples, CLI | Not started. |
 | P6 Docs | Not started. |
@@ -87,6 +87,49 @@ What P2 settled:
 - **`plugin_info`** lists each started instance: status, live, framesSent/framesDropped, lastFrameAgeMs, counters
   and configErrors.
 - **P2b:** `display.snapshot` (needs a read-only display view from the open profile).
+
+What P3 settled:
+
+- **Contributed tools.** `plugin__<short-id>__<tool>`: the short id is the id's last part with anything but `a-z0-9`
+  as `_` (`io.github.someone.govee-output` → `govee_output`), the whole id the same way when two listed plugins share
+  a last part, cut so the name fits 64 characters. Listed for every enabled, valid plugin that hasn't crashed, whether
+  running or not; a call starts it (waiting for `initialize`) and allows 30 s for `tool.call`. A `readOnly` tool is
+  annotated read-only, every other one destructive. The answer must be `{content: [{type, …}], isError?}`.
+- **`tools.changed {tools?}`.** `tools` (same rules as `contributes.tools`) replaces the manifest's list until the
+  plugin restarts; no `tools` goes back to it. Accepted as a notification or a request.
+- **`list_changed`** without a second channel: the server remembers the plugin tools it last listed and, when they
+  differ, writes `notifications/tools/list_changed` before its next answer. `initialize` advertises
+  `tools.listChanged`. Plugins learn `capabilities.tools: true`.
+- **Manage switch.** `studio_plugins::agents_may_manage` / `set_agents_may_manage` (FFI
+  `studio_plugins_agents_may_manage`, `studio_plugins_set_agents_may_manage`), an in-memory flag, so it is off at
+  every launch; no MCP setter. Install, uninstall, enable, disable, link, unlink and reload need it and
+  `confirm:true`; FFI `studio_plugin_install`/`studio_plugin_uninstall` serve Settings ▸ Plugins (P4).
+- **Install.** A folder or `.vixenplugin` zip (manifest at the root) is copied or unpacked into a temporary
+  `Plugins/.install-*` folder (at most 20,000 files and 512 MiB; symlinks, absolute paths and `..` refused; only the
+  executable bit of a file's mode kept, as 0700/0600), its manifest validated there, then renamed to
+  `Plugins/<id>/<version>/`; other versions are removed, the quarantine flag cleared, the registry records the
+  package's SHA-256, and the plugin is enabled and started (a failed start leaves it installed, reported as
+  `startError`). A plugin linked as a dev folder must be unlinked first. Uninstall keeps `data/<id>` and the log.
+- **Scaffold.** Python (python3, standard library) and TypeScript (a plain Node 20 ES module, `main.mjs`, no build
+  step) templates, each serving both kinds: `controller` (a type with a `prefix` setting that logs the values it gets,
+  refusing unknown settings with `-32004`) and `tools` (`hello`). Written only into a new folder under
+  `Plugins/dev/`, never over anything. Rust and Swift wait for the SDKs (P5), which will replace these templates.
+- **Harness** (`harness::validate`, also usable from tests and the P5 CLI): manifest and API range, a valid
+  configuration made from `configSchema` (defaults, else the smallest value each keyword allows) and an invalid one
+  (an undeclared field when `additionalProperties` is false, else a typed field given the wrong type), `entry.command`
+  resolution, launch in a throwaway data folder, `initialize` (muted unless live), per controller type create (its
+  normalised config must still satisfy the schema), configure, configure invalid (should be `-32004` with
+  `data.errors`; anything else warns, since Studio checks the schema first), setOutputCount up and back, start, one
+  burst per accepted encoding (a chase at 40 fps, warning when over 10 % are dropped, failing when the plugin then
+  stops answering), stop and destroy, then protocol health (only JSON-RPC on stdout, still running), `shutdown` and
+  exit within the grace period. Tools are listed, not called (a tool can act on the world). `plugin_validate` runs only
+  folders under `Plugins/dev` or installed/linked plugins, and start + frames only with `liveOutput:true`, `confirm`,
+  Live Output on and the live-output permission.
+- **`plugin_send_test_frame {controllerId, pattern?, …, confirm}`** is `output_test_pattern` on one plugin controller
+  (movingPixel by default), after checking the controller is a plugin's. Explicit `values` were left out: the
+  commissioning patterns cover testing.
+- **Resources and prompt.** `plugins://api` serves this file until P6 writes `docs/plugins/PROTOCOL.md`;
+  `plugins://examples/<language>` the scaffold's controller plugin as Markdown until P5's examples exist.
 
 ## Why
 

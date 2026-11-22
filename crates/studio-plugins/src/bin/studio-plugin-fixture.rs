@@ -100,6 +100,20 @@ fn main() {
                     send(json!({"jsonrpc": "2.0", "id": 900, "method": "controller.status", "params": {"instanceId": "not-mine", "state": "running"}}));
                 }
             }
+            "tool.call" => {
+                let p = &message["params"];
+                let result = match p["name"].as_str().unwrap_or("") {
+                    "echo" => json!({"content": [{"type": "text", "text": p["arguments"].to_string()}]}),
+                    "discover" => {
+                        let tools = json!([{"name": "lamp_on", "description": "Turn a found lamp on.", "inputSchema": {"type": "object", "properties": {}}}]);
+                        send(json!({"jsonrpc": "2.0", "method": "tools.changed", "params": {"tools": tools}}));
+                        json!({"content": [{"type": "text", "text": "found 1 lamp"}]})
+                    }
+                    "malformed" => json!({"text": "no content array"}),
+                    other => json!({"content": [{"type": "text", "text": format!("no tool {other}")}], "isError": true}),
+                };
+                send(json!({"jsonrpc": "2.0", "id": id, "result": result}));
+            }
             "" => {
                 // A response to one of our requests.
                 if let Some(result) = message.get("result") {

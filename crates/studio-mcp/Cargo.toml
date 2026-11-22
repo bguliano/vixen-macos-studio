@@ -11,5 +11,7 @@ path = "src/main.rs"
 libc = "0.2"
 serde_json.workspace = true
 vixen-session = { path = "../vixen-session" }
+studio-plugins = { path = "../studio-plugins" }
+vixen-output = { path = "../vixen-output" }
 vixen-io = { path = "../vixen-io" }
 vixen-effect-registry = { path = "../vixen-effect-registry" }

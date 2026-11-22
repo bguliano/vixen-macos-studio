@@ -240,6 +240,15 @@ impl Manifest {
         })
     }
 
+    /// A runtime tool list (`tools.changed`), checked with the same rules as `contributes.tools`.
+    pub fn parse_tools(tools: &Value) -> Result<Vec<Tool>, String> {
+        let probe = serde_json::json!({
+            "id": "local.tools-check", "name": "tools", "version": "0.0.0", "apiVersion": "^1.0",
+            "entry": {"command": "true"}, "contributes": {"tools": tools},
+        });
+        Manifest::from_value(probe).map(|m| m.tools).map_err(|why| why.replace("contributes.tools", "tools"))
+    }
+
     /// The summary `plugin_list` and the Settings list show.
     pub fn summary(&self) -> Value {
         serde_json::json!({

@@ -9,22 +9,40 @@
 //! Same-user permissions are the trust boundary, as for the MCP bridge: a plugin runs as the user, not in a sandbox.
 //! Declared permissions are enforced where Studio mediates (host API calls such as storage).
 pub mod controllers;
+pub mod harness;
 pub mod host;
+pub mod install;
 pub mod logs;
 pub mod manifest;
+pub mod mcp;
 pub mod process;
 pub mod profile;
 pub mod registry;
 pub mod rpc;
+pub mod scaffold;
 pub mod schema;
 pub mod semver;
+pub mod tools;
 
 pub use host::{HostOptions, PluginHost, State};
 pub use manifest::Manifest;
 
 use serde_json::{json, Value};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
+
+static AGENTS_MAY_MANAGE: AtomicBool = AtomicBool::new(false);
+
+/// The local "Allow agents to manage plugins" switch (Settings ▸ Plugins). Off at every launch and only the app's own UI
+/// turns it on: there is no MCP setter. Installing, enabling, linking, reloading and removing plugins through MCP need it.
+pub fn agents_may_manage() -> bool {
+    AGENTS_MAY_MANAGE.load(Ordering::SeqCst)
+}
+
+pub fn set_agents_may_manage(allowed: bool) {
+    AGENTS_MAY_MANAGE.store(allowed, Ordering::SeqCst);
+}
 
 /// The plugin API this host implements. Additive changes bump the minor version, breaking ones the major.
 pub const API_VERSION: semver::Version = semver::Version::new(1, 0, 0);
@@ -32,7 +50,7 @@ pub const HOST_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-studio");
 
 /// What `initialize` tells plugins this host can do; later stages turn the rest on.
 pub fn host_capabilities() -> Value {
-    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": false})
+    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true})
 }
 
 /// `~/Library/Application Support/Vixen Studio/Plugins`.

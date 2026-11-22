@@ -333,7 +333,7 @@
  },
  "block:mcp-lock-dependency": {
   "file": "Cargo.lock",
-  "hash": "92d722e5d7a340d8"
+  "hash": "2766c0e9c0c53295"
  },
  "block:mcp-profile-lock": {
   "file": "crates/vixen-io/src/lock.rs",
@@ -393,7 +393,7 @@
  },
  "block:plugins-lock-dependency": {
   "file": "Cargo.lock",
-  "hash": "da62169e9a5143bd"
+  "hash": "e0671b13dcbaa0c6"
  },
  "block:plugins-module-counters": {
   "file": "crates/vixen-output/src/modules/mod.rs",
