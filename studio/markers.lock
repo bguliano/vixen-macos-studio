@@ -1,7 +1,7 @@
 {
  "block:about": {
   "file": "app/Sources/VixenAdmin/SmallWindows.swift",
-  "hash": "95edbf234c18e8e3"
+  "hash": "3cbabf3c31db6ca7"
  },
  "block:agent-flash": {
   "file": "crates/vixen-ffi/src/timeline.rs",
@@ -54,6 +54,10 @@
  "block:beats-undo": {
   "file": "crates/vixen-session/src/marks/beats.rs",
   "hash": "582982158f932b0e"
+ },
+ "block:build-identity": {
+  "file": "scripts/build_app.sh",
+  "hash": "be5c92225730a5cf"
  },
  "block:coarse-fine-always-live": {
   "file": "app/Sources/VixenDialogs/FilterSheets.swift",

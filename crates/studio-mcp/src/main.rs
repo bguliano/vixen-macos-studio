@@ -134,7 +134,9 @@ fn host(root: &Path) -> Result<Host, Box<dyn std::error::Error>> {
     Ok(Host { endpoint, core, _held: held })
 }
 
-fn proxy(socket: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
+fn proxy(mut socket: UnixStream) -> Result<(), Box<dyn std::error::Error>> {
+    // Tell the session this bridge's own build, which can differ from the app's (studio_status' bridge).
+    writeln!(socket, "{}", studio_mcp::bridge_notification())?;
     studio_mcp::socket::proxy(socket, std::io::stdin().lock(), std::io::stdout(), studio_mcp::socket::KEEPALIVE)?;
     Ok(())
 }
@@ -219,6 +221,7 @@ fn call(stream: UnixStream, tool: &str, arguments: Option<String>) -> Result<(),
     }
     let mut writer = stream.try_clone()?;
     let mut reader = BufReader::new(stream);
+    writeln!(writer, "{}", studio_mcp::bridge_notification())?;
     for message in [
         json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"vixen-studio-mcp call","version":env!("CARGO_PKG_VERSION")},"capabilities":{}}}),
         json!({"jsonrpc":"2.0","method":"notifications/initialized"}),

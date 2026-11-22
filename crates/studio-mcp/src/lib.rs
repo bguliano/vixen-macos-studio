@@ -11,7 +11,7 @@ use vixen_session::studio_preview::geometry;
 
 pub const MAX_MESSAGE: usize = 1024 * 1024;
 const TOOLS: &[(&str, &str)] = &[
-    ("studio_status", "Profile identity, safety state and implementation capabilities."),
+    ("studio_status", "Profile identity, safety state and implementation capabilities. build is the commit the serving app or session was built from ({commit, date, dirty}); bridge is the build of the vixen-studio-mcp bridge relaying this connection (it can be older than the app), null for a direct socket client or when the bridge hosts the session itself (then build is the bridge's)."),
     ("recent_logs", "Read up to limit lines from the newest profile log, bounded to 64 KiB; never follows a log symlink."),
     ("controller_monitor", "Actual execution/frame/controller run statistics; no startup or polling side effects."),
     ("show_list", "List shows with their steps by section (startup, sequential, background, shutdown) in run order, and how many schedules run each. Never runs anything."),
@@ -42,6 +42,8 @@ pub struct Server {
     plugins: Option<&'static studio_plugins::PluginHost>,
     /// The plugin tools as of the client's last `tools/list`, to tell it when they change.
     listed_plugin_tools: Option<Vec<Value>>,
+    /// The build of the vixen-studio-mcp bridge relaying this client, as it announced it (`BRIDGE_NOTIFICATION`).
+    bridge: Option<Value>,
 }
 impl Server {
     /// The live display when serving a core, otherwise the snapshot loaded at startup, with its revision.
@@ -73,6 +75,7 @@ impl Server {
             shared: false,
             plugins: None,
             listed_plugin_tools: None,
+            bridge: None,
         })
     }
     pub fn from_core(core: Arc<AppCore>) -> Self {
@@ -98,6 +101,7 @@ impl Server {
             shared,
             plugins: None,
             listed_plugin_tools: None,
+            bridge: None,
         }
     }
     /// Uses `host` instead of the shared plugin host (tests).
@@ -138,6 +142,9 @@ impl Server {
             return Some(error(Value::Null, -32600, "Invalid Request"));
         }
         let Some(id) = id else {
+            if method == Some(BRIDGE_NOTIFICATION) {
+                self.bridge = request.get("params").and_then(|p| p.get("build")).and_then(announced_build);
+            }
             return None;
         };
         let p = request.get("params").cloned().unwrap_or(json!({}));
@@ -157,7 +164,7 @@ impl Server {
                     return Some(error(id, -32602, "Missing initialize fields"));
                 }
                 self.initialized = true;
-                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION")},"instructions":"Shared undoable display and sequence authoring. Hardware requires local permission and explicit confirmation; headless stays muted. Save/export is never implicit."})
+                json!({"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{},"prompts":{}},"serverInfo":{"name":"vixen-studio","version":env!("CARGO_PKG_VERSION"),"build":build(),"bridge":self.bridge},"instructions":"Shared undoable display and sequence authoring. Hardware requires local permission and explicit confirmation; headless stays muted. Save/export is never implicit."})
             }
             "ping" => json!({}),
             "tools/list" => {
@@ -411,7 +418,7 @@ impl Server {
         }
         let s = &self.setup;
         let items:Vec<Value> = match name {
-            "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.shared {"liveSession"} else {"headlessSnapshot"},"sharedWithApp":self.shared,"liveOutputAllowed":self.core.as_ref().is_some_and(|c|vixen_session::studio_live::allowed(c)),"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"elements":s.tree.len(),"controllers":s.controllers.len()})),
+            "studio_status" => return Ok(json!({"profile":self.root,"mode":if self.shared {"liveSession"} else {"headlessSnapshot"},"sharedWithApp":self.shared,"liveOutputAllowed":self.core.as_ref().is_some_and(|c|vixen_session::studio_live::allowed(c)),"mutationsAvailable":true,"revision":self.core.as_ref().map_or(0,|c|c.display.revision()),"version":env!("CARGO_PKG_VERSION"),"build":build(),"bridge":self.bridge,"elements":s.tree.len(),"controllers":s.controllers.len()})),
             "display_elements" => s.tree.live_nodes().map(|(_,n)|json!({"id":n.id.to_string(),"name":n.name,"elementId":n.element_id.map(|i|i.to_string()),"children":n.children.iter().map(|id|s.tree.node(*id).id.to_string()).collect::<Vec<_>>()})).collect(),
             "show_list" => self.schedules()["shows"].as_array().cloned().unwrap_or_default(),
             "schedule_list" => {let mut all=self.schedules();return Ok(json!({"schedulerOn":all["schedulerOn"].take(),"status":all["status"].take(),"revision":all["revision"].take(),"now":all["now"].take(),"items":all["schedules"].take()}));},
@@ -448,6 +455,36 @@ fn required_tool() -> Value {
 fn send_test_frame_tool() -> Value {
     json!({"name":"plugin_send_test_frame","description":"Drive one plugin controller with a commissioning test pattern, like output_test_pattern on that controller: pattern movingPixel (default; one output at a time, stepMs each), colorBars or allOn, at brightnessPct, for durationMs or until output_test_stop. Same gating: the local Allow agents to control live output setting, Live Output on (the controller running) and confirm:true. Muted Studio sends nothing.","inputSchema":{"type":"object","properties":{"controllerId":{"type":"string"},"pattern":{"enum":["movingPixel","colorBars","allOn"]},"brightnessPct":{"type":"integer","minimum":1,"maximum":100},"stepMs":{"type":"integer","minimum":vixen_session::studio_commission::STEP_RANGE_MS.0,"maximum":vixen_session::studio_commission::STEP_RANGE_MS.1},"durationMs":{"type":"integer","minimum":25,"maximum":vixen_session::studio_commission::MAX_DURATION_MS},"confirm":{"type":"boolean"}},"required":["controllerId","confirm"],"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":true,"openWorldHint":true}})
 }
+/// The notification a bridge sends before relaying its client, so the session can report the bridge's own build: a bridge
+/// from an older install can relay to a newer app. Sessions that predate it ignore it, as they do any notification.
+pub const BRIDGE_NOTIFICATION: &str = "notifications/studio/bridge";
+
+/// The commit this binary was built from (`build.rs`): {commit, date (the commit's), dirty (tracked files differed from it)}.
+/// Null fields when it was built outside a git checkout.
+pub fn build() -> Value {
+    let text = |s: &str| if s.is_empty() { Value::Null } else { json!(s) };
+    json!({
+        "commit": text(env!("STUDIO_BUILD_COMMIT")),
+        "date": text(env!("STUDIO_BUILD_DATE")),
+        "dirty": match env!("STUDIO_BUILD_DIRTY") { "true" => json!(true), "false" => json!(false), _ => Value::Null },
+    })
+}
+
+/// `BRIDGE_NOTIFICATION`'s line for this binary.
+pub fn bridge_notification() -> String {
+    json!({"jsonrpc":"2.0","method":BRIDGE_NOTIFICATION,"params":{"build":build()}}).to_string()
+}
+
+/// A bridge's announced build, kept only in `build()`'s shape: a hex commit, a short date and a flag.
+fn announced_build(build: &Value) -> Option<Value> {
+    let commit = build.get("commit")?;
+    let date = build.get("date")?;
+    let dirty = build.get("dirty")?;
+    let commit_ok = commit.is_null() || commit.as_str().is_some_and(|c| (7..=64).contains(&c.len()) && c.bytes().all(|b| b.is_ascii_hexdigit()));
+    let date_ok = date.is_null() || date.as_str().is_some_and(|d| d.len() <= 40 && d.bytes().all(|b| b.is_ascii_alphanumeric() || b"-:+.".contains(&b)));
+    (commit_ok && date_ok && (dirty.is_null() || dirty.is_boolean())).then(|| json!({"commit":commit,"date":date,"dirty":dirty}))
+}
+
 fn error(id: Value, code: i32, message: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }

@@ -23,6 +23,13 @@ source ./env.sh
 command -v cargo >/dev/null 2>&1 || exit 1
 xcrun --find swift >/dev/null 2>&1 || { echo "Xcode (or its command line tools) is required: install Xcode from the App Store, then run: xcode-select --install" >&2; exit 1; }
 export CARGO_TARGET_DIR="$WORK/cargo"
+# STUDIO-BEGIN build-identity: studio-mcp stamps the commit for studio_status and About; edits to tracked files don't rerun its build script
+if [ -n "$(GIT_OPTIONAL_LOCKS=0 git -C "$ROOT" status --porcelain --untracked-files=no --ignore-submodules=dirty 2>/dev/null)" ]; then
+    export VIXEN_BUILD_DIRTY=1
+else
+    export VIXEN_BUILD_DIRTY=0
+fi
+# STUDIO-END build-identity
 # Keep Rust's C/C++ dependencies aligned with SwiftPM and Info.plist. Without an
 # explicit target, cc uses the build host's macOS version for native objects.
 export MACOSX_DEPLOYMENT_TARGET=26.0

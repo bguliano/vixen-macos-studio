@@ -25,6 +25,11 @@ struct AboutView: View {
                     // STUDIO-BEGIN about: Studio's credit and links
                     Text("Vixen Studio (alpha) by bguliano")
                         .font(.headline)
+                    if let build = StudioBuildInfo.line {
+                        Text(build)
+                            .foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                    }
                     Text("A redesigned macOS edition built on the unofficial Vixen port. It is not made, endorsed or supported by the Vixen team. Please report problems on Studio's GitHub page, not to the Vixen team.")
                         .fixedSize(horizontal: false, vertical: true)
                     Link("github.com/bguliano/vixen-macos-studio", destination: URL(string: "https://github.com/bguliano/vixen-macos-studio")!)

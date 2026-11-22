@@ -366,6 +366,12 @@ pub fn studio_template_wiring(draft: crate::setup::SetupTemplateDraft, hidden_pi
     vixen_session::studio_wiring::plan(&crate::setup::params_of(&draft), hidden_pixels).to_string()
 }
 
+/// The commit this app was built from, as JSON {commit, date, dirty} (`studio_mcp::build`; About, #71).
+#[uniffi::export]
+pub fn studio_build_info() -> String {
+    studio_mcp::build().to_string()
+}
+
 /// The template Colour picker's choices as JSON: [{mode, label, channelsPerPixel, note}].
 #[uniffi::export]
 pub fn studio_color_choices() -> String {

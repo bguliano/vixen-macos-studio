@@ -4,7 +4,7 @@
 
 | Tool | Read only | Description |
 |---|---|---|
-| studio_status | true | Profile identity, safety state and implementation capabilities. |
+| studio_status | true | Profile identity, safety state and implementation capabilities. build is the commit the serving app or session was built from ({commit, date, dirty}); bridge is the build of the vixen-studio-mcp bridge relaying this connection (it can be older than the app), null for a direct socket client or when the bridge hosts the session itself (then build is the bridge's). |
 | recent_logs | true | Read up to limit lines from the newest profile log, bounded to 64 KiB; never follows a log symlink. |
 | controller_monitor | true | Actual execution/frame/controller run statistics; no startup or polling side effects. |
 | show_list | true | List shows with their steps by section (startup, sequential, background, shutdown) in run order, and how many schedules run each. Never runs anything. |
