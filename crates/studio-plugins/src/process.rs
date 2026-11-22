@@ -183,6 +183,8 @@ impl Fate {
 pub struct PluginProcess {
     pub pid: u32,
     pub started: Instant,
+    /// The sandbox profile it runs under; `None` when started without the sandbox.
+    pub sandbox: Option<String>,
     child: Mutex<Child>,
     writer: Writer,
     pending: Pending,
@@ -261,7 +263,18 @@ impl PluginProcess {
         let program = resolve_command(launch.dir, &manifest.entry.command)?;
         crate::registry::private_dir(launch.data_dir)?;
         let (child_stdin, stdin, probe) = stdin_pipe().map_err(|e| format!("could not make a pipe for the plugin: {e}"))?;
-        let mut command = Command::new(&program);
+        // Under the profile its permissions give it, unless the sandbox is off (see `sandbox::enabled`).
+        let sandbox = crate::sandbox::enabled()
+            .then(|| crate::sandbox::profile(manifest, &crate::sandbox::Paths::for_launch(launch.dir, launch.data_dir, &program)));
+        let mut command = match &sandbox {
+            Some(profile) => {
+                let (launcher, args) = crate::sandbox::wrap(profile, &program);
+                let mut command = Command::new(launcher);
+                command.args(args);
+                command
+            }
+            None => Command::new(&program),
+        };
         command
             .args(&manifest.entry.args)
             .current_dir(launch.dir)
@@ -291,6 +304,7 @@ impl PluginProcess {
         let process = Arc::new(PluginProcess {
             pid,
             started: Instant::now(),
+            sandbox,
             child: Mutex::new(child),
             writer: writer.clone(),
             pending: Arc::default(),

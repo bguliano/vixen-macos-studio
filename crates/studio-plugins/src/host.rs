@@ -190,6 +190,10 @@ impl Slot {
         if let Some(process) = &self.process {
             out["pid"] = json!(process.pid);
             out["uptimeMs"] = json!(process.started.elapsed().as_millis() as u64);
+            out["sandboxed"] = json!(process.sandbox.is_some());
+            if detail {
+                out["sandboxProfile"] = json!(process.sandbox);
+            }
         }
         if let Some(problem) = &self.problem {
             out["problem"] = json!(problem);

@@ -6,8 +6,9 @@
 //! restarts in a minute. See `studio/PLUGINS-DESIGN.md` for the whole design and `studio/plugins/schema/` for the
 //! manifest and protocol schemas.
 //!
-//! Same-user permissions are the trust boundary, as for the MCP bridge: a plugin runs as the user, not in a sandbox.
-//! Declared permissions are enforced where Studio mediates (host API calls such as storage).
+//! Same-user permissions are the trust boundary, as for the MCP bridge: a plugin runs as the user. Declared permissions
+//! are enforced where Studio mediates (host API calls such as storage), and the plugin process runs under a macOS
+//! sandbox profile derived from them (`sandbox`), which narrows files and network but isn't a security boundary.
 pub mod cli;
 pub mod controllers;
 pub mod harness;
@@ -21,6 +22,7 @@ pub mod process;
 pub mod profile;
 pub mod registry;
 pub mod rpc;
+pub mod sandbox;
 pub mod scaffold;
 pub mod schema;
 pub mod semver;

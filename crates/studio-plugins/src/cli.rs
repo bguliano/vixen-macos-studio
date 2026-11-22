@@ -27,7 +27,10 @@ pub const USAGE: &str = "usage: vixen-studio-mcp plugin <command>
   run DIR [--frames chase|ramp|blink|rgb|off] [--seconds N] [--fps N] [--type TYPE] [--outputs N] [--config JSON]
       Start one controller of TYPE (typeId or name; default: the first) with the settings in JSON (default: the
       configSchema's defaults), send the pattern for N seconds (default 10), and print the plugin's log, status, stats
-      and messages as they arrive. This is live output: point it at a test receiver, not your show.";
+      and messages as they arrive. This is live output: point it at a test receiver, not your show.
+  sandbox DIR
+      Print the macOS sandbox profile Studio starts DIR's plugin under, made from its permissions (validate and run
+      use it too). VIXEN_PLUGIN_SANDBOX=off in Studio's environment starts plugins without it.";
 
 /// Runs `args` (after `plugin`) and returns the exit code.
 pub fn main(args: &[String]) -> i32 {
@@ -40,6 +43,7 @@ pub fn main(args: &[String]) -> i32 {
         "validate" => validate(rest),
         "pack" => pack(rest),
         "run" => run(rest),
+        "sandbox" => sandbox(rest),
         "help" | "--help" | "-h" => {
             println!("{USAGE}");
             return 0;
@@ -146,6 +150,19 @@ fn new(args: &[String]) -> Result<i32, String> {
     println!("  vixen-studio-mcp plugin validate {folder}");
     println!("  vixen-studio-mcp plugin run {folder}");
     println!("  link the folder in Studio: Settings ▸ Plugins ▸ Link Development Folder…");
+    Ok(0)
+}
+
+fn sandbox(args: &[String]) -> Result<i32, String> {
+    let dir = Args::parse(args, &[], &[])?.folder()?;
+    let manifest = Manifest::load(&dir)?;
+    let program = crate::process::resolve_command(&dir, &manifest.entry.command)?;
+    // The data folder Studio would give an installed copy; validate and run use a throwaway one instead.
+    let data_dir = crate::default_root().map(|root| root.join("data").join(&manifest.id))?;
+    print!("{}", crate::sandbox::profile(&manifest, &crate::sandbox::Paths::for_launch(&dir, &data_dir, &program)));
+    if !crate::sandbox::enabled() {
+        eprintln!("(the sandbox is off here: {} is missing or {}=off)", crate::sandbox::SANDBOX_EXEC, crate::sandbox::DISABLE_ENV);
+    }
     Ok(0)
 }
 

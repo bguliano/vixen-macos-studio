@@ -84,9 +84,11 @@ vixen-studio-mcp plugin pack ./lamp                                             
 
 ## Security in one paragraph
 
-A plugin runs as you, like any app you install: **it is not sandboxed**. Studio shows what a plugin says it does before
-you install it, gives it a clean environment and its own data folder, enforces the permissions wherever Studio hands
-something out (storage, events, show data), and keeps real lights behind Live Output and your permission for agents.
+A plugin runs as you, like any app you install. Studio shows what a plugin says it does before you install it, gives it
+a clean environment and its own data folder, starts it under a macOS sandbox profile made from its permissions (files,
+network ports and serial it didn't declare are refused), enforces the permissions wherever Studio hands something out
+(storage, events, show data), and keeps real lights behind Live Output and your permission for agents. The sandbox
+keeps honest plugins honest; it isn't a security boundary.
 Install plugins from people you trust. Details: [PERMISSIONS.md](PERMISSIONS.md).
 
 ## Versions

@@ -45,7 +45,7 @@ What P1 settled, beyond the design below:
   `studio_plugin_logs`, `studio_plugin_set_enabled`, `studio_plugin_reload`, `studio_plugin_link_dev`,
   `studio_plugin_unlink_dev`, `studio_plugins_start_enabled`, `studio_plugins_set_muted`, `studio_plugins_required`
   (StudioPlugins.json against what is installed) and `studio_plugins_shutdown`. Not yet called by the Swift app (P4).
-- **Deferred:** the `sandbox-exec` profile derived from permissions (a later stage).
+- **Deferred:** the `sandbox-exec` profile derived from permissions (settled in backlog B39, below).
 
 What P2 settled:
 
@@ -215,7 +215,7 @@ What P6 settled:
   in STUDIO.md), so it needs no markers. Linked from README.md, STUDIO.md and studio/MCP.md.
 - **The pages say what ships, not the plan:** only `liveOutput.changed` is sent; `display.snapshot` answers `-32601`;
   `outputNaming`/`outputNames` are recorded, not applied; network and serial permissions are declarations, not
-  enforced (no sandbox yet). `controller.stats` values are running totals (the host raises its counters to them); the
+  enforced (no sandbox yet; B39 added it). `controller.stats` values are running totals (the host raises its counters to them); the
   SDKs' docstrings and two examples treat them as increments, which is backlog B42.
 - **Resources.** `plugins://api` is PROTOCOL.md; `plugins://docs/<page>` serves every page by name (`mcp::DOCS`,
   bundled with `include_str!`). The design file is no longer served. `build_plugin` points at `plugins://docs/AGENTS`
@@ -241,6 +241,27 @@ What P6 settled:
   permission on, starts it (the only running controller) and sends All On at 40 %, and the listener receives the
   6-byte datagram of 102s; `plugin_info` shows the instance live with frames sent; revoking the permission stops it.
   The test fails when the plugin sends nothing.
+
+What B39 settled (the sandbox):
+
+- **Every launch** (host, `plugin validate`, `plugin run`) goes through `/usr/bin/sandbox-exec -p <profile>`, built by
+  `studio_plugins::sandbox::profile` from the manifest. Off only when `sandbox-exec` is missing or Studio's own
+  environment has `VIXEN_PLUGIN_SANDBOX=off` (the plugin's environment is cleared, so it can't set it).
+- **Profile shape:** `(allow default)`, then refusals with narrow allows of the same operation (in SBPL an allow for
+  `file-read*` loses to a `file-read-data` deny, so allows name the operation the deny does). Reading file contents in
+  the home folder is refused except the plugin folder, data folder, temp folder and the program's install prefix
+  (`…/bin/x` gives `…`); metadata stays readable so Python's `site` and Node's module walk behave. Writes go only to
+  the temp folders, `/dev/null`-style devices and, with `files: ["plugin-data"]`, the data folder; the plugin folder is
+  read-only. Network is refused without rules; each rule allows its protocol on a port (`lan` and portless `udp`/`tcp`
+  any port, `http`/`ws` 80, `https`/`wss` 443, or the rule's port), UDP rules add bind/inbound, and any rule adds the
+  `mDNSResponder` socket for lookups. Serial adds writes to `/dev/cu.*` and `/dev/tty.*`. SBPL can't filter by host
+  name or subnet, so ports are the walls; the docs say so. Paths are canonicalized (`/tmp` is `/private/tmp`).
+- **Visible:** `plugin_list`/`studio_plugins_list` show `sandboxed` for a running plugin, `plugin_info` adds
+  `sandboxProfile`, and `vixen-studio-mcp plugin sandbox DIR` prints the profile.
+- **Tests:** unit tests on the generated text; `tests/sandbox.rs` runs a python3 probe with no permissions (own folder
+  readable; a home-folder file, own-folder and data-folder writes and UDP refused) and with `udp:lan` + `plugin-data`
+  (data write and UDP allowed, the packet arrives); it fails with the sandbox off. The three examples (python3, node
+  UDP, Rust HTTP) pass the harness with live frames under it.
 
 ## Why
 
@@ -272,7 +293,7 @@ Chosen over the alternatives because:
 Security honesty (write this in the docs): the process runs as the same user, like the MCP bridge (same-user permissions
 are the trust boundary, not a sandbox). Declared permissions are shown at install and enforced wherever Studio mediates
 (host API calls, which events/data a plugin receives, live-output gating). Optional hardening, P1 if cheap otherwise
-backlog: launch under a generated `sandbox-exec` profile derived from the manifest's permissions.
+backlog: launch under a generated `sandbox-exec` profile derived from the manifest's permissions (done in B39).
 
 ## Where plugins live
 
