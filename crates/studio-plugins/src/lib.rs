@@ -11,6 +11,7 @@
 //! sandbox profile derived from them (`sandbox`), which narrows files and network but isn't a security boundary.
 pub mod cli;
 pub mod controllers;
+pub mod display;
 pub mod harness;
 pub mod host;
 pub mod install;

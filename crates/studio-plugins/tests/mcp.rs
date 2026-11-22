@@ -150,6 +150,23 @@ fn the_harness_passes_a_good_plugin_and_runs_frames_only_with_live_output() {
 }
 
 #[test]
+fn the_harness_answers_display_snapshot_with_the_sample_show() {
+    let sandbox = Sandbox::new("harness-display");
+    let dir = sandbox.plugin("viewer", &["--display={\"elementOffset\":3}"], lamp_controller());
+    let path = dir.join("vixen-plugin.json");
+    let mut manifest: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    manifest["permissions"] = json!({"display": "read"});
+    std::fs::write(&path, manifest.to_string()).unwrap();
+    let report = harness::validate(&dir, &quick());
+    assert_eq!(report["passed"], json!(true), "{report:#}");
+    let logs: Vec<&str> = report["logs"].as_array().unwrap().iter().filter_map(|e| e["message"].as_str()).collect();
+    let snapshot = logs.iter().find(|m| m.starts_with("snapshot ")).unwrap_or_else(|| panic!("no snapshot answer: {logs:?}"));
+    let answer: Value = serde_json::from_str(snapshot.trim_start_matches("snapshot ")).unwrap();
+    assert_eq!(answer["elements"], json!([studio_plugins::display::sample()["elements"][3].clone()]), "{answer:#}");
+    assert_eq!((answer["elementCount"].clone(), answer["patchCount"].clone(), answer["more"].clone()), (json!(4), json!(3), json!(false)));
+}
+
+#[test]
 fn the_harness_reports_broken_plugins() {
     let sandbox = Sandbox::new("broken");
     let garbage = harness::validate(&sandbox.plugin("garbage", &["garbage"], lamp_controller()), &quick());

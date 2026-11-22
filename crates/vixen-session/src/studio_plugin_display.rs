@@ -4,6 +4,8 @@
 use crate::app::AppCore;
 use crate::setup::SetupSession;
 use serde_json::{json, Value};
+use std::collections::HashSet;
+use std::path::Path;
 use vixen_output::ControllerConfig;
 
 /// A page's elements and patches stop before its line would pass this, leaving room under the protocol's 1 MiB limit
@@ -14,8 +16,25 @@ pub const PAGE_BYTES: usize = 768 * 1024;
 /// patchOffset}` for the open profile. `params` may carry the `elementOffset`/`patchOffset` the previous page answered
 /// with; `more` says another page follows.
 pub fn snapshot(core: &AppCore, params: &Value) -> Value {
+    page_for(of_session(&SetupSession::open(core), core.display.revision()), params)
+}
+
+/// The whole snapshot of the show saved in the profile folder `root`, read from its files without opening a session,
+/// taking the profile lock or writing anything, so Studio can have it open: `vixen-studio-mcp plugin validate|run
+/// --profile`. Revision 0; no controller is running. Answer `display.snapshot` from it with [`page_for`].
+pub fn of_profile(root: &Path) -> Result<Value, String> {
+    let paths = vixen_io::DataPaths::new(root);
+    if !paths.system_config_file().is_file() {
+        return Err(format!("no {} (is this a Vixen profile folder?)", paths.system_config_file().display()));
+    }
+    let system = vixen_io::load_system(&paths).map_err(|e| e.to_string())?;
+    Ok(of_session(&SetupSession::from_system(system, &HashSet::new(), false), 0))
+}
+
+/// The page of `full` that `display.snapshot` `params` (`elementOffset`/`patchOffset`) ask for.
+pub fn page_for(full: Value, params: &Value) -> Value {
     let offset = |key: &str| params.get(key).and_then(Value::as_u64).unwrap_or(0) as usize;
-    page(of_session(&SetupSession::open(core), core.display.revision()), offset("elementOffset"), offset("patchOffset"), PAGE_BYTES)
+    page(full, offset("elementOffset"), offset("patchOffset"), PAGE_BYTES)
 }
 
 /// The page of `full` (from [`of_session`]) starting at the two offsets: elements first, then patches, each item whole,
@@ -155,6 +174,42 @@ mod tests {
         assert_eq!(json!(patches), snap["patches"]);
         // Offsets past the end give an empty last page.
         assert_eq!(page(snap.clone(), 99, 99, PAGE_BYTES)["elements"], json!([]));
+    }
+
+    #[test]
+    fn a_profile_folder_is_read_without_opening_it() {
+        let dir = std::env::temp_dir().join(format!("vixen-plugin-display-{}", std::process::id()));
+        let paths = vixen_io::DataPaths::new(&dir);
+        assert!(of_profile(&dir).unwrap_err().contains("is this a Vixen profile folder"));
+        paths.ensure_directories().unwrap();
+        vixen_io::save_system(&system(&["Porch", "Tree"], 4), &paths).unwrap();
+        let before: Vec<_> = walk(&dir);
+
+        let full = of_profile(&dir).unwrap();
+        assert_eq!(full["revision"], 0);
+        let names: Vec<&str> = full["elements"].as_array().unwrap().iter().map(|e| e["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["Porch", "Tree"]);
+        assert_eq!((full["controllers"][0]["name"].clone(), full["controllers"][0]["outputs"].clone()), (json!("Main"), json!(4)));
+        assert_eq!(full["controllers"][0]["running"], false);
+        let one = page_for(full, &json!({"elementOffset": 1}));
+        assert_eq!((one["elements"][0]["name"].clone(), one["elementCount"].clone(), one["more"].clone()), (json!("Tree"), json!(2), json!(false)));
+        assert_eq!(walk(&dir), before, "reading the profile wrote to it");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Every file under `dir` with its length and modification time.
+    fn walk(dir: &Path) -> Vec<(std::path::PathBuf, u64, std::time::SystemTime)> {
+        let mut out = Vec::new();
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let meta = entry.metadata().unwrap();
+            if meta.is_dir() {
+                out.extend(walk(&entry.path()));
+            } else {
+                out.push((entry.path(), meta.len(), meta.modified().unwrap()));
+            }
+        }
+        out.sort();
+        out
     }
 
     #[test]

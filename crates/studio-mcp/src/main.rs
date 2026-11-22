@@ -15,13 +15,19 @@ fn main() {
     // The plugin developer commands need no profile, session or lock.
     let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     if args.first().map(String::as_str) == Some("plugin") {
-        std::process::exit(studio_plugins::cli::main(&args[1..]));
+        std::process::exit(studio_plugins::cli::main(&args[1..], profile_display));
     }
     if let Err(error) = run() {
         // Every failing exit says why, on stderr and in the Vixen logs.
         lock::note(Note::Error, &error.to_string());
         std::process::exit(1);
     }
+}
+
+/// `plugin validate|run --profile`: answers `display.snapshot` with the show saved in that profile folder, read once.
+fn profile_display(root: &Path) -> Result<studio_plugins::process::DisplaySink, String> {
+    let full = vixen_session::studio_plugin_display::of_profile(root)?;
+    Ok(Arc::new(move |params: &Value| Ok(vixen_session::studio_plugin_display::page_for(full.clone(), params))))
 }
 
 enum Mode {

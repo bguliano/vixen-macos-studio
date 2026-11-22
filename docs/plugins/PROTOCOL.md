@@ -444,7 +444,8 @@ Plugin → host · request
 
 A read-only view of the open show: its elements (the tree), controllers and patches, as saved and applied (never a
 half-made edit in a dialog). Needs `"display": "read"` in the manifest's permissions, otherwise `-32003`; `-32603`
-when no show is open. Nothing you do with it changes the show.
+when no show is open. Nothing you do with it changes the show. Away from Studio, `plugin validate` and `plugin run`
+answer with a sample show, or the one in a `--profile` folder ([TESTING.md](TESTING.md)).
 
 A big show doesn't fit one 1 MiB line, so answers come in pages: elements first, then patches, each item whole. While
 `more` is true, ask again with the `elementOffset` and `patchOffset` the page gave you. If `revision` changes between

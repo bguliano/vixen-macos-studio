@@ -3,6 +3,7 @@
 //! `validate` runs the conformance harness behind `plugin_validate`, `pack` makes a `.vixenplugin`, and `run` drives one
 //! controller with a test pattern while printing what the plugin logs and reports.
 use crate::controllers::Encoding;
+use crate::display::ProfileDisplay;
 use crate::harness::{self, Scratch};
 use crate::logs::{Level, LogBuffer};
 use crate::manifest::{ControllerType, Manifest};
@@ -18,31 +19,34 @@ pub const USAGE: &str = "usage: vixen-studio-mcp plugin <command>
   new --id ID --name NAME --language python|typescript|rust [--kind controller|tools] [--dir PARENT] [--folder NAME]
       Write a working plugin from the templates plugin_scaffold uses, with the language's SDK, to PARENT/NAME
       (default: ./<last part of the id>). Never overwrites anything.
-  validate DIR [--live] [--burst-ms N] [--json]
+  validate DIR [--live] [--burst-ms N] [--profile PROFILE] [--json]
       Check the manifest and run the conformance harness. --live also sends controller.start and 40 fps frame bursts:
       a real output plugin lights real lights. Exits 1 when a check fails.
   pack DIR [--out FOLDER] [--force] [--json]
       Make <id>-<version>.vixenplugin (a zip of DIR, manifest at its root; .git, caches, target/ and earlier packages
       left out) and <that>.sha256, in FOLDER (default: DIR's parent).
   run DIR [--frames chase|ramp|blink|rgb|off] [--seconds N] [--fps N] [--type TYPE] [--outputs N] [--config JSON]
+      [--profile PROFILE]
       Start one controller of TYPE (typeId or name; default: the first) with the settings in JSON (default: the
       configSchema's defaults), send the pattern for N seconds (default 10), and print the plugin's log, status, stats
       and messages as they arrive. This is live output: point it at a test receiver, not your show.
+  validate and run answer a \"display\": \"read\" plugin's display.snapshot with a small sample show, or with
+      --profile, the show saved in that Vixen profile folder (read only; Studio can have it open).
   sandbox DIR
       Print the macOS sandbox profile Studio starts DIR's plugin under, made from its permissions (validate and run
       use it too). VIXEN_PLUGIN_SANDBOX=off in Studio's environment starts plugins without it.";
 
-/// Runs `args` (after `plugin`) and returns the exit code.
-pub fn main(args: &[String]) -> i32 {
+/// Runs `args` (after `plugin`) and returns the exit code. `profile` reads `--profile` folders for `display.snapshot`.
+pub fn main(args: &[String], profile: ProfileDisplay) -> i32 {
     let Some((command, rest)) = args.split_first() else {
         println!("{USAGE}");
         return 2;
     };
     let outcome = match command.as_str() {
         "new" => new(rest),
-        "validate" => validate(rest),
+        "validate" => validate(rest, profile),
         "pack" => pack(rest),
-        "run" => run(rest),
+        "run" => run(rest, profile),
         "sandbox" => sandbox(rest),
         "help" | "--help" | "-h" => {
             println!("{USAGE}");
@@ -101,6 +105,14 @@ impl Args {
                 Ok(n) if (min..=max).contains(&n) => Ok(Some(n)),
                 _ => Err(format!("--{name} must be a whole number from {min} to {max}")),
             },
+        }
+    }
+
+    /// What answers `display.snapshot`: the `--profile` folder's show, or the sample one.
+    fn display(&self, profile: ProfileDisplay) -> Result<process::DisplaySink, String> {
+        match self.value("profile") {
+            Some(folder) => profile(&absolute(Path::new(folder))?).map_err(|why| format!("--profile {folder}: {why}")),
+            None => Ok(crate::display::sample_sink()),
         }
     }
 
@@ -166,11 +178,12 @@ fn sandbox(args: &[String]) -> Result<i32, String> {
     Ok(0)
 }
 
-fn validate(args: &[String]) -> Result<i32, String> {
-    let args = Args::parse(args, &["live", "json"], &["burst-ms"])?;
+fn validate(args: &[String], profile: ProfileDisplay) -> Result<i32, String> {
+    let args = Args::parse(args, &["live", "json"], &["burst-ms", "profile"])?;
     let dir = args.folder()?;
     let burst = args.number("burst-ms", 100, 10_000)?.unwrap_or(1000);
-    let options = harness::Options { live_output: args.has("live"), burst: Duration::from_millis(burst), ..harness::Options::default() };
+    let display = args.display(profile)?;
+    let options = harness::Options { live_output: args.has("live"), burst: Duration::from_millis(burst), display: Some(display), ..harness::Options::default() };
     let report = harness::validate(&dir, &options);
     if args.has("json") {
         println!("{}", serde_json::to_string_pretty(&report).expect("serializes"));
@@ -254,8 +267,8 @@ struct Reported {
     errors: u64,
 }
 
-fn run(args: &[String]) -> Result<i32, String> {
-    let args = Args::parse(args, &[], &["frames", "seconds", "fps", "type", "outputs", "config"])?;
+fn run(args: &[String], profile: ProfileDisplay) -> Result<i32, String> {
+    let args = Args::parse(args, &[], &["frames", "seconds", "fps", "type", "outputs", "config", "profile"])?;
     let dir = args.folder()?;
     let pattern = args.value("frames").unwrap_or("chase");
     if !["chase", "ramp", "blink", "rgb", "off"].contains(&pattern) {
@@ -286,6 +299,7 @@ fn run(args: &[String]) -> Result<i32, String> {
         _ => Encoding::U8,
     };
 
+    let display = args.display(profile)?;
     let scratch = Scratch::new()?;
     let logs = Arc::new(LogBuffer::new(None));
     let reported = Arc::new(Mutex::new(Reported::default()));
@@ -307,7 +321,7 @@ fn run(args: &[String]) -> Result<i32, String> {
         Ok(json!({}))
     });
     let tools: process::ToolsSink = Arc::new(|_: &Value| Ok(json!({})));
-    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display: None };
+    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display: Some(display) };
     let plugin = PluginProcess::spawn(launch)?;
     println!(
         "Running {} ({} {}): {} with {outputs} outputs, {pattern} at {fps} fps for {seconds} s ({encoding} frames)",
@@ -440,6 +454,12 @@ mod tests {
         assert!(args.has("live"));
         assert_eq!(args.number("burst-ms", 100, 1000).unwrap(), Some(200));
         assert!(Args::parse(&strings[..3], &["live"], &["burst-ms"]).err().unwrap().contains("needs a value"));
-        assert_eq!(main(&["bogus".to_string()]), 2);
+        assert_eq!(main(&["bogus".to_string()], |_| Err("unused".into())), 2);
+        // --profile goes through the given reader, its error named; without it the sample show answers.
+        let with = Args::parse(&["dir".to_string(), "--profile".to_string(), "/".to_string()], &[], &["profile"]).unwrap();
+        let why = with.display(|_| Err("not a profile".into())).err().unwrap();
+        assert!(why.contains("--profile /") && why.contains("not a profile"), "{why}");
+        let without = Args::parse(&strings[..1], &[], &["profile"]).unwrap();
+        assert_eq!(without.display(|_| Err("unused".into())).unwrap()(&json!({})).unwrap()["elementCount"], 4);
     }
 }

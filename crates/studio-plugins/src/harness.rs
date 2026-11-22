@@ -21,7 +21,7 @@ pub const FRAME_INTERVAL: Duration = Duration::from_millis(25);
 /// Error code a plugin answers an invalid configuration with.
 pub const INVALID_CONFIG: i64 = -32004;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Options {
     /// Send `controller.start` and frames. The caller has checked the live-output permission and confirmation.
     pub live_output: bool,
@@ -30,6 +30,21 @@ pub struct Options {
     pub request_timeout: Duration,
     pub start_timeout: Duration,
     pub shutdown_grace: Duration,
+    /// What answers the plugin's `display.snapshot`; None answers with the sample show (`crate::display::sample`).
+    pub display: Option<process::DisplaySink>,
+}
+
+impl std::fmt::Debug for Options {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Options")
+            .field("live_output", &self.live_output)
+            .field("burst", &self.burst)
+            .field("request_timeout", &self.request_timeout)
+            .field("start_timeout", &self.start_timeout)
+            .field("shutdown_grace", &self.shutdown_grace)
+            .field("display", &self.display.as_ref().map(|_| "custom").unwrap_or("sample"))
+            .finish()
+    }
 }
 
 impl Default for Options {
@@ -40,6 +55,7 @@ impl Default for Options {
             request_timeout: Duration::from_secs(5),
             start_timeout: Duration::from_secs(15),
             shutdown_grace: Duration::from_secs(3),
+            display: None,
         }
     }
 }
@@ -202,7 +218,8 @@ fn run(dir: &Path, options: &Options, report: &mut Report, logs: &Arc<LogBuffer>
         Ok(json!({}))
     });
     let Some(plugin) = report.time("launch", || {
-        let launch = Launch { manifest: &manifest, dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display: None };
+        let display = Some(options.display.clone().unwrap_or_else(crate::display::sample_sink));
+        let launch = Launch { manifest: &manifest, dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display };
         PluginProcess::spawn(launch).map(|p| (Status::Pass, format!("pid {}", p.pid), p))
     }) else {
         return;

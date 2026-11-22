@@ -54,6 +54,20 @@ Starts one controller (`--type` picks a type by name or typeId; default the firs
 schema's defaults), sends the pattern (`chase`, `ramp`, `blink`, `rgb`, `off`) at `--fps` for `--seconds`, and prints
 the plugin's log, statuses, messages and stats as they arrive. This is live output too.
 
+## `display.snapshot` without Studio
+
+`plugin validate`, `plugin_validate` and `plugin run` have no open show, so a plugin with `"display": "read"` gets a
+small sample one from `display.snapshot`: a Porch group of two RGB pixels and a single-channel Tree, patched to a
+stopped E1.31 controller on universe 1 (revision 0, one page). To test against a real show, give `validate` or `run`
+`--profile` with a Vixen profile folder (the one holding `SystemData/`):
+
+```sh
+vixen-studio-mcp plugin run . --seconds 5 --profile ~/Documents/Vixen\ 3
+```
+
+The show is read from the saved files once, at the start, without opening a session or writing anything, so Studio
+can have the profile open. No controller is running in it.
+
 A quick receiver for a UDP plugin, in another terminal:
 
 ```sh

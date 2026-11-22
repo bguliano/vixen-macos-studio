@@ -148,11 +148,11 @@ fn cli_validates_and_packs_an_example() {
     let out = std::env::temp_dir().join(format!("vixen-example-packs-{}", std::process::id()));
     std::fs::create_dir_all(&out).unwrap();
     let args: Vec<String> = ["pack", dir.to_str().unwrap(), "--out", out.to_str().unwrap()].iter().map(|s| s.to_string()).collect();
-    assert_eq!(studio_plugins::cli::main(&args), 0);
+    assert_eq!(studio_plugins::cli::main(&args, no_profiles), 0);
     assert!(out.join("com.example.console-output-1.0.0.vixenplugin").is_file());
     assert!(out.join("com.example.console-output-1.0.0.vixenplugin.sha256").is_file());
     let bad: Vec<String> = ["validate", "/no/such/folder"].iter().map(|s| s.to_string()).collect();
-    assert_eq!(studio_plugins::cli::main(&bad), 2);
+    assert_eq!(studio_plugins::cli::main(&bad, no_profiles), 2);
     std::fs::remove_dir_all(dir).unwrap();
     std::fs::remove_dir_all(out).unwrap();
 }
@@ -258,4 +258,8 @@ fn run(command: &[&str], input: &str) -> Value {
     let out = child.wait_with_output().unwrap();
     assert!(out.status.success(), "{command:?} failed");
     serde_json::from_slice(&out.stdout).unwrap_or_else(|e| panic!("{command:?}: {e}: {}", String::from_utf8_lossy(&out.stdout)))
+}
+
+fn no_profiles(_: &std::path::Path) -> Result<studio_plugins::process::DisplaySink, String> {
+    Err("no profiles in this test".into())
 }
