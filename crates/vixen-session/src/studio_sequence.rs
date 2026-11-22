@@ -34,6 +34,8 @@ pub mod marks_from_sequence;
 pub mod audio;
 #[path = "studio_effect_gallery.rs"]
 pub mod effect_gallery;
+#[path = "studio_layer_filters.rs"]
+pub mod layer_filters;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -562,13 +564,18 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             let old=UndoAction::StudioSettings{label:"Sequence length".into(),length:s.length(),layers:s.document().layers.clone()};
             s.set_length(TimeSpan::from_ms(length));record(&mut s,"Sequence length",old,agent);json!({})
         }
-        "sequence_layers" => json!(s.document().layers.layers.iter().map(|l|json!({"id":l.id.to_string(),"name":l.name,"filter":l.filter.as_ref().map(crate::sequencer::layers::filter_type_name).unwrap_or_else(||"Highest Value (Default)".into())})).collect::<Vec<_>>()),
-        "layer_create" | "layer_rename" | "layer_delete" => {
+        "sequence_layers" => json!(s.document().layers.layers.iter().map(|l|{let f=l.filter.clone().unwrap_or(vixen_core::layer::MixingFilter::HighestValue);
+            json!({"id":l.id.to_string(),"name":l.name,"filter":crate::sequencer::layers::filter_type_name(&f),"filterType":layer_filters::name(&f),"settings":layer_filters::settings_json(&f),"isDefault":crate::sequencer::layers::is_default(l)})}).collect::<Vec<_>>()),
+        "layer_create" | "layer_rename" | "layer_delete" | "layer_set_filter" => {
             let old=UndoAction::StudioSettings{label:"Edit layers".into(),length:s.length(),layers:s.document().layers.clone()};
             let layer=if name=="layer_create" {
-                let name=string(a,"name")?;let id=crate::sequencer::layers::add_layer(&mut s.document_mut().layers,vixen_core::layer::MixingFilter::HighestValue);
+                let name=string(a,"name")?;let filter=layer_filters::parse(a,None)?;let id=crate::sequencer::layers::add_layer(&mut s.document_mut().layers,filter);
                 crate::sequencer::layers::rename_layer(&mut s.document_mut().layers,id,name);id
-            }else{let id=uuid(a,"layerId")?;if name=="layer_delete" {confirm(a)?;if !crate::sequencer::layers::remove_layer(&mut s.document_mut().layers,id){return Err("Layer cannot be removed".into())}}
+            }else{let id=uuid(a,"layerId")?;if name=="layer_set_filter" {
+                let layer=s.document().layers.layers.iter().find(|l|l.id==id).ok_or("Layer not found")?;
+                if crate::sequencer::layers::is_default(layer){return Err("The default layer always mixes by highest value; create a layer for this filter".into())}
+                let filter=layer_filters::parse(a,layer.filter.as_ref())?;crate::sequencer::layers::set_layer_filter(&mut s.document_mut().layers,id,filter);
+            }else if name=="layer_delete" {confirm(a)?;if !crate::sequencer::layers::remove_layer(&mut s.document_mut().layers,id){return Err("Layer cannot be removed".into())}}
             else if !crate::sequencer::layers::rename_layer(&mut s.document_mut().layers,id,string(a,"name")?){return Err("Layer cannot be renamed".into())}id};
             s.layers_changed();record(&mut s,"Edit layers",old,agent);json!({"layerId":layer.to_string()})
         }
@@ -1189,11 +1196,13 @@ pub fn tools() -> Vec<Value> {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
     let boolean = json!({"type":"boolean"});
+    let (filter_schema, settings_schema) = layer_filters::schema();
     let entries=vec![
         ("effect_parameters","Read current typed effect parameter values and writable schemas. Native gradient stop positions are reported separately from the evenly-spaced write format.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0}}),vec!["sequenceId","effectId"],true),
         ("sequence_length","Set length without truncating effects, with shared undo. Give lengthMs, or length as text the inspector's field takes: m:ss.fff, m:ss or seconds.",json!({"sequenceId":string,"lengthMs":number,"length":string}),vec!["sequenceId"],false),
-        ("sequence_layers","List layers and mixing filters.",json!({"sequenceId":string}),vec!["sequenceId"],true),
-        ("layer_create","Create a highest-value mixing layer with undo.",json!({"sequenceId":string,"name":string}),vec!["sequenceId","name"],false),
+        ("sequence_layers","List layers, top first: id, name, filter (display name), filterType (layer_create's filter name), settings and isDefault.",json!({"sequenceId":string}),vec!["sequenceId"],true),
+        ("layer_create","Create a mixing layer with undo, above the existing layers. filter picks how it mixes with the layers below (default highestValue); settings configure lumaKey, chromaKey and maskFill. Put effects on it with layerId (effect_add, effects_batch) or effect_layer.",json!({"sequenceId":string,"name":string,"filter":filter_schema.clone(),"settings":settings_schema.clone()}),vec!["sequenceId","name"],false),
+        ("layer_set_filter","Change a non-default layer's mixing filter or its settings with undo. Omit filter to adjust only settings; omitted settings keep their current values.",json!({"sequenceId":string,"layerId":string,"filter":filter_schema,"settings":settings_schema}),vec!["sequenceId","layerId"],false),
         ("layer_rename","Rename a layer with undo.",json!({"sequenceId":string,"layerId":string,"name":string}),vec!["sequenceId","layerId","name"],false),
         ("layer_delete","Delete a non-default layer with confirmation and undo.",json!({"sequenceId":string,"layerId":string,"confirm":boolean}),vec!["sequenceId","layerId","confirm"],false),
         ("effect_layer","Assign an effect to a layer with undo.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"layerId":string}),vec!["sequenceId","effectId","layerId"],false),
@@ -1373,6 +1382,25 @@ mod tests {
                 .len(),
             layers
         );
+        // #66: any mixing filter, configured, and changed afterwards on the same Undo.
+        let overlay = run("layer_create", json!({"sequenceId":id,"name":"Envelope","filter":"intensityOverlay"}))["layerId"].clone();
+        let find = |layer: &Value| {
+            run("sequence_layers", json!({"sequenceId":id})).as_array().unwrap().iter().find(|l| l["id"] == *layer).cloned().unwrap()
+        };
+        assert_eq!(find(&overlay)["filterType"], "intensityOverlay");
+        assert_eq!(find(&overlay)["filter"], "Intensity Overlay");
+        run("layer_set_filter", json!({"sequenceId":id,"layerId":overlay,"filter":"lumaKey","settings":{"lowerLimit":0.25,"upperLimit":0.75}}));
+        assert_eq!(find(&overlay)["settings"], json!({"lowerLimit":0.25,"upperLimit":0.75}));
+        run("layer_set_filter", json!({"sequenceId":id,"layerId":overlay,"settings":{"upperLimit":0.5}}));
+        assert_eq!(find(&overlay)["settings"], json!({"lowerLimit":0.25,"upperLimit":0.5}));
+        run("sequence_undo", json!({"sequenceId":id}));
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(find(&overlay)["filterType"], "intensityOverlay");
+        let default = run("sequence_layers", json!({"sequenceId":id})).as_array().unwrap().iter().find(|l| l["isDefault"] == true).unwrap()["id"].clone();
+        assert!(execute(&core, "layer_set_filter", &json!({"sequenceId":id,"layerId":default,"filter":"mask"}), true).is_err());
+        assert!(execute(&core, "layer_create", &json!({"sequenceId":id,"name":"Bad","filter":"mask","settings":{"lowerLimit":0.1}}), true).is_err());
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(run("sequence_layers", json!({"sequenceId":id})).as_array().unwrap().len(), layers);
         let desc = *vixen_effect_registry::all()
             .iter()
             .find(|d| d.name == "Pulse")

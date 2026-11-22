@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-87 tools, generated from the tested bridge tools/list result. No placeholder tools.
+88 tools, generated from the tested bridge tools/list result. No placeholder tools.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -48,8 +48,9 @@
 | preview_prop_set | false | Set a native preview property. Use metadata IDs from preview_props and the matching valueType. Requires snapshot expectedRevision. |
 | effect_parameters | true | Read current typed effect parameter values and writable schemas. Native gradient stop positions are reported separately from the evenly-spaced write format. |
 | sequence_length | false | Set length without truncating effects, with shared undo. |
-| sequence_layers | true | List layers and mixing filters. |
-| layer_create | false | Create a highest-value mixing layer with undo. |
+| sequence_layers | true | List layers, top first: id, name, filter (display name), filterType (layer_create's filter name), settings and isDefault. |
+| layer_create | false | Create a mixing layer with undo, above the existing layers. filter picks how it mixes with the layers below (default highestValue); settings configure lumaKey, chromaKey and maskFill. Put effects on it with layerId (effect_add, effects_batch) or effect_layer. |
+| layer_set_filter | false | Change a non-default layer's mixing filter or its settings with undo. Omit filter to adjust only settings; omitted settings keep their current values. |
 | layer_rename | false | Rename a layer with undo. |
 | layer_delete | false | Delete a non-default layer with confirmation and undo. |
 | effect_layer | false | Assign an effect to a layer with undo. |
