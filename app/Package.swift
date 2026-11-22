@@ -39,6 +39,10 @@ let package = Package(
     platforms: [.macOS(.v26)],
     products: [.executable(name: "Vixen", targets: ["VixenApp"])],
     targets: [
+        // STUDIO-BEGIN sparkle-package: automatic updates with Sparkle 2 (B49)
+        // scripts/build_app.sh puts the pinned, hash-checked release here (scripts/studio_sparkle.sh).
+        .binaryTarget(name: "Sparkle", path: "Frameworks/Sparkle.xcframework"),
+        // STUDIO-END sparkle-package
         // The C header UniFFI generates for the Rust library.
         .target(name: "vixen_ffiFFI", path: "Sources/vixen_ffiFFI"),
         // The Swift bindings UniFFI generates. Generated code stays in Swift 5 mode.
@@ -52,7 +56,8 @@ let package = Package(
         .target(name: "VixenKit", dependencies: ["VixenBridge"], path: "Sources/VixenKit", swiftSettings: uiSettings),
     ] + areas.map { area in
         let others = (areaDependencies[area] ?? []).filter(areas.contains).map { Target.Dependency.target(name: $0) }
-        return .target(name: area, dependencies: ["VixenKit", "VixenBridge", "StudioAgent"] + others, path: "Sources/\(area)", swiftSettings: uiSettings) // STUDIO: areas show agent activity
+        let updater: [Target.Dependency] = area == "VixenAdmin" ? ["Sparkle"] : [] // STUDIO: the show window's area runs the updater (B49)
+        return .target(name: area, dependencies: ["VixenKit", "VixenBridge", "StudioAgent"] + others + updater, path: "Sources/\(area)", swiftSettings: uiSettings) // STUDIO: areas show agent activity
     } + [
         .executableTarget(
             name: "VixenApp",
@@ -61,6 +66,7 @@ let package = Package(
             swiftSettings: uiSettings,
             linkerSettings: [
                 .unsafeFlags(["-L", Context.packageDirectory + "/lib"]),
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]), // STUDIO: Sparkle.framework in the bundle (B49)
                 .linkedLibrary("vixen_ffi"),
                 .linkedLibrary("c++"),
                 .linkedLibrary("curl"),

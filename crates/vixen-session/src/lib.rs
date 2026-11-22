@@ -16,6 +16,7 @@ pub mod studio_row_height; // STUDIO: View ▸ Row Height, compact or regular, r
 pub mod studio_effects_library; // STUDIO: the Effects library's Favorites and Recently Used, per user (R38)
 pub mod studio_agent_flash; // STUDIO: agent edits flash on the timeline (R39)
 pub mod studio_access; // STUDIO: VoiceOver labels and keyboard navigation for the timeline, patching graph and designer (R43)
+pub mod studio_updates; // STUDIO: automatic updates (Sparkle): the updater's state, its MCP tools and whether a show is running (B49)
 pub mod archive;
 pub mod boot;
 pub mod compare;

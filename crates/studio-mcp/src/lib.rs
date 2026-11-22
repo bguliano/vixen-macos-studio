@@ -177,6 +177,7 @@ impl Server {
                 tools.push(vixen_session::studio_controller_network::overview_tool());
                 tools.push(vixen_session::studio_patch::ranges_tool());
                 tools.push(vixen_session::studio_palette::tool());
+                tools.extend(vixen_session::studio_updates::tools());
                 tools.extend(studio_plugins::mcp::tools());
                 tools.push(send_test_frame_tool());
                 tools.push(required_tool());
@@ -202,6 +203,7 @@ impl Server {
                     && name != "controller_overview"
                     && name != "patch_ranges"
                     && name != "command_palette"
+                    && !vixen_session::studio_updates::is_tool(name)
                     && !vixen_session::studio_display::command_tools()
                         .iter()
                         .any(|t| t["name"] == name)
@@ -377,6 +379,9 @@ impl Server {
         }
         if name == "command_palette" {
             return vixen_session::studio_palette::execute(args);
+        }
+        if vixen_session::studio_updates::is_tool(name) {
+            return vixen_session::studio_updates::execute(name, args);
         }
         if name == "display_geometry" {
             return self.with_system(|system, revision| geometry::execute(system, revision, args));

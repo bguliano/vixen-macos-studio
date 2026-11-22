@@ -11,6 +11,7 @@ public struct AdministrationScene: Scene {
         self.model = model
         model.startsElsewhere = true
         let admin = AdminModel(app: model)
+        StudioUpdater.shared.start(app: model) // STUDIO: automatic updates (Sparkle), once per launch (B49)
         // Finder can ask to open a file before the window has appeared. The first wins, because `init` can run again and only the first model stays.
         if AppHooks.openFiles == nil {
             AppHooks.openFiles = { [weak admin] urls in admin?.openFiles(urls) }

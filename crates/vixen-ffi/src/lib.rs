@@ -34,6 +34,7 @@ pub mod marks;
 pub mod studio_phoneme_mappings; // STUDIO: the Text Conversion Failure sheet's word mapping on the shared undo
 pub mod studio_face_mapping; // STUDIO: Edit Element Face Mapping's Face Setup visit as one step on the shared undo
 pub mod studio_effect_gallery; // STUDIO: the sequencer's Effect Gallery thumbnails (effect_gallery, #62)
+pub mod studio_updates; // STUDIO: automatic updates (Sparkle): updater state and check hook for MCP, show activity (B49)
 #[cfg(feature = "preview")]
 pub mod preview;
 #[cfg(feature = "scheduler")]

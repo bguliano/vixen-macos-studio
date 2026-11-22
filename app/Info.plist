@@ -17,6 +17,10 @@
     <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <!-- STUDIO-BEGIN sparkle-settings: automatic updates check daily (B49); scripts/package_release.sh adds SUFeedURL and SUPublicEDKey to releases -->
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
+    <!-- STUDIO-END sparkle-settings -->
     <!-- STUDIO-BEGIN copyright: Studio credit line -->
     <key>NSHumanReadableCopyright</key><string>Vixen © 2023 Vixen Team. Vixen Studio, an unofficial macOS edition by bguliano, is not affiliated with or supported by the Vixen team.</string>
     <!-- STUDIO-END copyright -->

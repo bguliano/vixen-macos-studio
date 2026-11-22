@@ -627,6 +627,34 @@
   "file": "app/Sources/VixenTimeline/Surfaces.swift",
   "hash": "120079f7c08590c9"
  },
+ "block:sparkle-bundle": {
+  "file": "scripts/build_app.sh",
+  "hash": "77da5f02058c4ac8"
+ },
+ "block:sparkle-package": {
+  "file": "app/Package.swift",
+  "hash": "4f35f908a50e36e9"
+ },
+ "block:sparkle-package-framework": {
+  "file": "scripts/build_app.sh",
+  "hash": "3e57a0a234a2ece5"
+ },
+ "block:sparkle-release-sign": {
+  "file": "scripts/package_release.sh",
+  "hash": "0486deaf944ee623"
+ },
+ "block:sparkle-release-stamp": {
+  "file": "scripts/package_release.sh",
+  "hash": "a121be84546c1a6d"
+ },
+ "block:sparkle-release-usage": {
+  "file": "scripts/package_release.sh",
+  "hash": "1baeecaced03c415"
+ },
+ "block:sparkle-settings": {
+  "file": "app/Info.plist",
+  "hash": "31a7d8bceb2b93ae"
+ },
  "block:state-mapper-live": {
   "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
   "hash": "1fb4be0150f3322d"
@@ -763,13 +791,21 @@
   "file": "app/Package.swift",
   "hash": "0f137b62859e1e57"
  },
+ "line:app/Package.swift:75e95348e423881c": {
+  "file": "app/Package.swift",
+  "hash": "75e95348e423881c"
+ },
+ "line:app/Package.swift:a2f3e423c0bbd98a": {
+  "file": "app/Package.swift",
+  "hash": "a2f3e423c0bbd98a"
+ },
  "line:app/Package.swift:adb4aab7e4a6e402": {
   "file": "app/Package.swift",
   "hash": "adb4aab7e4a6e402"
  },
- "line:app/Package.swift:d507a04f598d91f8": {
+ "line:app/Package.swift:e29b289b627acc1a": {
   "file": "app/Package.swift",
-  "hash": "d507a04f598d91f8"
+  "hash": "e29b289b627acc1a"
  },
  "line:app/Sources/VixenAdmin/AdminModel.swift:3b18a4694e435f8d": {
   "file": "app/Sources/VixenAdmin/AdminModel.swift",
@@ -803,6 +839,10 @@
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
   "hash": "14a0a69bfbff0862"
  },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:390439794cef3a51": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "390439794cef3a51"
+ },
  "line:app/Sources/VixenAdmin/AdministrationCommands.swift:a80511a1c709127b": {
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
   "hash": "a80511a1c709127b"
@@ -818,6 +858,10 @@
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:957aa3a369122b22": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "957aa3a369122b22"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:c7fe51e34fda5910": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "c7fe51e34fda5910"
  },
  "line:app/Sources/VixenAdmin/SmallWindows.swift:8f1f7c3c23bd229a": {
   "file": "app/Sources/VixenAdmin/SmallWindows.swift",
@@ -1867,6 +1911,10 @@
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "4401e1a2eb529ad6"
  },
+ "line:crates/vixen-ffi/src/lib.rs:47ad1e46542456a2": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "47ad1e46542456a2"
+ },
  "line:crates/vixen-ffi/src/lib.rs:640b020f8a51ccab": {
   "file": "crates/vixen-ffi/src/lib.rs",
   "hash": "640b020f8a51ccab"
@@ -2155,6 +2203,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "490209645eeceaa4"
  },
+ "line:crates/vixen-session/src/lib.rs:4eb2e4687fb68da5": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "4eb2e4687fb68da5"
+ },
  "line:crates/vixen-session/src/lib.rs:52a77d70c765b2b0": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "52a77d70c765b2b0"
@@ -2334,6 +2386,14 @@
  "line:crates/vixen-session/src/undo.rs:fc6becddd58ee393": {
   "file": "crates/vixen-session/src/undo.rs",
   "hash": "fc6becddd58ee393"
+ },
+ "line:scripts/check_app_bundle.py:0d7c0d238e29df4a": {
+  "file": "scripts/check_app_bundle.py",
+  "hash": "0d7c0d238e29df4a"
+ },
+ "line:scripts/check_app_bundle.py:10234d9e068c598d": {
+  "file": "scripts/check_app_bundle.py",
+  "hash": "10234d9e068c598d"
  },
  "line:scripts/make_dmg.sh:058f1f709f3f68c6": {
   "file": "scripts/make_dmg.sh",

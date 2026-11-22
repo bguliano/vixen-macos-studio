@@ -148,10 +148,13 @@ def audit(app: Path, resources: Path, required_arch: str) -> dict:
             if not expanded.startswith("/") or not (system_path(expanded) or inside(Path(expanded), app)):
                 errors.append(f"Nonportable rpath in {native.relative_to(app)}: {rpath}")
         dependencies = []
+        own_ids = {line for line in run("/usr/bin/otool", "-D", str(native)).splitlines() if not line.endswith(":")}  # STUDIO: a framework's own install name (Sparkle, B49)
         for line in run("/usr/bin/otool", "-L", str(native)).splitlines():
             if not line.startswith("\t"):
                 continue
             dependency = line.strip().split(" (compatibility version", 1)[0]
+            if dependency in own_ids:  # STUDIO: otool -L lists a library's own install name first; it isn't a dependency
+                continue
             dependencies.append(dependency)
             candidates = [expand(dependency)]
             if dependency.startswith("@rpath/"):

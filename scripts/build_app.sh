@@ -96,6 +96,12 @@ cmp -s "$GEN/vixen_ffi.swift" "$PKG/Sources/VixenBridge/vixen_ffi.swift" || cp "
 cmp -s "$GEN/vixen_ffiFFI.h" "$PKG/Sources/vixen_ffiFFI/include/vixen_ffiFFI.h" || cp "$GEN/vixen_ffiFFI.h" "$PKG/Sources/vixen_ffiFFI/include/vixen_ffiFFI.h"
 [ -e "$PKG/Sources/vixen_ffiFFI/shim.c" ] || echo "// Required so SwiftPM treats the header as a C target." > "$PKG/Sources/vixen_ffiFFI/shim.c"
 cp "$RUST_OUT/libvixen_ffi.a" "$PKG/lib/libvixen_ffi.a"
+# STUDIO-BEGIN sparkle-package-framework: the pinned Sparkle 2 release the app links for automatic updates (B49)
+SPARKLE="$("$ROOT/scripts/studio_sparkle.sh")"
+rm -rf "$PKG/Frameworks"
+mkdir -p "$PKG/Frameworks"
+/usr/bin/ditto "$SPARKLE/Sparkle.xcframework" "$PKG/Frameworks/Sparkle.xcframework"
+# STUDIO-END sparkle-package-framework
 
 echo "==> Swift ($CONFIG)"
 ( cd "$PKG" && VIXEN_SWIFT_MODULES="$SWIFT_MODULES" swift build -Xswiftc -file-prefix-map -Xswiftc "$ROOT=/vixen" -Xcc "-ffile-prefix-map=$ROOT=/vixen" -j "${VIXEN_SWIFT_JOBS:-$(sysctl -n hw.ncpu)}" -c "$CONFIG" --scratch-path "$WORK/swift" --product Vixen )
@@ -119,6 +125,13 @@ if [ "$CONFIG" = "release" ]; then
     /usr/bin/strip -S "$APP/Contents/MacOS/Vixen"
 fi
 cp app/Info.plist "$APP/Contents/Info.plist"
+# STUDIO-BEGIN sparkle-bundle: ship Sparkle.framework, signed as Sparkle released it, for automatic updates (B49)
+# Only builds with the show window (VixenAdmin) link it.
+if [ -d "$WORK/swift/$CONFIG/Sparkle.framework" ]; then
+    mkdir -p "$APP/Contents/Frameworks"
+    /usr/bin/ditto "$WORK/swift/$CONFIG/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+fi
+# STUDIO-END sparkle-bundle
 cp -R app/Resources/. "$APP/Contents/Resources/"
 cp "$ROOT/target/media-tools/bin/ffmpeg" "$ROOT/target/media-tools/bin/ffprobe" "$APP/Contents/Helpers/"
 mkdir -p "$APP/Contents/Resources/MediaTools"

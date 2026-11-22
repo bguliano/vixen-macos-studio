@@ -12,6 +12,7 @@ struct AdministrationCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .appInfo) {
             AboutMenuItem()
+            StudioCheckForUpdatesMenuItem() // STUDIO: Sparkle's Check for Updates… under About (B49)
         }
         CommandGroup(replacing: .newItem) {
             FileMenuItems(admin: admin, state: state)

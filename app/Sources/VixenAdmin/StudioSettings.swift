@@ -52,6 +52,7 @@ private struct StudioGeneralSettings: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            StudioUpdateSettingsSection()
         }
         .formStyle(.grouped)
         .frame(width: 440)
