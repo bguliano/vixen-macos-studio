@@ -7,7 +7,9 @@ import VixenKit
 /// Settings ▸ Plugins: every installed and linked plugin with its state and an On switch, installing from a file or a
 /// dropped package (after its permissions are shown), linking a development folder, and per plugin Reload, Show in
 /// Finder, Log and Uninstall (Unlink for a development folder), plus the local "Allow agents to manage plugins" switch.
-/// Each action is the plugin host call the matching MCP tool makes (`plugin_install`, `plugin_enable`, …).
+/// Each action is the plugin host call the matching MCP tool makes (`plugin_install`, `plugin_enable`, …). While another
+/// Vixen Studio process owns the Plugins folder (plugin_list's readOnly) the list is read only: a note says so and every
+/// change is disabled until that process quits and this one takes over.
 struct StudioPluginsSettings: View {
     @State private var selection: String?
     @State private var details: StudioPluginDetails?
@@ -30,6 +32,13 @@ struct StudioPluginsSettings: View {
     var body: some View {
         Form {
             Section {
+                if model.readOnly {
+                    Label(readOnlyNote, systemImage: "lock")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help("Only one Vixen Studio process runs plugins at a time. Make plugin changes in the one running them, or quit it and this one takes over within a second.")
+                }
                 list
                     .frame(height: 170)
                 HStack(spacing: StudioMetrics.spacingS) {
@@ -40,7 +49,7 @@ struct StudioPluginsSettings: View {
                     Spacer()
                     if working { ProgressView().controlSize(.small) }
                 }
-                .disabled(working)
+                .disabled(working || model.readOnly)
                 if let error {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .symbolRenderingMode(.multicolor)
@@ -114,6 +123,11 @@ struct StudioPluginsSettings: View {
         model.plugins.first { $0.id == selection }
     }
 
+    private var readOnlyNote: String {
+        let who = model.ownerPid.map { " (pid \($0))" } ?? ""
+        return "Plugins are running in another Vixen Studio process\(who). Change them there, or quit it to change them here."
+    }
+
     // MARK: List
 
     @ViewBuilder
@@ -129,7 +143,7 @@ struct StudioPluginsSettings: View {
             } else {
                 List(selection: $selection) {
                     ForEach(model.plugins) { plugin in
-                        StudioPluginRow(plugin: plugin, toggle: { on in setEnabled(plugin, on) })
+                        StudioPluginRow(plugin: plugin, elsewhere: model.readOnly, toggle: { on in setEnabled(plugin, on) })
                             .tag(plugin.id)
                             .contextMenu { actions(plugin) }
                     }
@@ -139,13 +153,13 @@ struct StudioPluginsSettings: View {
             }
         }
         .overlay {
-            if dropTargeted {
+            if dropTargeted && !model.readOnly {
                 RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius)
                     .strokeBorder(Color.accentColor, lineWidth: 2)
             }
         }
         .onDrop(of: [.fileURL], isTargeted: $dropTargeted) { providers in
-            guard let provider = providers.first else { return false }
+            guard !model.readOnly, let provider = providers.first else { return false }
             _ = provider.loadObject(ofClass: URL.self) { url, _ in
                 guard let url else { return }
                 Task { @MainActor in inspect(url) }
@@ -157,11 +171,12 @@ struct StudioPluginsSettings: View {
     @ViewBuilder
     private func actions(_ plugin: StudioPlugin) -> some View {
         Button("Reload") { reload(plugin) }
-            .disabled(!plugin.enabled)
+            .disabled(!plugin.enabled || model.readOnly)
         Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: plugin.folder)]) }
         Button("Log…") { logPlugin = plugin }
         Divider()
         Button(plugin.isDev ? "Unlink…" : "Uninstall…", role: .destructive) { confirmRemove = plugin }
+            .disabled(model.readOnly)
     }
 
     // MARK: Details
@@ -176,7 +191,7 @@ struct StudioPluginsSettings: View {
             LabeledContent("Version", value: plugin.version ?? "—")
             LabeledContent("Source", value: plugin.isDev ? "Development folder" : "Installed")
             LabeledContent("State") {
-                StudioStatusBadge(plugin.stateText, tone: plugin.stateTone)
+                StudioStatusBadge(plugin.stateText(elsewhere: model.readOnly), tone: plugin.stateTone)
             }
             if let problem = plugin.problem ?? (plugin.state == "crashed" ? plugin.lastError : nil) {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
@@ -206,14 +221,14 @@ struct StudioPluginsSettings: View {
             }
             HStack(spacing: StudioMetrics.spacingS) {
                 Button("Reload") { reload(plugin) }
-                    .disabled(!plugin.enabled || working)
+                    .disabled(!plugin.enabled || working || model.readOnly)
                     .help("Stop the plugin, read its manifest again and start it, clearing a crash")
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(filePath: plugin.folder)]) }
                 Button("Log…") { logPlugin = plugin }
                     .help("What the plugin and Studio wrote about it: its messages, starts, exits and errors")
                 Spacer()
                 Button(plugin.isDev ? "Unlink…" : "Uninstall…", role: .destructive) { confirmRemove = plugin }
-                    .disabled(working)
+                    .disabled(working || model.readOnly)
             }
         }
     }
@@ -325,8 +340,9 @@ struct StudioPluginsSettings: View {
 
     /// `{ "action": "hook", "name": "studio.plugins", "path": [...] }`: `inspect <path>` (the install sheet), `confirm`
     /// and `cancel` (its buttons), `install <path>`, `link <path>`, `select <id>`, `log <id>`, `closeLog`, `list` (ids and
-    /// states), `sandbox` (the selected plugin's sandbox row) and `copyProfile` (its Copy Profile button). The file
-    /// pickers aren't scriptable.
+    /// states), `sandbox` (the selected plugin's sandbox row), `copyProfile` (its Copy Profile button) and `readOnly`
+    /// (`owner`, or `readOnly pid=<n> locked=<n> states=<shown states> note=<the note>` while another process owns the
+    /// folder, with how many change controls are disabled). The file pickers aren't scriptable.
     private func installHarnessHook() {
         guard UITestHarness.isActive else { return }
         UITestHarness.hooks["studio.plugins"] = { args in
@@ -359,6 +375,13 @@ struct StudioPluginsSettings: View {
                 await loadDetails()
                 guard let profile = details?.sandboxProfile else { return "FAIL no profile" }
                 Self.copy(profile)
+            case "readOnly":
+                await model.refresh()
+                guard model.readOnly else { return "owner" }
+                // Install from File, Link, and per plugin its switch, Reload and Uninstall/Unlink, all off while read only.
+                let locked = 2 + model.plugins.count * 3
+                let states = model.plugins.map { $0.stateText(elsewhere: true) }.joined(separator: ",")
+                return "readOnly pid=\(model.ownerPid ?? 0) locked=\(locked) states=\(states) note=\(readOnlyNote)"
             default: return "FAIL unknown \(args.first ?? "")"
             }
             try? await Task.sleep(for: .milliseconds(400))
@@ -370,6 +393,8 @@ struct StudioPluginsSettings: View {
 /// One plugin in the list: name, version, where it came from, its state and an On switch.
 private struct StudioPluginRow: View {
     let plugin: StudioPlugin
+    /// Another Vixen Studio process runs the plugins, so the switch is off limits here.
+    let elsewhere: Bool
     let toggle: (Bool) -> Void
 
     var body: some View {
@@ -386,12 +411,12 @@ private struct StudioPluginRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: StudioMetrics.spacingS)
-            StudioStatusBadge(plugin.stateText, tone: plugin.stateTone)
+            StudioStatusBadge(plugin.stateText(elsewhere: elsewhere), tone: plugin.stateTone)
             Toggle("On", isOn: Binding(get: { plugin.enabled }, set: { toggle($0) }))
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .labelsHidden()
-                .disabled(plugin.state == "invalid" || plugin.state == "incompatible")
+                .disabled(elsewhere || plugin.state == "invalid" || plugin.state == "incompatible")
                 .accessibilityLabel("\(plugin.title) on")
         }
         .padding(.vertical, 2)
@@ -595,5 +620,12 @@ private struct StudioPluginLogSheet: View {
         case "debug": "ant"
         default: "info.circle"
         }
+    }
+}
+
+private extension StudioPlugin {
+    /// The state in words; an enabled plugin this process hasn't started is "Elsewhere" while another process runs them.
+    func stateText(elsewhere: Bool) -> String {
+        elsewhere && enabled && state == "stopped" ? "Elsewhere" : stateText
     }
 }

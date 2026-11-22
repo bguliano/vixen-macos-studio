@@ -15,6 +15,11 @@ public final class StudioPluginsModel {
     public private(set) var missing: [StudioPluginNeed] = []
     public private(set) var folder = ""
     public private(set) var loaded = false
+    /// Another Vixen Studio process (the app or a headless vixen-studio-mcp) owns the Plugins folder and runs its plugins,
+    /// so this one only lists them and every change is refused until that process quits (plugin_list's readOnly).
+    public private(set) var readOnly = false
+    /// That process's pid, when its lock file names one.
+    public private(set) var ownerPid: Int?
     /// Changes whenever the plugin list or its commands do, so views listing controller types read them again.
     public private(set) var revision = 0
     /// A command running from the Plugins menu or ⌘K.
@@ -39,6 +44,10 @@ public final class StudioPluginsModel {
             changed = true
         }
         if let next, next.folder != folder { folder = next.folder }
+        if let next, next.readOnly != readOnly || next.ownerPid != ownerPid {
+            readOnly = next.readOnly
+            ownerPid = next.ownerPid
+        }
         if nextCommands != commands {
             commands = nextCommands
             changed = true
@@ -116,6 +125,18 @@ public final class StudioPluginsModel {
 nonisolated public struct StudioPluginList: Decodable, Sendable {
     public let folder: String
     public let plugins: [StudioPlugin]
+    public let readOnly: Bool
+    public let ownerPid: Int?
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        folder = try c.decode(String.self, forKey: .folder)
+        plugins = try c.decode([StudioPlugin].self, forKey: .plugins)
+        readOnly = (try? c.decodeIfPresent(Bool.self, forKey: .readOnly)) ?? false
+        ownerPid = try? c.decodeIfPresent(Int.self, forKey: .ownerPid)
+    }
+
+    enum CodingKeys: String, CodingKey { case folder, plugins, readOnly, ownerPid }
 }
 
 /// One plugin as `plugin_list` reports it.

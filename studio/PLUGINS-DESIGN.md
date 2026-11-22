@@ -25,6 +25,8 @@ What P1 settled, beyond the design below:
   plugins. Any other host lists the plugins read-only (`readOnly`, `ownerPid` in `plugin_list`), re-reads the
   registry on refresh, refuses start/enable/install/link/reload with the owner's pid, and takes over within a second
   of the owner quitting, starting the enabled plugins if it had been asked to. Plugins never inherit the lock.
+  Settings ▸ Plugins in a read-only process says the plugins run in another process (with its pid), shows enabled
+  plugins as Elsewhere and disables every change until it takes over (backlog B45).
 - **Nothing runs uninvited.** A plugin folder found on disk without a registry entry is listed as `disabled`. Opening the
   host starts nothing; `start_enabled` (the app, once wired in P4) or an explicit enable/link/reload does.
 - **Clean environment.** A plugin gets only `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin`),

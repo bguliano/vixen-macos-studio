@@ -1,0 +1,82 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Vixen Studio",
+    "Settings…"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.settings",
+   "path": [
+    "tab",
+    "plugins"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "readOnly"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "11-read-only",
+    "@settings"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "readOnly"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "12-owner",
+    "@settings"
+   ]
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

@@ -3,7 +3,8 @@
 
 Usage: check_studio_plugins_ui.py [Vixen.app]   (default build/Vixen.app; needs target/debug/studio-plugin-fixture,
 built by `cargo build -p studio-plugins --bin studio-plugin-fixture`)
-Harness script: scripts/ui/studio-plugins-ui.json. Screenshots land in target/ui-plugins/out; look at them.
+Harness scripts: scripts/ui/studio-plugins-ui.json, then scripts/ui/studio-plugins-readonly-ui.json. Screenshots land in
+target/ui-plugins/out and out-readonly; look at them.
 
 Checks:
 - a show whose StudioPlugins.json needs a plugin that isn't installed shows the missing-plugin banner;
@@ -12,15 +13,19 @@ Checks:
 - the selected running plugin's details show Sandboxed, and Copy Profile puts its sandbox-exec profile on the pasteboard;
 - the Plugins menu lists the plugin's command under its name, then Manage Plugins…;
 - Add ▸ Lamp adds a plugin controller; its inspector shows the configSchema form; an invalid address stays in the form
-  with its error and isn't applied; valid edits apply; each edit is one Undo step.
+  with its error and isn't applied; valid edits apply; each edit is one Undo step;
+- with another process holding Plugins/.lock, Settings ▸ Plugins says the plugins run in that process (its pid), shows
+  enabled plugins as Elsewhere and disables every change; once the lock is released this process owns the folder.
 The run never touches ~/Library/Application Support/Vixen Studio/Plugins (VIXEN_STUDIO_PLUGINS points elsewhere).
 """
+import fcntl
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import zipfile
 from pathlib import Path
 
@@ -64,11 +69,41 @@ def prepare() -> Path:
     return WORK / "script.json"
 
 
+def env(script: Path, out: Path) -> dict:
+    return dict(os.environ, VIXEN_STUDIO_PLUGINS=str(WORK / "Plugins"), VIXEN_UI_TEST=str(script),
+                VIXEN_UI_TEST_OUT=str(out), VIXEN_DATA=str(WORK / "show"))
+
+
 def run(app: Path, script: Path) -> None:
-    env = dict(os.environ, VIXEN_STUDIO_PLUGINS=str(WORK / "Plugins"), VIXEN_UI_TEST=str(script),
-               VIXEN_UI_TEST_OUT=str(WORK / "out"), VIXEN_DATA=str(WORK / "show"))
-    subprocess.run([str(app / "Contents/MacOS/Vixen")], env=env, timeout=300, check=False,
+    subprocess.run([str(app / "Contents/MacOS/Vixen")], env=env(script, WORK / "out"), timeout=300, check=False,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def run_read_only(app: Path) -> None:
+    """Runs the app while this script holds Plugins/.lock the way another Vixen Studio process would, letting go once
+    the read-only snapshot is taken so the app takes the folder over."""
+    script = WORK / "readonly.json"
+    script.write_text((ROOT / "scripts/ui/studio-plugins-readonly-ui.json").read_text().replace("@WORK@", str(WORK)))
+    out = WORK / "out-readonly"
+    out.mkdir()
+    lock = open(WORK / "Plugins/.lock", "a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        lock.truncate(0)
+        lock.write(str(os.getpid()))
+        lock.flush()
+        app_process = subprocess.Popen([str(app / "Contents/MacOS/Vixen")], env=env(script, out),
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        deadline = time.monotonic() + 300
+        while app_process.poll() is None and time.monotonic() < deadline:
+            if not lock.closed and (out / "11-read-only.png").is_file():
+                lock.close()
+            time.sleep(0.2)
+        if app_process.poll() is None:
+            app_process.kill()
+            raise AssertionError("the read-only run didn't finish")
+    finally:
+        lock.close()
 
 
 def check() -> None:
@@ -103,9 +138,25 @@ def check() -> None:
     assert not leftover, f"plugin processes left running: {leftover}"
 
 
+def check_read_only() -> None:
+    steps = json.loads((WORK / "out-readonly/result.json").read_text())
+    failed = [s for s in steps if not s.get("ok")]
+    assert not failed, failed
+    states = [s.get("detail", "") for s in steps if s["action"] == "hook" and s.get("detail", "").startswith(("owner", "readOnly"))]
+    pid = os.getpid()
+    note = f"Plugins are running in another Vixen Studio process (pid {pid}). Change them there, or quit it to change them here."
+    # Install from File, Link, and the switch, Reload and Uninstall/Unlink of both plugins.
+    assert states[0] == f"readOnly pid={pid} locked=8 states=Elsewhere,Elsewhere note={note}", states
+    assert states[1] == "owner", states
+    leftover = subprocess.run(["pgrep", "-f", str(FIXTURE)], capture_output=True, text=True).stdout.strip()
+    assert not leftover, f"plugin processes left running: {leftover}"
+
+
 if __name__ == "__main__":
     app = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build/Vixen.app"
     assert FIXTURE.is_file(), f"build the fixture first: cargo build -p studio-plugins --bin studio-plugin-fixture"
     run(app, prepare())
     check()
+    run_read_only(app)
+    check_read_only()
     print("plugin UI checks passed; screenshots in", WORK / "out")
