@@ -1930,6 +1930,16 @@ dependencies = [
 ]
 # STUDIO-END mcp-lock-dependency
 
+# STUDIO-BEGIN plugins-lock-dependency: generated plugin host crate dependency entry
+[[package]]
+name = "studio-plugins"
+version = "3.13.4"
+dependencies = [
+ "libc",
+ "serde_json",
+]
+# STUDIO-END plugins-lock-dependency
+
 [[package]]
 name = "svgtypes"
 version = "0.15.3"
@@ -2552,6 +2562,7 @@ dependencies = [
  "parking_lot",
  "serde_json", # STUDIO: Studio command JSON boundary
  "studio-mcp", # STUDIO: in-app local MCP transport
+ "studio-plugins", # STUDIO: plugin host for Settings ▸ Plugins
  "thiserror 2.0.21",
  "uniffi",
  "uuid",

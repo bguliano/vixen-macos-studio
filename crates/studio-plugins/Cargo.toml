@@ -1,0 +1,16 @@
+[package]
+name = "studio-plugins"
+version.workspace = true
+edition.workspace = true
+
+# The plugin host: manifests, the plugin registry, one supervised child process per plugin and the JSON-RPC protocol
+# it speaks. See studio/PLUGINS-DESIGN.md.
+
+# A tiny plugin the tests launch. It is never bundled: the app build only links this crate's library.
+[[bin]]
+name = "studio-plugin-fixture"
+path = "src/bin/studio-plugin-fixture.rs"
+
+[dependencies]
+libc = "0.2"
+serde_json.workspace = true

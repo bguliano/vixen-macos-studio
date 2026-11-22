@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bguliano/vixen-macos-studio/studio/plugins/schema/manifest.schema.json",
+  "title": "Vixen Studio plugin manifest (vixen-plugin.json)",
+  "description": "Plugin API 1.x. The host validator in crates/studio-plugins/src/manifest.rs applies the same rules; a test keeps them in step.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "apiVersion", "entry"],
+  "properties": {
+    "id": {
+      "description": "Lowercase reverse-DNS identifier, unique to the plugin and never changed.",
+      "type": "string", "minLength": 3, "maxLength": 128,
+      "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "version": {
+      "description": "The plugin's own semantic version, MAJOR.MINOR.PATCH[-pre].",
+      "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+.*)?$"
+    },
+    "apiVersion": {
+      "description": "Semver range of the plugin API the plugin supports, checked against the host's API version (1.0.0), e.g. \"^1.0\".",
+      "type": "string", "minLength": 1, "maxLength": 200
+    },
+    "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "author": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "license": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "homepage": { "type": "string", "pattern": "^https?://", "maxLength": 500 },
+    "entry": { "$ref": "#/$defs/entry" },
+    "permissions": { "$ref": "#/$defs/permissions" },
+    "contributes": { "$ref": "#/$defs/contributes" }
+  },
+  "$defs": {
+    "entry": {
+      "description": "How Studio starts the plugin. A command containing '/' is resolved inside the plugin folder (or used as an absolute path); a bare name is looked up on PATH. The working directory is the plugin folder.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command"],
+      "properties": {
+        "command": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "args": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 4096 } }
+      }
+    },
+    "permissions": {
+      "description": "Shown to the user at install and enforced wherever Studio mediates. Not a sandbox: the process runs as the same user.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": {
+          "type": "array", "maxItems": 32,
+          "items": { "type": "string", "pattern": "^(udp|tcp|http|https|ws|wss):(lan|[a-z0-9-]+(\\.[a-z0-9-]+)*(:[0-9]{1,5})?)$" }
+        },
+        "files": { "type": "array", "maxItems": 8, "items": { "enum": ["plugin-data"] } },
+        "display": { "enum": ["none", "read"], "default": "none" },
+        "serial": { "type": "boolean", "default": false }
+      }
+    },
+    "contributes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "controllers": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/controller" } },
+        "tools": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/tool" } },
+        "commands": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/command" } },
+        "events": {
+          "type": "array", "uniqueItems": true,
+          "items": { "enum": ["show.started", "show.stopped", "sequence.playing", "sequence.stopped", "liveOutput.changed"] }
+        }
+      }
+    },
+    "controller": {
+      "description": "A controller (output) type. typeId is stored in the show's module data and must never change.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["typeId", "name"],
+      "properties": {
+        "typeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "configSchema": { "description": "JSON Schema of the controller's settings; must describe an object.", "type": "object" },
+        "defaultOutputs": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 1 },
+        "maxOutputs": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 100000 },
+        "dataPolicy": { "enum": ["highestWins8Bit", "discardExcess8Bit", "average8Bit", "oneChannelColor"], "default": "highestWins8Bit" },
+        "outputNaming": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "frameEncodings": { "type": "array", "maxItems": 3, "items": { "enum": ["u8", "json", "u16"] }, "default": ["u8"] }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "inputSchema": { "type": "object" },
+        "readOnly": { "type": "boolean", "default": false }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "tool"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "tool": { "description": "The name of one of this plugin's tools.", "type": "string" }
+      }
+    }
+  }
+}

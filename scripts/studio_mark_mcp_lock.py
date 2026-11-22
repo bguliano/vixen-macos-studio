@@ -18,6 +18,12 @@ if ("# STUDIO" + "-BEGIN mcp-lock-dependency") not in text:
     end = text.index(chr(10) + '[[package]]', start + len(anchor))
     text = (text[:start] + ('# STUDIO' + '-BEGIN mcp-lock-dependency: generated local MCP crate dependency entry') + chr(10)
             + text[start:end].rstrip() + chr(10) + ('# STUDIO' + '-END mcp-lock-dependency') + chr(10) + text[end:])
+if ("# STUDIO" + "-BEGIN plugins-lock-dependency") not in text:
+    anchor = '[[package]]' + chr(10) + 'name = "studio-plugins"'
+    start = text.index(anchor)
+    end = text.index(chr(10) + '[[package]]', start + len(anchor))
+    text = (text[:start] + ('# STUDIO' + '-BEGIN plugins-lock-dependency: generated plugin host crate dependency entry') + chr(10)
+            + text[start:end].rstrip() + chr(10) + ('# STUDIO' + '-END plugins-lock-dependency') + chr(10) + text[end:])
 def mark(text, package, dependencies):
     anchor = '[[package]]' + chr(10) + 'name = "' + package + '"'
     start = text.index(anchor)
@@ -26,7 +32,8 @@ def mark(text, package, dependencies):
     for dependency, reason in dependencies:
         section = section.replace(' "' + dependency + '",' + chr(10), ' "' + dependency + ('", # STUDIO' + ': ') + reason + chr(10))
     return text[:start] + section + text[end:]
-text = mark(text, 'vixen-ffi', [('serde_json', 'Studio command JSON boundary'), ('studio-mcp', 'in-app local MCP transport')])
+text = mark(text, 'vixen-ffi', [('serde_json', 'Studio command JSON boundary'), ('studio-mcp', 'in-app local MCP transport'),
+                                ('studio-plugins', 'plugin host for Settings ▸ Plugins')])
 video = 'AVFoundation writer for preview_video'
 text = mark(text, 'vixen-session', [(name, video) for name in ['block2', 'objc2', 'objc2-av-foundation', 'objc2-core-foundation',
                                                                   'objc2-core-media', 'objc2-core-video', 'objc2-foundation']])

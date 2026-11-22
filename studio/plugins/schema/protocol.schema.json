@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bguliano/vixen-macos-studio/studio/plugins/schema/protocol.schema.json",
+  "title": "Vixen Studio plugin protocol, API 1.0",
+  "description": "JSON-RPC 2.0 over the plugin's stdin/stdout, one UTF-8 message per line, at most 1 MiB per line. Logs go to stderr, never stdout. 'available' names the host stage that implements a method; methods listed for a later stage are part of API 1.0 but the host answers -32601 until it ships them. Requests time out after 5 s ('start' 15 s).",
+  "x-apiVersion": "1.0.0",
+  "x-framing": { "encoding": "utf-8", "delimiter": "\n", "maxLineBytes": 1048576 },
+  "x-errors": {
+    "-32700": "Parse error", "-32600": "Invalid request", "-32601": "Method not found", "-32602": "Invalid params",
+    "-32603": "Internal error", "-32001": "Request timed out", "-32002": "Plugin exited", "-32003": "Permission denied",
+    "-32004": "Invalid configuration (data.errors lists {field, message})"
+  },
+  "x-hostToPlugin": {
+    "initialize": {
+      "kind": "request", "available": "P1", "timeoutMs": 5000,
+      "params": {
+        "type": "object", "required": ["apiVersion", "hostVersion", "pluginDataDir", "muted", "capabilities"],
+        "properties": {
+          "apiVersion": { "type": "string", "description": "The host's plugin API version, e.g. 1.0.0." },
+          "hostVersion": { "type": "string" },
+          "pluginDataDir": { "type": "string", "description": "A folder only this plugin uses (state.json lives here)." },
+          "profile": { "type": ["object", "null"], "properties": { "name": { "type": "string" }, "id": { "type": "string" } } },
+          "muted": { "type": "boolean", "description": "True when no real output may flow (headless, VIXEN_MUTE, Live Output off)." },
+          "capabilities": { "type": "object" }
+        }
+      },
+      "result": {
+        "type": "object", "required": ["apiVersion"],
+        "properties": { "apiVersion": { "type": "string", "description": "The API version the plugin speaks; its major must equal the host's." }, "capabilities": { "type": "object" } }
+      }
+    },
+    "shutdown": { "kind": "request", "available": "P1", "timeoutMs": 3000, "params": { "type": "object" }, "result": { "type": "object" },
+      "description": "Then the host closes stdin and kills the process after 3 s. Plugins must also exit when stdin reaches end of file." },
+    "event": { "kind": "notification", "available": "P1",
+      "params": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "data": {} } },
+      "description": "Only events the manifest declares. P1 delivers liveOutput.changed {muted}." },
+    "controller.create": { "kind": "request", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "typeId", "config", "outputCount"],
+        "properties": { "instanceId": { "type": "string" }, "typeId": { "type": "string" }, "config": { "type": "object" }, "outputCount": { "type": "integer" } } },
+      "result": { "type": "object", "properties": { "config": { "type": "object" }, "outputNames": { "type": "array", "items": { "type": "string" } } } } },
+    "controller.configure": { "kind": "request", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "config"], "properties": { "instanceId": { "type": "string" }, "config": { "type": "object" } } },
+      "result": { "type": "object", "required": ["config"], "properties": { "config": { "type": "object" } } } },
+    "controller.setOutputCount": { "kind": "request", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "outputCount"], "properties": { "instanceId": { "type": "string" }, "outputCount": { "type": "integer" } } },
+      "result": { "type": "object", "properties": { "outputNames": { "type": "array", "items": { "type": "string" } } } } },
+    "controller.start": { "kind": "request", "available": "P2", "timeoutMs": 15000, "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
+    "controller.stop": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
+    "controller.pause": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
+    "controller.resume": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
+    "controller.destroy": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
+    "controller.frame": { "kind": "notification", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "seq", "timeMs", "encoding", "values"],
+        "properties": {
+          "instanceId": { "type": "string" }, "seq": { "type": "integer" }, "timeMs": { "type": "integer" },
+          "encoding": { "enum": ["u8", "json", "u16"] },
+          "values": { "description": "u8: base64, one byte per output; u16: base64 little-endian; json: array of null | integer | {r,g,b} | string." }
+        } } },
+    "tool.call": { "kind": "request", "available": "P3",
+      "params": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "arguments": { "type": "object" } } },
+      "result": { "type": "object", "required": ["content"], "properties": { "content": { "type": "array" }, "isError": { "type": "boolean" } } } }
+  },
+  "x-pluginToHost": {
+    "log": { "kind": "notification or request", "available": "P1",
+      "params": { "type": "object", "required": ["message"], "properties": { "level": { "enum": ["debug", "info", "warn", "error"] }, "message": { "type": "string" } } },
+      "result": { "type": "object" },
+      "description": "Lines on stderr are captured as info." },
+    "storage.get": { "kind": "request", "available": "P1",
+      "params": { "type": "object", "required": ["key"], "properties": { "key": { "type": "string", "maxLength": 128 } } },
+      "result": { "type": "object", "properties": { "value": { "description": "null when the key is unset." } } } },
+    "storage.set": { "kind": "request", "available": "P1",
+      "params": { "type": "object", "required": ["key"], "properties": { "key": { "type": "string", "maxLength": 128 }, "value": { "description": "null removes the key." } } },
+      "result": { "type": "object" },
+      "description": "A small JSON key/value store in pluginDataDir/state.json, at most 1 MiB in total." },
+    "controller.status": { "kind": "notification", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "state"], "properties": { "instanceId": { "type": "string" }, "state": { "enum": ["running", "unavailable", "error"] }, "message": { "type": "string" } } } },
+    "controller.stats": { "kind": "notification", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" }, "packetsSent": { "type": "integer" }, "bytesSent": { "type": "integer" }, "errors": { "type": "integer" } } } },
+    "controller.message": { "kind": "notification", "available": "P2",
+      "params": { "type": "object", "required": ["instanceId", "title", "text"], "properties": { "instanceId": { "type": "string" }, "title": { "type": "string" }, "heading": { "type": "string" }, "text": { "type": "string" } } } },
+    "display.snapshot": { "kind": "request", "available": "P2", "params": { "type": "object" }, "result": { "type": "object" },
+      "description": "Requires permissions.display = read." },
+    "tools.changed": { "kind": "notification", "available": "P3", "params": { "type": "object" } }
+  },
+  "$defs": {
+    "instance": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" } } }
+  }
+}
