@@ -275,6 +275,23 @@ class Plugin:
     def storage_set(self, key, value):
         self.request("storage.set", {"key": key, "value": value})
 
+    def display_snapshot(self):
+        """The open show's elements, controllers and patches, every page gathered into one dict (the shape of a
+        display.snapshot page, with more False). Needs "display": "read". Starts over if the show changes mid-way."""
+        for _ in range(5):
+            snapshot = self.request("display.snapshot", {})
+            while snapshot.get("more"):
+                page = self.request("display.snapshot", {"elementOffset": snapshot["elementOffset"], "patchOffset": snapshot["patchOffset"]})
+                if page.get("revision") != snapshot.get("revision"):
+                    break
+                snapshot["elements"] += page["elements"]
+                snapshot["patches"] += page["patches"]
+                for key in ("more", "elementOffset", "patchOffset"):
+                    snapshot[key] = page[key]
+            else:
+                return snapshot
+        raise RpcError(-32603, "the show kept changing while it was read")
+
     def tools_changed(self, tools=None):
         """Replaces the agent tools Studio lists (same shape as contributes.tools); None goes back to the manifest's."""
         self.notify("tools.changed", {} if tools is None else {"tools": tools})

@@ -307,7 +307,7 @@ fn run(args: &[String]) -> Result<i32, String> {
         Ok(json!({}))
     });
     let tools: process::ToolsSink = Arc::new(|_: &Value| Ok(json!({})));
-    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools) };
+    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display: None };
     let plugin = PluginProcess::spawn(launch)?;
     println!(
         "Running {} ({} {}): {} with {outputs} outputs, {pattern} at {fps} fps for {seconds} s ({encoding} frames)",

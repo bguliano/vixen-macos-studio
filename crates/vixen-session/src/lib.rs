@@ -4,6 +4,7 @@ pub mod app;
 pub mod studio_display; // STUDIO: shared live display commands and undo
 pub mod studio_controller_network; // STUDIO: the controller inspector's network settings and status
 pub mod studio_plugin_controllers; // STUDIO: plugin controllers' StudioPlugins.json after each save
+pub mod studio_plugin_display; // STUDIO: the read-only display view for plugins' display.snapshot
 pub mod studio_color; // STUDIO: RGB / RGBW / Single colour handling for templates, the Display pane and MCP
 pub mod studio_locations; // STUDIO: the Location property from preview geometry, for Wipe and MCP element_location
 pub mod studio_wiring; // STUDIO: megatree and grid wiring (start corner, reversing, hidden pixels) for templates and MCP

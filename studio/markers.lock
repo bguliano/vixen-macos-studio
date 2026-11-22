@@ -2043,6 +2043,10 @@
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "2cbae59633d3a4b1"
  },
+ "line:crates/vixen-session/src/lib.rs:3511be1d964e95bd": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "3511be1d964e95bd"
+ },
  "line:crates/vixen-session/src/lib.rs:3baf70ac997c0039": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "3baf70ac997c0039"

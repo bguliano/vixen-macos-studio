@@ -155,14 +155,20 @@ pub fn studio_plugin_run_command(plugin_id: String, command_id: String) -> Resul
 #[uniffi::export]
 impl VixenCore {
     /// Keeps the plugin host in step with the open show, called by the show window when it appears and on its poll: tells
-    /// it the profile and whether real output may flow (Live Output on and Studio not muted), starts the enabled plugins
-    /// the first time, and returns `studio_plugins_required` for the show (the missing-plugin banner).
+    /// it the profile, how to read its display for `display.snapshot`, and whether real output may flow (Live Output on
+    /// and Studio not muted), starts the enabled plugins the first time, and returns `studio_plugins_required` for the
+    /// show (the missing-plugin banner).
     pub fn studio_plugins_sync(&self) -> Result<String, FfiError> {
         static STARTED: std::sync::Once = std::sync::Once::new();
         let host = host()?;
         let root = self.inner.paths.root().to_path_buf();
         let name = self.inner.profile_name().unwrap_or_else(|| root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
         host.set_profile(Some((name, root.to_string_lossy().into_owned())));
+        // Weak, so a closed show isn't kept alive by the host: its snapshot then answers "no show is open".
+        let core = std::sync::Arc::downgrade(&self.inner);
+        host.set_display(Some(std::sync::Arc::new(move |params: &serde_json::Value| {
+            core.upgrade().map(|core| vixen_session::studio_plugin_display::snapshot(&core, params)).ok_or_else(|| "no show is open".to_string())
+        })));
         let muted_by_launch = std::env::var_os("VIXEN_MUTE").is_some() || std::env::var_os("VIXEN_UI_TEST").is_some();
         host.set_muted(muted_by_launch || !self.inner.execution().is_open());
         STARTED.call_once(|| {

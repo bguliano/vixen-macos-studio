@@ -209,7 +209,7 @@ fn protocol_md_matches_the_protocol_schema() {
             };
             let meta = format!("{direction} · {kind}{timeout}");
             assert_eq!(text.trim_start().lines().next(), Some(meta.as_str()), "{method}: first line");
-            if !["P1", "P2", "P3"].contains(&spec["available"].as_str().unwrap()) {
+            if !["P1", "P2", "P2b", "P3"].contains(&spec["available"].as_str().unwrap()) {
                 assert!(text.contains("Not available yet"), "{method} isn't shipped; the page must say so");
             }
             check_fields(&schemas, spec.get("params"), text, "Param", method);

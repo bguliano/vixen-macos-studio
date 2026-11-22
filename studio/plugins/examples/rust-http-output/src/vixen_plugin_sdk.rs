@@ -289,6 +289,32 @@ impl Host {
         self.request("storage.set", json!({"key": key, "value": value}), Duration::from_secs(5)).map(|_| ())
     }
 
+    /// The open show's elements, controllers and patches, every page gathered into one value (the shape of a
+    /// `display.snapshot` page, with `more: false`). Needs `"display": "read"`. Starts over if the show changes mid-way.
+    pub fn display_snapshot(&self) -> Result<Value, RpcError> {
+        'again: for _ in 0..5 {
+            let mut snapshot = self.request("display.snapshot", json!({}), Duration::from_secs(5))?;
+            while snapshot["more"] == true {
+                let params = json!({"elementOffset": snapshot["elementOffset"], "patchOffset": snapshot["patchOffset"]});
+                let page = self.request("display.snapshot", params, Duration::from_secs(5))?;
+                if page["revision"] != snapshot["revision"] {
+                    continue 'again;
+                }
+                for key in ["elements", "patches"] {
+                    let more = page[key].as_array().cloned().unwrap_or_default();
+                    if let Some(list) = snapshot[key].as_array_mut() {
+                        list.extend(more);
+                    }
+                }
+                for key in ["more", "elementOffset", "patchOffset"] {
+                    snapshot[key] = page[key].clone();
+                }
+            }
+            return Ok(snapshot);
+        }
+        Err(RpcError { code: -32603, message: "the show kept changing while it was read".into(), data: None })
+    }
+
     /// Replaces the agent tools Studio lists (same shape as `contributes.tools`); `None` goes back to the manifest's.
     pub fn tools_changed(&self, tools: Option<Value>) {
         self.notify("tools.changed", tools.map(|t| json!({"tools": t})).unwrap_or_else(|| json!({})));

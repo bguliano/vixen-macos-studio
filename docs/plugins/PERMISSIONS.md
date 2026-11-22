@@ -29,7 +29,7 @@ In `vixen-plugin.json` ([MANIFEST.md](MANIFEST.md#permissions)):
 | `"network": ["ws:…"]` / `"wss:…"` | Open WebSocket connections to … | The sandbox allows TCP to port 80 / 443, or the rule's port. |
 | `"serial": true` | Use serial ports (USB adapters and boards) | The sandbox lets it write `/dev/cu.*` and `/dev/tty.*`. |
 | `"files": ["plugin-data"]` | Keep its own settings in its data folder | `storage.get` / `storage.set` answer `-32003` without it, and the sandbox lets it write the data folder. |
-| `"display": "read"` | Read the show's elements, controllers and patches | `display.snapshot` (not available yet) will require it. |
+| `"display": "read"` | Read the show's elements, controllers and patches | `display.snapshot` answers `-32003` without it. Read-only: nothing a plugin can send changes the show. |
 
 Declare what you use, no more: users see the list, and an honest short list is what makes them trust a plugin. Name
 specific hosts (`https:openapi.api.govee.com`) rather than claiming the whole network when you only talk to one API.

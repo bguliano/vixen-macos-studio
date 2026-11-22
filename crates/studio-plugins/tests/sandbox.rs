@@ -74,7 +74,7 @@ fn probe(name: &str, permissions: Value, outside: &Path) -> (String, bool) {
     )
     .unwrap();
     let logs = Arc::new(LogBuffer::new(None));
-    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &data, logs: logs.clone(), controllers: None, tools: None };
+    let launch = Launch { manifest: &manifest, dir: &dir, data_dir: &data, logs: logs.clone(), controllers: None, tools: None, display: None };
     let plugin = PluginProcess::spawn(launch).unwrap();
     assert!(plugin.sandbox.is_some(), "plugins start sandboxed");
     let text = || logs.tail(100, Level::Debug).iter().map(|e| e.to_json()["message"].as_str().unwrap_or_default().to_string()).collect::<Vec<_>>().join("\n");

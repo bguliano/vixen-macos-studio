@@ -4,7 +4,8 @@
 //!
 //! It is also a controller plugin: it logs every `controller.*` request and frame to stderr, adds `"seen": true` to the
 //! configuration it is given, refuses a configuration containing `"bad"` with field errors, and with `--report` sends
-//! status, stats and a message after `controller.start`. `--slow-frames` sleeps 50 ms per frame.
+//! status, stats and a message after `controller.start`. `--slow-frames` sleeps 50 ms per frame. `--display=<json>`
+//! asks `display.snapshot` with those params after initialize and logs the answer.
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
@@ -21,6 +22,7 @@ fn main() {
     let stubborn = args.iter().any(|a| a == "--stubborn");
     let report = args.iter().any(|a| a == "--report");
     let slow_frames = args.iter().any(|a| a == "--slow-frames");
+    let display = args.iter().find_map(|a| a.strip_prefix("--display=")).map(str::to_string);
     if mode == "crash" {
         eprintln!("fixture crashing at start");
         std::process::exit(7);
@@ -47,6 +49,11 @@ fn main() {
                     send(json!({"jsonrpc": "2.0", "id": next_id, "method": "storage.set", "params": {"key": "count", "value": 41}}));
                     send(json!({"jsonrpc": "2.0", "id": next_id + 1, "method": "storage.get", "params": {"key": "count"}}));
                     next_id += 2;
+                }
+                if let Some(params) = &display {
+                    let params: Value = serde_json::from_str(params).expect("--display= takes JSON params");
+                    send(json!({"jsonrpc": "2.0", "id": next_id, "method": "display.snapshot", "params": params}));
+                    next_id += 1;
                 }
                 match mode {
                     "exit-after-init" => {
@@ -120,8 +127,11 @@ fn main() {
                     if let Some(value) = result.get("value") {
                         eprintln!("storage got {value}");
                     }
+                    if result.get("revision").is_some() {
+                        eprintln!("snapshot {result}");
+                    }
                 } else if let Some(error) = message.get("error") {
-                    eprintln!("host error {}", error["message"]);
+                    eprintln!("host error {} code={}", error["message"], error["code"]);
                 }
             }
             other => {

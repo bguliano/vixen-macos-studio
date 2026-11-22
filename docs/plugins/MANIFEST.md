@@ -90,7 +90,7 @@ What the install sheet tells the user and what Studio enforces where it mediates
 |---|---|---|---|
 | `network` | array of string | no | Up to 32 rules `<protocol>:<target>`. Protocols: `udp`, `tcp`, `http`, `https`, `ws`, `wss`. Target: `lan` (the local network) or a host name with an optional port (`openapi.api.example.com`, `hub.local:8080`). |
 | `files` | array of string | no | `plugin-data`: the plugin keeps state in its data folder and may use `storage.get`/`storage.set`. |
-| `display` | string | no | `none` (default) or `read`: may read the show's elements, controllers and patches (`display.snapshot`, not available yet). |
+| `display` | string | no | `none` (default) or `read`: may read the show's elements, controllers and patches (`display.snapshot`). |
 | `serial` | boolean | no | Uses serial ports (USB adapters, boards). Default false. |
 
 ## `contributes`

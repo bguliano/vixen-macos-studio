@@ -9,6 +9,7 @@ keeps it current, including the status below.
 |---|---|
 | P1 Host core | Shipped: `crates/studio-plugins`, schemas in `studio/plugins/schema/`, FFI in `crates/vixen-ffi/src/studio_plugins.rs`. |
 | P2 Controllers | Shipped: `crates/studio-plugins/src/controllers.rs` (+ `schema.rs`), the engine hook `crates/vixen-output/src/modules/studio_external.rs`. `display.snapshot` moved to P2b. |
+| P2b Display snapshot | Shipped (B40): `crates/vixen-session/src/studio_plugin_display.rs` builds the view, `studio-plugins` answers it through `PluginHost::set_display`, wired in `crates/vixen-ffi/src/studio_plugins.rs`. |
 | P3 MCP | Shipped: `crates/studio-plugins/src/{mcp,tools,harness,scaffold,install}.rs`, templates in `studio/plugins/templates/`, wired in `crates/studio-mcp`. |
 | P4 UI | Shipped: Settings ▸ Plugins (`app/Sources/VixenAdmin/StudioPluginsSettings.swift`), the missing-plugin banner, the Plugins menu (`app/Sources/VixenKit/StudioPlugins.swift`), the plugin controller inspector and Add Controller's Plugins heading (`app/Sources/VixenSetup/Window/StudioPluginControllerInspector.swift`, `StudioAddControllerMenu.swift`); the form, permissions and commands are worked out in `crates/studio-plugins/src/ui.rs`. Harness: `scripts/check_studio_plugins_ui.py`. |
 | P5 SDKs, examples, CLI | Shipped: SDKs in `studio/plugins/sdk/{python,typescript}/` and `crates/studio-plugin-sdk` (package `vixen-plugin-sdk`), templates in `studio/plugins/templates/{python,typescript,rust}/`, examples in `studio/plugins/examples/`, the CLI in `crates/studio-plugins/src/{cli,pack}.rs` (`vixen-studio-mcp plugin …`). |
@@ -86,7 +87,34 @@ What P2 settled:
   commissioning tests reach them as frames (tested end to end with the fixture plugin).
 - **`plugin_info`** lists each started instance: status, live, framesSent/framesDropped, lastFrameAgeMs, counters
   and configErrors.
-- **P2b:** `display.snapshot` (needs a read-only display view from the open profile).
+- **P2b:** `display.snapshot`, shipped as below.
+
+What P2b settled:
+
+- **Provider hook.** `studio-plugins` can't see `AppCore`, so the app installs a `DisplaySource` with
+  `PluginHost::set_display` on every `studio_plugins_sync` (the show window's poll). It holds the core weakly: a closed
+  show answers `-32603` "no show is open", as does a host with no source (the harness, the CLI, tests). Running
+  plugins use whatever source is current at each call.
+- **Permission first.** Without `"display": "read"` the host answers `-32003` and never calls the source. Params are
+  checked before the show is read (`-32602` for anything but non-negative `elementOffset`/`patchOffset`).
+- **Off the reader thread.** Reading the show takes the app's locks (the system, playback's running controllers), and
+  the plugin's stdout reader must keep reading answers meanwhile (a controller starting while the plugin asks would
+  otherwise wait out its timeout), so each snapshot is built on its own thread. One at a time per plugin: a second
+  request while one is being built gets `-32603`.
+- **What it shows.** A fresh `SetupSession::open` each call, so the saved and applied display, never a half-made edit.
+  `{revision, roots, controllers, elements, patches}`: elements `{id, name, children}` (tree node ids, the ids MCP and
+  `patch_ranges` use), controllers in pane order `{id, name, typeId, typeName, outputs, running, instanceId?}` (the
+  plugin's own controllers carry the `instanceId` of its `controller.*` messages), patches as runs of consecutive
+  outputs one light feeds on one controller `{elementId, controllerId, firstOutput, lastOutput, from, to}` (one-based;
+  `from`/`to` universe:channel on E1.31, as `patch_ranges` writes them). Channel-level detail (which colour on which
+  output) is left out: a plugin that needs it can follow the light's run order.
+- **Pages.** A 12,000-pixel show is well over the 1 MiB line limit, so answers are pages under 768 KiB
+  (`studio_plugin_display::PAGE_BYTES`): elements, then patches, whole items, at least one per page. `more`,
+  `elementOffset`, `patchOffset`, `elementCount`, `patchCount`; `revision` lets a plugin restart when the show changed
+  between pages. The SDKs' `display_snapshot()` / `displaySnapshot()` gather every page (and retry up to five times
+  on a revision change). `initialize` advertises `capabilities.display: true`.
+- **Tests.** `studio_plugin_display` unit tests (content, paging, a 12,000-light show under the limit) and the host
+  fixture test `display_snapshot_needs_the_display_permission_and_reads_the_open_show` (`--display=<params>`).
 
 What P3 settled:
 
@@ -213,7 +241,7 @@ What P6 settled:
   console-output tutorial from `plugin new`; walked through with the CLI), PROTOCOL, MANIFEST, CONTROLLERS,
   TOOLS_AND_EVENTS, PERMISSIONS, PACKAGING, TESTING, TROUBLESHOOTING and AGENTS. `docs/plugins/` is Studio-only (listed
   in STUDIO.md), so it needs no markers. Linked from README.md, STUDIO.md and studio/MCP.md.
-- **The pages say what ships, not the plan:** only `liveOutput.changed` is sent; `display.snapshot` answers `-32601`;
+- **The pages say what ships, not the plan:** only `liveOutput.changed` is sent; `display.snapshot` answered `-32601` until P2b;
   `outputNaming`/`outputNames` are recorded, not applied; network and serial permissions are declarations, not
   enforced (no sandbox yet; B39 added it). `controller.stats` values are running totals (the host raises its counters to them); the
   SDKs' docstrings and two examples treat them as increments, which is backlog B42.

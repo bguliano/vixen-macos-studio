@@ -238,6 +238,25 @@ export class Plugin {
     await this.request("storage.set", { key, value });
   }
 
+  /**
+   * The open show's elements, controllers and patches, every page gathered into one object (the shape of a
+   * display.snapshot page, with more false). Needs "display": "read". Starts over if the show changes mid-way.
+   */
+  async displaySnapshot() {
+    attempts: for (let attempt = 0; attempt < 5; attempt++) {
+      const snapshot = await this.request("display.snapshot", {});
+      while (snapshot.more) {
+        const page = await this.request("display.snapshot", { elementOffset: snapshot.elementOffset, patchOffset: snapshot.patchOffset });
+        if (page.revision !== snapshot.revision) continue attempts;
+        snapshot.elements.push(...page.elements);
+        snapshot.patches.push(...page.patches);
+        Object.assign(snapshot, { more: page.more, elementOffset: page.elementOffset, patchOffset: page.patchOffset });
+      }
+      return snapshot;
+    }
+    throw new RpcError(-32603, "the show kept changing while it was read");
+  }
+
   /** Replaces the agent tools Studio lists (same shape as contributes.tools); undefined goes back to the manifest's. */
   toolsChanged(tools) {
     this.notify("tools.changed", tools === undefined ? {} : { tools });

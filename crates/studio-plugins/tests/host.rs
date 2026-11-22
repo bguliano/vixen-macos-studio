@@ -127,6 +127,44 @@ fn storage_needs_the_plugin_data_permission() {
 }
 
 #[test]
+fn display_snapshot_needs_the_display_permission_and_reads_the_open_show() {
+    let sandbox = Sandbox::new("display");
+    let host = PluginHost::new(&sandbox.root(), options()).unwrap();
+
+    // Without "display": "read", refused even with a show open.
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+    let log = seen.clone();
+    host.set_display(Some(std::sync::Arc::new(move |params: &Value| {
+        log.lock().unwrap().push(params.clone());
+        Ok(json!({"revision": 3, "elements": [{"id": "e1", "name": "Porch", "children": []}], "more": false}))
+    })));
+    let denied = sandbox.plugin("nodisplay", &["normal", "--display={}"], json!({}));
+    host.link_dev(&denied).unwrap();
+    wait_for_log(&host, "com.example.nodisplay", "host error \"display.snapshot needs \\\"display\\\": \\\"read\\\"");
+    assert!(log_text(&host, "com.example.nodisplay").contains("code=-32003"), "{}", log_text(&host, "com.example.nodisplay"));
+    assert!(seen.lock().unwrap().is_empty(), "the show was read for a plugin without the permission");
+
+    // With it, the app's view answers, given the plugin's paging params.
+    let allowed = sandbox.plugin("display", &["normal", "--display={\"elementOffset\":2}"], json!({"permissions": {"display": "read"}}));
+    host.link_dev(&allowed).unwrap();
+    wait_for_log(&host, "com.example.display", "snapshot {");
+    let text = log_text(&host, "com.example.display");
+    assert!(text.contains("\"name\":\"Porch\"") && text.contains("\"revision\":3"), "{text}");
+    assert_eq!(*seen.lock().unwrap(), vec![json!({"elementOffset": 2})]);
+
+    // Bad params are refused before the show is read.
+    let bad = sandbox.plugin("badparams", &["normal", "--display={\"elementOffset\":-1}"], json!({"permissions": {"display": "read"}}));
+    host.link_dev(&bad).unwrap();
+    wait_for_log(&host, "com.example.badparams", "code=-32602");
+    assert_eq!(seen.lock().unwrap().len(), 1);
+
+    // No show open: a clear error, and the running plugin sees it on its next call.
+    host.set_display(None);
+    host.reload("com.example.display").unwrap();
+    wait_for_log(&host, "com.example.display", "host error \"no show is open\" code=-32603");
+}
+
+#[test]
 fn a_crashing_plugin_restarts_with_backoff_then_gives_up() {
     let sandbox = Sandbox::new("crashy");
     let dir = sandbox.plugin("crashy", &["exit-after-init"], json!({}));

@@ -202,7 +202,7 @@ fn run(dir: &Path, options: &Options, report: &mut Report, logs: &Arc<LogBuffer>
         Ok(json!({}))
     });
     let Some(plugin) = report.time("launch", || {
-        let launch = Launch { manifest: &manifest, dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools) };
+        let launch = Launch { manifest: &manifest, dir, data_dir: &scratch.0, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools), display: None };
         PluginProcess::spawn(launch).map(|p| (Status::Pass, format!("pid {}", p.pid), p))
     }) else {
         return;

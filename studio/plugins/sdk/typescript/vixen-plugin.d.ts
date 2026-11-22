@@ -51,6 +51,20 @@ export interface InitializeParams {
   capabilities: Record<string, unknown>;
 }
 
+/** One page of display.snapshot (or every page, from Plugin.displaySnapshot). Outputs are one-based. */
+export interface DisplaySnapshot {
+  revision: number;
+  roots: string[];
+  controllers: Array<{ id: string; name: string; typeId: string; typeName: string; outputs: number; running: boolean; instanceId?: string }>;
+  elements: Array<{ id: string; name: string; children: string[] }>;
+  patches: Array<{ elementId: string; controllerId: string; firstOutput: number; lastOutput: number; from: string; to: string }>;
+  elementCount: number;
+  patchCount: number;
+  more: boolean;
+  elementOffset: number;
+  patchOffset: number;
+}
+
 export type Awaitable<T> = T | Promise<T>;
 
 export function decode(encoding: string, values: unknown): number[] | FrameValue[];
@@ -105,6 +119,8 @@ export class Plugin {
   error(message: unknown): void;
   storageGet<T = Json>(key: string, fallback?: T): Promise<T>;
   storageSet(key: string, value: Json): Promise<void>;
+  /** Every page of display.snapshot gathered into one object. Needs "display": "read". */
+  displaySnapshot(): Promise<DisplaySnapshot>;
   toolsChanged(tools?: Array<Record<string, unknown>>): void;
   run(): void;
 }

@@ -142,6 +142,25 @@ fn changed(s: &mut SetupSession) {
     s.bump_graph();
 }
 
+/// Every patched run, for plugins' `display.snapshot`: consecutive outputs of one controller fed by the same light, in
+/// controller order and then output order, as `{elementId, controllerId, firstOutput, lastOutput, from, to}` with
+/// one-based outputs and `from`/`to` as [`address`] gives them. An RGB pixel on three outputs is one run.
+pub(crate) fn light_runs(s: &SetupSession) -> Vec<Value> {
+    let mut runs: Vec<(u32, u32, u32, Nid)> = Vec::new();
+    for (p, leaf, _) in patched_outputs(s) {
+        match runs.last_mut() {
+            Some((slot, _, last, light)) if *slot == p.slot && *last + 1 == p.index && *light == leaf => *last = p.index,
+            _ => runs.push((p.slot, p.index, p.index, leaf)),
+        }
+    }
+    runs.into_iter()
+        .map(|(slot, first, last, leaf)| {
+            let c = &s.controllers[slot as usize];
+            json!({"elementId":s.tree.node(leaf).id.to_string(),"controllerId":c.id.to_string(),"firstOutput":first + 1,"lastOutput":last + 1,"from":address(c, first),"to":address(c, last)})
+        })
+        .collect()
+}
+
 /// The read-only `patch_ranges` tool.
 pub fn ranges_tool() -> Value {
     json!({"name":"patch_ranges","description":"Where an element or group is patched: how many lights and outputs, and each contiguous run as controller, one-based outputs and universe:channel ends (E1.31; other controllers give output numbers). Use before patch_reverse, patch_swap or patch_move.","inputSchema":{"type":"object","properties":{"id":{"type":"string","minLength":1,"maxLength":64}},"required":["id"],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})

@@ -79,13 +79,29 @@
       "params": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" }, "packetsSent": { "type": "integer" }, "bytesSent": { "type": "integer" }, "errors": { "type": "integer" } } } },
     "controller.message": { "kind": "notification", "available": "P2",
       "params": { "type": "object", "required": ["instanceId", "title", "text"], "properties": { "instanceId": { "type": "string" }, "title": { "type": "string" }, "heading": { "type": "string" }, "text": { "type": "string" } } } },
-    "display.snapshot": { "kind": "request", "available": "P2b", "params": { "type": "object" }, "result": { "type": "object" },
-      "description": "Requires permissions.display = read." },
+    "display.snapshot": { "kind": "request", "available": "P2b",
+      "description": "A read-only view of the open show's elements, controllers and patches, in pages under the line limit. Requires permissions.display = read (otherwise -32003); -32603 when no show is open.",
+      "params": { "type": "object", "additionalProperties": false, "properties": { "elementOffset": { "type": "integer", "minimum": 0 }, "patchOffset": { "type": "integer", "minimum": 0 } } },
+      "result": { "type": "object", "required": ["revision", "roots", "controllers", "elements", "patches", "elementCount", "patchCount", "more", "elementOffset", "patchOffset"],
+        "properties": {
+          "revision": { "type": "integer" },
+          "roots": { "type": "array", "items": { "type": "string" } },
+          "controllers": { "type": "array", "items": { "$ref": "#/$defs/snapshotController" } },
+          "elements": { "type": "array", "items": { "$ref": "#/$defs/snapshotElement" } },
+          "patches": { "type": "array", "items": { "$ref": "#/$defs/snapshotPatch" } },
+          "elementCount": { "type": "integer" },
+          "patchCount": { "type": "integer" },
+          "more": { "type": "boolean" },
+          "elementOffset": { "type": "integer" },
+          "patchOffset": { "type": "integer" } } } },
     "tools.changed": { "kind": "notification", "available": "P3",
       "description": "The plugin's agent tools changed (after discovery, say). 'tools' replaces the manifest's contributes.tools list until the plugin restarts, with the same rules for each tool; leaving it out goes back to the manifest's list. Studio then tells MCP clients the tool list changed. Also accepted as a request (answered {}).",
       "params": { "type": "object", "properties": { "tools": { "type": "array", "maxItems": 64, "items": { "$ref": "manifest.schema.json#/$defs/tool" } } } } }
   },
   "$defs": {
-    "instance": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" } } }
+    "instance": { "type": "object", "required": ["instanceId"], "properties": { "instanceId": { "type": "string" } } },
+    "snapshotElement": { "type": "object", "required": ["id", "name", "children"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "children": { "type": "array", "items": { "type": "string" } } } },
+    "snapshotController": { "type": "object", "required": ["id", "name", "typeId", "typeName", "outputs", "running"], "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "typeId": { "type": "string" }, "typeName": { "type": "string" }, "outputs": { "type": "integer" }, "running": { "type": "boolean" }, "instanceId": { "type": "string" } } },
+    "snapshotPatch": { "type": "object", "required": ["elementId", "controllerId", "firstOutput", "lastOutput", "from", "to"], "properties": { "elementId": { "type": "string" }, "controllerId": { "type": "string" }, "firstOutput": { "type": "integer" }, "lastOutput": { "type": "integer" }, "from": { "type": "string" }, "to": { "type": "string" } } }
   }
 }

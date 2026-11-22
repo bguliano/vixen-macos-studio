@@ -62,8 +62,8 @@ configuration) and a sentence the inspector shows under that field:
 {"jsonrpc": "2.0", "id": 7, "error": {"code": -32004, "message": "Invalid configuration", "data": {"errors": [{"field": "/host", "message": "must be an IPv4 address"}]}}}
 ```
 
-Studio answers `-32003` to `storage.get`/`storage.set` from a plugin without `"files": ["plugin-data"]`, and `-32601`
-to a method it doesn't know or hasn't shipped yet.
+Studio answers `-32003` to `storage.get`/`storage.set` from a plugin without `"files": ["plugin-data"]` and to
+`display.snapshot` from one without `"display": "read"`, and `-32601` to a method it doesn't know.
 
 ## Lifecycle
 
@@ -88,7 +88,7 @@ Host → plugin · request · timeout 5000 ms
 
 The first message. Answer with the API version you speak; Studio stops a plugin whose major version differs, as
 `incompatible`, without restarting it. `capabilities` tells you what this Studio offers (today `log`, `storage`,
-`events: ["liveOutput.changed"]`, `controllers`, `frameEncodings`, `tools`). `profile` is `null` when no show is open
+`events: ["liveOutput.changed"]`, `controllers`, `frameEncodings`, `tools`, `display`). `profile` is `null` when no show is open
 (the harness, the CLI).
 
 | Param | Type | Required | Meaning |
@@ -106,7 +106,7 @@ The first message. Answer with the API version you speak; Studio stops a plugin 
 | `capabilities` | object | no | Anything you want Studio to know; shown by `plugin_info`. |
 
 ```json initialize params
-{"apiVersion": "1.0.0", "hostVersion": "3.13.4-studio", "pluginDataDir": "/Users/me/Library/Application Support/Vixen Studio/Plugins/data/com.example.lamp", "profile": {"name": "Vixen 3", "id": "0c6f3f0e-7f83-4f39-a2a5-0d2f1b6a4e90"}, "muted": true, "capabilities": {"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true}}
+{"apiVersion": "1.0.0", "hostVersion": "3.13.4-studio", "pluginDataDir": "/Users/me/Library/Application Support/Vixen Studio/Plugins/data/com.example.lamp", "profile": {"name": "Vixen 3", "id": "0c6f3f0e-7f83-4f39-a2a5-0d2f1b6a4e90"}, "muted": true, "capabilities": {"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true}}
 ```
 
 ```json initialize result
@@ -441,12 +441,41 @@ the engine.
 
 Plugin → host · request
 
-Not available yet: this version of Studio answers `-32601`. It will return a read-only view of the show's elements,
-controllers and patches, and needs `"display": "read"` in the manifest's permissions.
+A read-only view of the open show: its elements (the tree), controllers and patches, as saved and applied (never a
+half-made edit in a dialog). Needs `"display": "read"` in the manifest's permissions, otherwise `-32003`; `-32603`
+when no show is open. Nothing you do with it changes the show.
 
-Param: `{}`.
+A big show doesn't fit one 1 MiB line, so answers come in pages: elements first, then patches, each item whole. While
+`more` is true, ask again with the `elementOffset` and `patchOffset` the page gave you. If `revision` changes between
+pages the show was edited meanwhile: start over from `{}`. The SDKs' `display_snapshot()` / `displaySnapshot()` do
+this and return every page gathered into one. Studio answers one `display.snapshot` per plugin at a time; a second
+asked before the first is answered gets `-32603`.
 
-Result: `{}`.
+| Param | Type | Required | Meaning |
+|---|---|---|---|
+| `elementOffset` | integer | no | Where this page's elements start (the previous page's `elementOffset`); 0 when left out. |
+| `patchOffset` | integer | no | Where this page's patches start (the previous page's `patchOffset`); 0 when left out. |
+
+```json display.snapshot params
+{"elementOffset": 2, "patchOffset": 0}
+```
+
+| Result | Type | Required | Meaning |
+|---|---|---|---|
+| `revision` | integer | yes | Changes whenever the display (elements, controllers, patching) does. |
+| `roots` | array of string | yes | The ids of the top-level elements, in order. |
+| `controllers` | array of object | yes | Every controller in the Controllers pane's order: `{id, name, typeId, typeName, outputs, running, instanceId?}`. `running` means set to send while Live Output is on. Your own plugin's controllers carry the `instanceId` your `controller.*` messages use. |
+| `elements` | array of object | yes | This page's elements, each `{id, name, children}` with the children's ids in order; a light has no children. An element in several groups is listed once. |
+| `patches` | array of object | yes | This page's patched runs, in controller order and then output order: `{elementId, controllerId, firstOutput, lastOutput, from, to}`, one run per light per controller (an RGB pixel on three outputs is one run). Outputs are one-based; `from`/`to` are `universe:channel` on E1.31 controllers and output numbers on others. |
+| `elementCount` | integer | yes | Elements in the whole show. |
+| `patchCount` | integer | yes | Patched runs in the whole show. |
+| `more` | boolean | yes | Another page follows. |
+| `elementOffset` | integer | yes | The `elementOffset` to ask for the next page. |
+| `patchOffset` | integer | yes | The `patchOffset` to ask for the next page. |
+
+```json display.snapshot result
+{"revision": 12, "roots": ["2f0c9a52-1b7e-4a39-9d55-0c6e4b8f1a21"], "controllers": [{"id": "9b5e2d4c-3f1a-4e8b-a6c7-5d2e1f0a9b38", "name": "Porch E1.31", "typeId": "b0b3c3b4-8f3a-4c4e-9a4e-9a3f1c6a2b10", "typeName": "E1.31", "outputs": 510, "running": true}], "elements": [{"id": "2f0c9a52-1b7e-4a39-9d55-0c6e4b8f1a21", "name": "Porch", "children": ["7a1d3e6f-9c2b-4d8a-b5e4-1f0c2a3b4d5e"]}, {"id": "7a1d3e6f-9c2b-4d8a-b5e4-1f0c2a3b4d5e", "name": "Porch Pixel 1", "children": []}], "patches": [{"elementId": "7a1d3e6f-9c2b-4d8a-b5e4-1f0c2a3b4d5e", "controllerId": "9b5e2d4c-3f1a-4e8b-a6c7-5d2e1f0a9b38", "firstOutput": 1, "lastOutput": 3, "from": "1:1", "to": "1:3"}], "elementCount": 2, "patchCount": 1, "more": false, "elementOffset": 2, "patchOffset": 1}
+```
 
 ### `tools.changed`
 

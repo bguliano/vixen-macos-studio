@@ -207,6 +207,7 @@ mod tests {
         for method in crate::process::HOST_METHODS {
             let stage = match method {
                 "tools.changed" => "P3",
+                "display.snapshot" => "P2b",
                 m if crate::process::CONTROLLER_METHODS.contains(&m) => "P2",
                 _ => "P1",
             };

@@ -24,9 +24,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 /// Plugin→host methods this host answers.
-pub const HOST_METHODS: [&str; 7] = ["log", "storage.get", "storage.set", "controller.status", "controller.stats", "controller.message", "tools.changed"];
-/// Plugin→host methods of API 1.0 a later stage of the host implements; answered with "not available yet".
-const LATER_METHODS: [&str; 2] = ["display.snapshot", "tool.call"];
+pub const HOST_METHODS: [&str; 8] = ["log", "storage.get", "storage.set", "controller.status", "controller.stats", "controller.message", "tools.changed", "display.snapshot"];
 /// Plugin→host controller methods, answered by the controller layer (`crate::controllers`).
 pub const CONTROLLER_METHODS: [&str; 3] = ["controller.status", "controller.stats", "controller.message"];
 
@@ -34,6 +32,9 @@ pub const CONTROLLER_METHODS: [&str; 3] = ["controller.status", "controller.stat
 pub type ControllerSink = Arc<dyn Fn(&str, &Value) -> Result<Value, RpcError> + Send + Sync>;
 /// Handles a plugin's `tools.changed`: its params, answered as a request would be.
 pub type ToolsSink = Arc<dyn Fn(&Value) -> Result<Value, RpcError> + Send + Sync>;
+/// Answers a plugin's `display.snapshot`, only reached when its manifest has `"display": "read"`.
+/// Gets the request's params, already checked to hold only `elementOffset`/`patchOffset` (non-negative integers).
+pub type DisplaySink = Arc<dyn Fn(&Value) -> Result<Value, RpcError> + Send + Sync>;
 
 /// Messages waiting for the plugin to read its stdin. A plugin that stops reading loses messages instead of stalling us.
 const WRITE_QUEUE: usize = 1024;
@@ -203,6 +204,8 @@ pub struct Launch<'a> {
     pub controllers: Option<ControllerSink>,
     /// Where the plugin's `tools.changed` goes; without one it is ignored.
     pub tools: Option<ToolsSink>,
+    /// What answers the plugin's `display.snapshot`; without one it is answered "no show is open".
+    pub display: Option<DisplaySink>,
 }
 
 /// Resolves `entry.command`: a path containing `/` is absolute or inside the plugin folder; a bare name comes from PATH.
@@ -338,6 +341,9 @@ impl PluginProcess {
             storage: manifest.permissions.files.iter().any(|f| f == "plugin-data"),
             controllers: launch.controllers.clone(),
             tools: launch.tools.clone(),
+            display_read: manifest.permissions.display == "read",
+            display: launch.display.clone(),
+            snapshotting: Arc::new(AtomicBool::new(false)),
         };
         thread::Builder::new().name(name("stdout")).spawn(move || reader.run(stdout)).map_err(|e| e.to_string())?;
         Ok(process)
@@ -503,9 +509,39 @@ struct Reader {
     storage: bool,
     controllers: Option<ControllerSink>,
     tools: Option<ToolsSink>,
+    display_read: bool,
+    display: Option<DisplaySink>,
+    /// A `display.snapshot` is being built.
+    snapshotting: Arc<AtomicBool>,
 }
 
 impl Reader {
+    /// Answers `display.snapshot` from its own thread: reading the show waits on the app's locks, and this thread must
+    /// keep reading the plugin's answers meanwhile (a controller starting while the plugin asks, say). One at a time.
+    fn snapshot(&self, id: Value, params: Value) {
+        if let Err(error) = snapshot_params(&params) {
+            let _ = self.writer.push(rpc::response(&id, Err(error)));
+            return;
+        }
+        if self.snapshotting.swap(true, Ordering::SeqCst) {
+            let busy = RpcError::new(rpc::INTERNAL_ERROR, "a display.snapshot is already being built; wait for its answer");
+            let _ = self.writer.push(rpc::response(&id, Err(busy)));
+            return;
+        }
+        let (sink, writer, busy) = (self.display.clone(), self.writer.clone(), self.snapshotting.clone());
+        let spawned = thread::Builder::new().name(format!("plugin-{}-snapshot", self.pid)).spawn(move || {
+            let answer = match sink {
+                Some(sink) => sink(&params),
+                None => Err(RpcError::new(rpc::INTERNAL_ERROR, "no show is open")),
+            };
+            let _ = writer.push(rpc::response(&id, answer));
+            busy.store(false, Ordering::SeqCst);
+        });
+        if spawned.is_err() {
+            self.snapshotting.store(false, Ordering::SeqCst);
+        }
+    }
+
     fn run(self, stdout: std::process::ChildStdout) {
         let mut reader = BufReader::new(stdout);
         loop {
@@ -520,6 +556,7 @@ impl Reader {
                         let _ = waiter.send(result);
                     }
                 }
+                Ok(Incoming::Request { id, method, params }) if method == "display.snapshot" && self.display_read => self.snapshot(id, params),
                 Ok(Incoming::Request { id, method, params }) => {
                     let answer = self.handle(&method, params);
                     // A full queue means the plugin isn't reading; the answer is dropped like any other message.
@@ -599,12 +636,29 @@ impl Reader {
                 Some(sink) => sink(method, &params),
                 None => Err(RpcError::new(rpc::METHOD_NOT_FOUND, format!("{method}: this plugin has no controller instances"))),
             },
-            method if LATER_METHODS.contains(&method) => {
-                Err(RpcError::new(rpc::METHOD_NOT_FOUND, format!("{method} is not available in this version of Vixen Studio")))
-            }
+            // With the permission it is answered by `snapshot`, off this thread.
+            "display.snapshot" => Err(RpcError::new(rpc::PERMISSION_DENIED, "display.snapshot needs \"display\": \"read\" in the manifest's permissions")),
             method => Err(RpcError::new(rpc::METHOD_NOT_FOUND, format!("unknown method {method}"))),
         }
     }
+}
+
+/// `display.snapshot` takes `{}` or the `elementOffset`/`patchOffset` a previous page answered with.
+fn snapshot_params(params: &Value) -> Result<(), RpcError> {
+    let object = match params {
+        Value::Null => return Ok(()),
+        Value::Object(object) => object,
+        _ => return Err(invalid("display.snapshot params must be an object")),
+    };
+    for (key, value) in object {
+        if key != "elementOffset" && key != "patchOffset" {
+            return Err(invalid(&format!("display.snapshot has no param {key}")));
+        }
+        if value.as_u64().is_none() {
+            return Err(invalid(&format!("{key} must be a non-negative integer")));
+        }
+    }
+    Ok(())
 }
 
 fn invalid(message: &str) -> RpcError {

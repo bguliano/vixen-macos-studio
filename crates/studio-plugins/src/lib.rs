@@ -29,7 +29,7 @@ pub mod semver;
 pub mod tools;
 pub mod ui;
 
-pub use host::{HostOptions, PluginHost, State};
+pub use host::{DisplaySource, HostOptions, PluginHost, State};
 pub use manifest::Manifest;
 
 use serde_json::{json, Value};
@@ -55,7 +55,7 @@ pub const HOST_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-studio");
 
 /// What `initialize` tells plugins this host can do; later stages turn the rest on.
 pub fn host_capabilities() -> Value {
-    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true})
+    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true})
 }
 
 /// `~/Library/Application Support/Vixen Studio/Plugins`, or `VIXEN_STUDIO_PLUGINS` when set (an absolute folder: UI tests

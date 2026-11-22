@@ -223,12 +223,18 @@ impl Slot {
     }
 }
 
+/// Builds the open show's read-only display view for `display.snapshot` (`PluginHost::set_display`).
+/// Gets the request's checked params (`elementOffset`/`patchOffset` or neither).
+pub type DisplaySource = Arc<dyn Fn(&Value) -> Result<Value, String> + Send + Sync>;
+
 pub(crate) struct Inner {
     options: HostOptions,
     registry: Mutex<Registry>,
     slots: Mutex<BTreeMap<String, Slot>>,
     muted: AtomicBool,
     profile: Mutex<Option<(String, String)>>,
+    /// The open show's read-only display view, for plugins' `display.snapshot`.
+    display: Mutex<Option<DisplaySource>>,
     stopping: AtomicBool,
     /// Started plugin controller instances by instance id, for routing a plugin's `controller.*` messages.
     instances: Mutex<HashMap<String, Weak<crate::controllers::Instance>>>,
@@ -261,6 +267,7 @@ impl PluginHost {
             slots: Mutex::new(BTreeMap::new()),
             muted: AtomicBool::new(true),
             profile: Mutex::new(None),
+            display: Mutex::new(None),
             stopping: AtomicBool::new(false),
             instances: Mutex::new(HashMap::new()),
         });
@@ -520,6 +527,12 @@ impl PluginHost {
     /// The open profile, passed to plugins started from now on.
     pub fn set_profile(&self, profile: Option<(String, String)>) {
         *self.inner.profile.lock().unwrap_or_else(|p| p.into_inner()) = profile;
+    }
+
+    /// What answers `display.snapshot` for plugins with `"display": "read"`: the app installs one that reads the open
+    /// show (this crate can't see it), `None` when no show is open. Running plugins use the new one from their next call.
+    pub fn set_display(&self, display: Option<DisplaySource>) {
+        *self.inner.display.lock().unwrap_or_else(|p| p.into_inner()) = display;
     }
 
     fn running_with_event(&self, event: &str) -> Vec<Arc<PluginProcess>> {
@@ -816,7 +829,21 @@ fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
         Some(inner) => tools_changed(&inner, &plugin, generation, params),
         None => Err(RpcError::new(rpc::PLUGIN_EXITED, "the plugin host has stopped")),
     });
-    let spawned = PluginProcess::spawn(Launch { manifest: &manifest, dir: &dir, data_dir: &data_dir, logs: logs.clone(), controllers: Some(controllers), tools: Some(tools) });
+    let weak = Arc::downgrade(inner);
+    let display: crate::process::DisplaySink = Arc::new(move |params: &Value| {
+        let source = weak.upgrade().and_then(|inner| inner.display.lock().unwrap_or_else(|p| p.into_inner()).clone());
+        let source = source.ok_or_else(|| RpcError::new(rpc::INTERNAL_ERROR, "no show is open"))?;
+        source(params).map_err(|why| RpcError::new(rpc::INTERNAL_ERROR, why))
+    });
+    let spawned = PluginProcess::spawn(Launch {
+        manifest: &manifest,
+        dir: &dir,
+        data_dir: &data_dir,
+        logs: logs.clone(),
+        controllers: Some(controllers),
+        tools: Some(tools),
+        display: Some(display),
+    });
     let process = match spawned {
         Ok(process) => process,
         Err(why) => {
