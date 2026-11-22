@@ -20,6 +20,11 @@ What P1 settled, beyond the design below:
 - **Layout.** `Plugins/registry.json`, installed plugins in `Plugins/<id>/<version>/`, each plugin's `pluginDataDir` in
   `Plugins/data/<id>/`, logs in `Plugins/logs/<id>.log` (rotated at 1 MiB, one `.log.1` kept; the last 2,000 entries
   stay in memory). All 0700/0600. A damaged `registry.json` is moved aside and an empty one started.
+- **One owner per folder.** The app and a headless `vixen-studio-mcp` (another profile) can open the same folder. The
+  first host to take `Plugins/.lock` (`flock`, holding its pid) owns it: only it writes `registry.json` and starts
+  plugins. Any other host lists the plugins read-only (`readOnly`, `ownerPid` in `plugin_list`), re-reads the
+  registry on refresh, refuses start/enable/install/link/reload with the owner's pid, and takes over within a second
+  of the owner quitting, starting the enabled plugins if it had been asked to. Plugins never inherit the lock.
 - **Nothing runs uninvited.** A plugin folder found on disk without a registry entry is listed as `disabled`. Opening the
   host starts nothing; `start_enabled` (the app, once wired in P4) or an explicit enable/link/reload does.
 - **Clean environment.** A plugin gets only `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin`),

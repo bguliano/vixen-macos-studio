@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! Plugins/                      (0700)
+//!   .lock                       held (flock) by the one process that runs plugins; holds its pid
 //!   registry.json               {"version":1,"plugins":{"<id>":{"enabled","source":"installed"|"dev","version"?,"path"?,"sha256"?}}}
 //!   <id>/<version>/vixen-plugin.json   installed plugins
 //!   data/<id>/                  each plugin's pluginDataDir
@@ -10,15 +11,21 @@
 //!
 //! A plugin folder found on disk without a registry entry is listed but disabled: only an install (which shows the
 //! permissions) or the user enables it.
+//!
+//! The app and a headless `vixen-studio-mcp` can both open this folder. The first to take `.lock` owns it: only the
+//! owner writes `registry.json` and starts plugins. Any other opener is read-only and re-reads the registry from disk;
+//! it takes over once the owner exits (the kernel drops the lock with the process).
 use crate::manifest::{valid_plugin_id, Manifest};
 use crate::semver::Version;
 use serde_json::{json, Map, Value};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::os::fd::AsRawFd;
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 pub const REGISTRY_FILE: &str = "registry.json";
+pub const LOCK_FILE: &str = ".lock";
 const MAX_REGISTRY_BYTES: u64 = 4 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -63,6 +70,8 @@ pub struct Registry {
     records: Map<String, Value>,
     /// A note for the host log, e.g. that a damaged registry was set aside.
     pub warning: Option<String>,
+    /// `Plugins/.lock`, flocked while this registry owns the folder. `None` means another process owns it.
+    lock: Option<fs::File>,
 }
 
 /// Creates `dir` (and parents) and makes it 0700, refusing a symlink in its place.
@@ -117,29 +126,61 @@ pub fn read_json(path: &Path, max: u64) -> Result<Option<Value>, String> {
 impl Registry {
     pub fn open(root: &Path) -> Result<Registry, String> {
         private_dir(root)?;
-        let path = root.join(REGISTRY_FILE);
-        let mut warning = None;
-        let records = match read_json(&path, MAX_REGISTRY_BYTES) {
-            Ok(None) => Map::new(),
-            Ok(Some(value)) => match value.get("plugins").and_then(Value::as_object) {
-                Some(plugins) => plugins.clone(),
-                None => {
-                    warning = set_aside(&path, "has no \"plugins\" object");
-                    Map::new()
-                }
-            },
-            Err(why) => {
-                warning = set_aside(&path, &why);
-                Map::new()
-            }
-        };
-        // Ids become folder and file names: an entry that isn't a valid id (say "../x") is ignored.
-        let records = records.into_iter().filter(|(id, value)| valid_plugin_id(id) && value.is_object()).collect();
-        Ok(Registry { root: root.to_path_buf(), records, warning })
+        let lock = try_lock(root)?;
+        let (records, warning) = load(root, lock.is_some());
+        Ok(Registry { root: root.to_path_buf(), records, warning, lock })
     }
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// Whether this process owns the plugin folder (writes the registry and runs plugins).
+    pub fn owns(&self) -> bool {
+        self.lock.is_some()
+    }
+
+    /// Takes the folder over when its owner has gone, reading the registry again. Returns whether this registry owns it
+    /// now; `Err` only for an unexpected lock failure.
+    pub fn try_own(&mut self) -> Result<bool, String> {
+        if self.lock.is_none() {
+            self.lock = try_lock(&self.root)?;
+            if self.lock.is_some() {
+                self.reload();
+            }
+        }
+        Ok(self.lock.is_some())
+    }
+
+    /// Gives up ownership, so another process can take over.
+    pub fn release(&mut self) {
+        self.lock = None;
+    }
+
+    /// Reads `registry.json` again, for a registry that doesn't own the folder and so doesn't see the owner's changes.
+    pub fn reload(&mut self) {
+        let (records, warning) = load(&self.root, self.lock.is_some());
+        self.records = records;
+        if warning.is_some() {
+            self.warning = warning;
+        }
+    }
+
+    /// The pid of the process that owns the folder: this one, or the one written into `.lock`.
+    pub fn owner_pid(&self) -> Option<u32> {
+        if self.lock.is_some() {
+            return Some(std::process::id());
+        }
+        let mut text = String::new();
+        let file = fs::OpenOptions::new().read(true).custom_flags(libc::O_NOFOLLOW).open(self.root.join(LOCK_FILE)).ok()?;
+        file.take(32).read_to_string(&mut text).ok()?;
+        text.trim().parse().ok()
+    }
+
+    /// Why a change can't be made here: another process owns the folder.
+    pub fn not_owner(&self) -> String {
+        let who = self.owner_pid().map(|pid| format!(" (pid {pid})")).unwrap_or_default();
+        format!("plugins are run by another Vixen Studio process{who}; make plugin changes there, or quit it first")
     }
 
     pub fn data_dir(&self, id: &str) -> PathBuf {
@@ -182,6 +223,10 @@ impl Registry {
     }
 
     fn save(&self) -> Result<(), String> {
+        // Only the lock holder writes, so two processes never overwrite each other's changes.
+        if self.lock.is_none() {
+            return Err(self.not_owner());
+        }
         let text = serde_json::to_vec_pretty(&json!({"version": 1, "plugins": self.records})).expect("JSON serializes");
         write_atomic(&self.root.join(REGISTRY_FILE), &text)
     }
@@ -296,6 +341,46 @@ fn set_aside(path: &Path, why: &str) -> Option<String> {
     Some(format!("plugin registry {why}; moved it to {} and started an empty one", aside.display()))
 }
 
+/// Reads the registry's records. Only the owner sets a damaged file aside; a reader just sees no plugins.
+fn load(root: &Path, owner: bool) -> (Map<String, Value>, Option<String>) {
+    let path = root.join(REGISTRY_FILE);
+    let damaged = |why: &str| if owner { set_aside(&path, why) } else { Some(format!("plugin registry {why}")) };
+    let (records, warning) = match read_json(&path, MAX_REGISTRY_BYTES) {
+        Ok(None) => (Map::new(), None),
+        Ok(Some(value)) => match value.get("plugins").and_then(Value::as_object) {
+            Some(plugins) => (plugins.clone(), None),
+            None => (Map::new(), damaged("has no \"plugins\" object")),
+        },
+        Err(why) => (Map::new(), damaged(&why)),
+    };
+    // Ids become folder and file names: an entry that isn't a valid id (say "../x") is ignored.
+    (records.into_iter().filter(|(id, value)| valid_plugin_id(id) && value.is_object()).collect(), warning)
+}
+
+/// Takes `root/.lock` without waiting and writes this pid into it. `Ok(None)` when another open file holds it.
+/// Rust opens files close-on-exec, so plugin processes never inherit (and so never keep) the lock.
+fn try_lock(root: &Path) -> Result<Option<fs::File>, String> {
+    let path = root.join(LOCK_FILE);
+    let mut file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(&path)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
+        let error = std::io::Error::last_os_error();
+        return match error.raw_os_error() {
+            Some(libc::EWOULDBLOCK) => Ok(None),
+            _ => Err(format!("{}: {error}", path.display())),
+        };
+    }
+    let _ = file.set_len(0).and_then(|_| file.write_all(std::process::id().to_string().as_bytes()));
+    Ok(Some(file))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -365,6 +450,32 @@ mod tests {
         fs::write(root.join(REGISTRY_FILE), registry.to_string()).unwrap();
         let found = Registry::open(&root).unwrap().discover();
         assert_eq!(found.iter().map(|f| f.id.as_str()).collect::<Vec<_>>(), ["com.example.ok"]);
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn only_the_first_opener_writes_and_the_next_takes_over_when_it_goes() {
+        let root = temp("registry-owner");
+        let mut first = Registry::open(&root).unwrap();
+        let mut second = Registry::open(&root).unwrap();
+        assert!(first.owns() && !second.owns());
+        assert_eq!(second.owner_pid(), Some(std::process::id()));
+        let refused = second.set_enabled("com.example.a", true).unwrap_err();
+        assert!(refused.contains("another Vixen Studio process"), "{refused}");
+        assert!(!root.join(REGISTRY_FILE).exists());
+        first.set_enabled("com.example.b", true).unwrap();
+        assert!(!second.try_own().unwrap());
+        second.reload();
+        assert!(second.record("com.example.b").unwrap().enabled);
+
+        first.release();
+        assert!(second.try_own().unwrap());
+        assert!(!first.try_own().unwrap());
+        second.set_enabled("com.example.c", true).unwrap();
+        drop(second);
+        assert!(first.try_own().unwrap());
+        assert!(first.record("com.example.b").is_some() && first.record("com.example.c").is_some());
+        assert!(first.record("com.example.a").is_none());
         fs::remove_dir_all(&root).unwrap();
     }
 

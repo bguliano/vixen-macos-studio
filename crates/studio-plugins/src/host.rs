@@ -1,5 +1,8 @@
 //! The plugin host: every known plugin's state, starting and stopping their processes, and a supervisor thread that
 //! notices exits, restarts with backoff and hot-reloads development folders.
+//!
+//! One process at a time runs a plugin folder's plugins (see [`crate::registry`]). A host that opens a folder another
+//! process owns lists its plugins read-only, refuses changes, and takes over when the owner exits.
 use crate::logs::{Level, LogBuffer, Source};
 use crate::manifest::Manifest;
 use crate::process::{Launch, PluginProcess};
@@ -236,6 +239,8 @@ pub(crate) struct Inner {
     /// The open show's read-only display view, for plugins' `display.snapshot`.
     display: Mutex<Option<DisplaySource>>,
     stopping: AtomicBool,
+    /// `start_enabled` was asked for: a read-only host does it once it takes the folder over.
+    wants_enabled: AtomicBool,
     /// Started plugin controller instances by instance id, for routing a plugin's `controller.*` messages.
     instances: Mutex<HashMap<String, Weak<crate::controllers::Instance>>>,
 }
@@ -269,6 +274,7 @@ impl PluginHost {
             profile: Mutex::new(None),
             display: Mutex::new(None),
             stopping: AtomicBool::new(false),
+            wants_enabled: AtomicBool::new(false),
             instances: Mutex::new(HashMap::new()),
         });
         let host = PluginHost { inner };
@@ -293,20 +299,10 @@ impl PluginHost {
     }
 
     /// Starts every enabled plugin that isn't running, each on its own thread. Returns the ids started.
+    /// A host that doesn't own the plugin folder starts none now, and starts them once it takes the folder over.
     pub fn start_enabled(&self) -> Vec<String> {
-        let ids: Vec<String> = self
-            .inner
-            .slots()
-            .values()
-            .filter(|s| s.runnable() && matches!(s.state, State::Stopped))
-            .map(|s| s.id.clone())
-            .collect();
-        for id in &ids {
-            let inner = self.inner.clone();
-            let id = id.clone();
-            let _ = thread::Builder::new().name(format!("plugin-start-{id}")).spawn(move || start(&inner, &id, false));
-        }
-        ids
+        self.inner.wants_enabled.store(true, Ordering::SeqCst);
+        start_enabled(&self.inner)
     }
 
     /// Starts one plugin and waits for its `initialize` answer.
@@ -323,12 +319,14 @@ impl PluginHost {
 
     /// Stops the plugin, reads its manifest again, forgets earlier crashes and starts it when enabled.
     pub fn reload(&self, id: &str) -> Result<Value, String> {
+        ensure_owner(&self.inner)?;
         reload(&self.inner, id)?;
         self.info(id)
     }
 
     /// Enables (and starts) or disables (and stops) a plugin, remembering the choice in the registry.
     pub fn set_enabled(&self, id: &str, enabled: bool) -> Result<Value, String> {
+        ensure_owner(&self.inner)?;
         if !self.inner.slots().contains_key(id) {
             return Err(unknown(id));
         }
@@ -346,6 +344,7 @@ impl PluginHost {
 
     /// Links a development folder and starts the plugin in it.
     pub fn link_dev(&self, folder: &Path) -> Result<Value, String> {
+        ensure_owner(&self.inner)?;
         let manifest = self.inner.registry().link_dev(folder)?;
         stop(&self.inner, &manifest.id).ok();
         self.refresh();
@@ -355,6 +354,7 @@ impl PluginHost {
     /// Installs a plugin folder or `.vixenplugin` package into `Plugins/<id>/<version>/`, enabled, and starts it. A start
     /// that fails leaves the plugin installed, with the reason as its `lastError`.
     pub fn install(&self, source: &Path) -> Result<Value, String> {
+        ensure_owner(&self.inner)?;
         let root = self.root();
         let staged = crate::install::stage(&root, source)?;
         let manifest = staged.manifest.clone().expect("stage reads the manifest");
@@ -447,6 +447,7 @@ impl PluginHost {
 
     /// Stops and removes an installed plugin's files and registry entry. Its data folder and log stay.
     pub fn uninstall(&self, id: &str) -> Result<Value, String> {
+        ensure_owner(&self.inner)?;
         let record = self.inner.registry().record(id);
         if record.as_ref().is_some_and(|r| r.source == PluginSource::Dev) {
             return Err(format!("{id} is a linked development folder; use plugin_unlink_dev"));
@@ -464,6 +465,7 @@ impl PluginHost {
 
     /// Removes a development link (the folder itself is left alone).
     pub fn unlink_dev(&self, id: &str) -> Result<(), String> {
+        ensure_owner(&self.inner)?;
         let is_dev = self.inner.registry().record(id).is_some_and(|r| r.source == PluginSource::Dev);
         if !is_dev {
             return Err(format!("{id} is not a linked development folder"));
@@ -474,15 +476,29 @@ impl PluginHost {
         Ok(())
     }
 
-    /// `{apiVersion, folder, muted, plugins: [...]}` for `plugin_list` and Settings ▸ Plugins.
+    /// `{apiVersion, folder, muted, plugins: [...]}` for `plugin_list` and Settings ▸ Plugins. When another process owns
+    /// the folder, also `readOnly: true`, `ownerPid` and `readOnlyReason`: the states shown are this process's, where
+    /// nothing runs.
     pub fn list(&self) -> Value {
         let plugins: Vec<Value> = self.inner.slots().values().map(|s| s.to_json(false)).collect();
-        json!({
+        let mut out = json!({
             "apiVersion": API_VERSION.to_string(),
             "folder": self.root().to_string_lossy(),
             "muted": self.inner.muted.load(Ordering::SeqCst),
             "plugins": plugins,
-        })
+        });
+        let registry = self.inner.registry();
+        if !registry.owns() {
+            out["readOnly"] = json!(true);
+            out["ownerPid"] = json!(registry.owner_pid());
+            out["readOnlyReason"] = json!(registry.not_owner());
+        }
+        out
+    }
+
+    /// Whether this process runs the plugin folder's plugins (another Vixen Studio process may own it instead).
+    pub fn owns_folder(&self) -> bool {
+        self.inner.registry().owns()
     }
 
     /// The engine's view of this host's controller types, for `vixen_output::modules::studio_external::register`.
@@ -634,6 +650,8 @@ impl PluginHost {
         for thread in threads {
             let _ = thread.join();
         }
+        // Every plugin has exited: another process may take the folder over now.
+        self.inner.registry().release();
     }
 }
 
@@ -729,7 +747,14 @@ fn live_instances(inner: &Inner) -> Vec<Arc<crate::controllers::Instance>> {
 }
 
 fn refresh(inner: &Inner) {
-    let found = inner.registry().discover();
+    let found = {
+        let mut registry = inner.registry();
+        // The owner's records are the file; a read-only host reads the owner's changes from disk.
+        if !registry.owns() {
+            registry.reload();
+        }
+        registry.discover()
+    };
     let mut gone = Vec::new();
     {
         let registry = inner.registry();
@@ -775,6 +800,50 @@ fn reload(inner: &Arc<Inner>, id: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn start_enabled(inner: &Arc<Inner>) -> Vec<String> {
+    if !inner.registry().owns() {
+        return Vec::new();
+    }
+    let ids: Vec<String> = inner.slots().values().filter(|s| s.runnable() && matches!(s.state, State::Stopped)).map(|s| s.id.clone()).collect();
+    for id in &ids {
+        let inner = inner.clone();
+        let id = id.clone();
+        let _ = thread::Builder::new().name(format!("plugin-start-{id}")).spawn(move || start(&inner, &id, false));
+    }
+    ids
+}
+
+/// `Ok` when this process owns the plugin folder, taking it over first if its owner has gone.
+fn ensure_owner(inner: &Arc<Inner>) -> Result<(), String> {
+    match take_over(inner) {
+        Ok(true) => Ok(()),
+        Ok(false) => Err(inner.registry().not_owner()),
+        Err(why) => Err(why),
+    }
+}
+
+/// Takes the plugin folder over when its owner has gone: reads the registry again and, if the app asked for it, starts
+/// the enabled plugins. Returns whether this process owns the folder.
+fn take_over(inner: &Arc<Inner>) -> Result<bool, String> {
+    {
+        let mut registry = inner.registry();
+        if registry.owns() {
+            return Ok(true);
+        }
+        if inner.stopping.load(Ordering::SeqCst) || !registry.try_own()? {
+            return Ok(false);
+        }
+    }
+    refresh(inner);
+    for slot in inner.slots().values() {
+        slot.logs.push(Level::Info, Source::Host, "the other Vixen Studio process that ran plugins has gone; this one runs them now");
+    }
+    if inner.wants_enabled.load(Ordering::SeqCst) {
+        start_enabled(inner);
+    }
+    Ok(true)
+}
+
 fn unknown(id: &str) -> String {
     format!("no plugin with id {id}")
 }
@@ -798,7 +867,13 @@ fn tools_changed(inner: &Inner, id: &str, generation: u64, params: &Value) -> Re
 /// Starts `id` unless it is already starting or running. `wait` reports the outcome; a background start only logs it.
 fn start(inner: &Arc<Inner>, id: &str, wait: bool) -> Result<(), String> {
     // The registry lock is always taken before the slots lock, never inside it.
-    let data_dir = inner.registry().data_dir(id);
+    let data_dir = {
+        let registry = inner.registry();
+        if !registry.owns() {
+            return Err(registry.not_owner());
+        }
+        registry.data_dir(id)
+    };
     let (generation, manifest, dir, logs) = {
         let mut slots = inner.slots();
         let slot = slots.get_mut(id).ok_or_else(|| unknown(id))?;
@@ -970,6 +1045,8 @@ fn supervise(weak: Weak<Inner>) {
         let mut due = Vec::new();
         let mut dev = Vec::new();
         let poll_dev = now.duration_since(last_dev_poll) >= inner.options.dev_poll;
+        // A read-only host runs nothing, so it has no development folders to watch.
+        let owns = inner.registry().owns();
         {
             let mut slots = inner.slots();
             for slot in slots.values_mut() {
@@ -985,7 +1062,7 @@ fn supervise(weak: Weak<Inner>) {
                     State::Restarting if slot.next_restart.is_some_and(|at| at <= now) => due.push(slot.id.clone()),
                     _ => {}
                 }
-                if poll_dev && slot.source == PluginSource::Dev && slot.enabled {
+                if poll_dev && owns && slot.source == PluginSource::Dev && slot.enabled {
                     dev.push((slot.id.clone(), slot.dir.clone()));
                 }
             }
@@ -996,6 +1073,9 @@ fn supervise(weak: Weak<Inner>) {
         for id in due {
             let inner = inner.clone();
             let _ = thread::Builder::new().name(format!("plugin-restart-{id}")).spawn(move || start(&inner, &id, false));
+        }
+        if poll_dev && !owns {
+            let _ = take_over(&inner);
         }
         if poll_dev {
             last_dev_poll = now;

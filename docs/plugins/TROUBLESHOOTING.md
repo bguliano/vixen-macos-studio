@@ -11,6 +11,7 @@ Studio.
 | `disabled` | Found on disk without a registry entry, or switched off. Turn it on in Settings ▸ Plugins, or link/install it. Nothing found on disk runs uninvited. |
 | `invalid` / manifest errors | `vixen-plugin.json` breaks a rule; each error names its path. Unknown fields are refused: check spelling. See [MANIFEST.md](MANIFEST.md). |
 | `incompatible` | `apiVersion` doesn't contain 1.0.0, or `initialize` answered another major version. Use `^1.0` and answer `"1.0.0"`. |
+| "plugins are run by another Vixen Studio process" | The app and a `vixen-studio-mcp` share one Plugins folder and only the first to open it runs plugins; the other is read-only (`readOnly` in `plugin_list`). Make the change in that process, or quit it: the other takes over within a second. |
 | `crashed` | Three restarts within 60 s. Read the log for why, fix it, then Reload (agents: `plugin_reload`), which forgets earlier crashes. |
 | "command not found" / "exits before answering" | `entry.command` isn't on the plugin's `PATH` (`/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin`; your shell's `PATH` doesn't apply), a path with `/` points outside the folder, or a Rust plugin wasn't built (`./build.sh`). Use an absolute path for interpreters elsewhere (`/Users/me/.pyenv/shims/python3`). |
 | "initialize timed out" | The program never answered: it is waiting for something, or printing its answer without a newline, or buffering stdout. Flush after each line (the SDKs do; Python plugins get `PYTHONUNBUFFERED=1`). |

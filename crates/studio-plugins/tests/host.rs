@@ -355,3 +355,41 @@ fn a_show_reports_the_plugins_it_needs() {
     let report = host.requirements(&profile).unwrap();
     assert_eq!(report["plugins"][1]["message"], json!("Needs plugin com.example.needed ^0.2.0 — version 0.1.0 is installed"));
 }
+
+#[test]
+fn a_second_host_on_the_same_folder_is_read_only_until_the_first_goes() {
+    let sandbox = Sandbox::new("twohosts");
+    let dir = sandbox.plugin("twohosts", &["normal"], json!({}));
+    let id = "com.example.twohosts";
+    let first = PluginHost::new(&sandbox.root(), options()).unwrap();
+    let pid = first.link_dev(&dir).unwrap()["pid"].as_u64().unwrap();
+    assert!(first.owns_folder() && first.list().get("readOnly").is_none());
+
+    let second = PluginHost::new(&sandbox.root(), options()).unwrap();
+    assert!(!second.owns_folder());
+    let list = second.list();
+    assert_eq!((list["readOnly"].clone(), list["ownerPid"].clone()), (json!(true), json!(std::process::id())));
+    assert_eq!(list["plugins"][0]["id"], json!(id), "it still lists the owner's plugins: {list}");
+    assert_eq!(list["plugins"][0]["enabled"], json!(true));
+    assert!(second.start_enabled().is_empty());
+    for refused in [second.start(id).unwrap_err(), second.set_enabled(id, false).unwrap_err(), second.reload(id).unwrap_err(), second.link_dev(&dir).unwrap_err()] {
+        assert!(refused.contains("another Vixen Studio process"), "{refused}");
+    }
+    assert_eq!(second.state(id), Some(State::Stopped));
+    let registry = std::fs::read_to_string(sandbox.root().join("registry.json")).unwrap();
+    assert!(registry.contains("\"enabled\": true"), "the second host changed nothing: {registry}");
+
+    // The owner's later changes reach the reader.
+    first.set_enabled(id, false).unwrap();
+    assert!(!alive(pid));
+    second.refresh();
+    assert_eq!(second.list()["plugins"][0]["enabled"], json!(false));
+    first.set_enabled(id, true).unwrap();
+
+    // The owner quits: the second host takes over and starts the enabled plugin it was asked to start.
+    drop(first);
+    wait_until("the second host to take over", || second.owns_folder());
+    wait_until("the plugin to start in the second host", || second.state(id) == Some(State::Running));
+    assert!(second.list().get("readOnly").is_none());
+    wait_for_log(&second, id, "this one runs them now");
+}
