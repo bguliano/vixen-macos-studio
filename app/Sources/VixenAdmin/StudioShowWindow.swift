@@ -46,6 +46,11 @@ struct StudioShowWindow: View {
             sidebar
         } detail: {
             detail
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    if !StudioPluginsModel.shared.missing.isEmpty {
+                        StudioPluginBanner(missing: StudioPluginsModel.shared.missing)
+                    }
+                }
         }
         .navigationTitle(admin.profileName ?? "Vixen Studio")
         .navigationSubtitle(admin.version.versionName)
@@ -80,6 +85,11 @@ struct StudioShowWindow: View {
                     return (true, nil)
                 }
                 UITestHarness.customActions["studioSectionNow"] = { _ in (true, selection.rawValue) }
+                // The plugins the missing-plugin banner names, or "none" while it's hidden.
+                UITestHarness.customActions["studioPluginBanner"] = { _ in
+                    let missing = StudioPluginsModel.shared.missing
+                    return (true, missing.isEmpty ? "none" : missing.map { $0.message ?? $0.id }.joined(separator: " | "))
+                }
                 // `{ "action": "studioLiveOutput", "name": "on" }`: the toolbar toggle, for frames where finding its text fails.
                 UITestHarness.customActions["studioLiveOutput"] = { step in
                     step.name == "on" ? admin.startExecution() : admin.stopExecution()
@@ -91,6 +101,15 @@ struct StudioShowWindow: View {
         .task(id: admin.startupFinished) {
             await library.reload(admin: admin)
             if admin.startupFinished, let core = admin.app.core { agents.observe(core: core) }
+        }
+        // The plugin host follows the open show and Live Output, and the banner and Plugins menu follow the host.
+        .task(id: admin.startupFinished) {
+            guard admin.startupFinished, let core = admin.app.core else { return }
+            while !Task.isCancelled {
+                await StudioPluginsModel.shared.sync(core: core)
+                await StudioPluginsModel.shared.refresh()
+                try? await Task.sleep(for: .seconds(3))
+            }
         }
         .onChange(of: agents.revision) { Task { await library.reload(admin: admin) } }
         .onChange(of: admin.recent.map(\.path)) { Task { await library.reload(admin: admin) } }

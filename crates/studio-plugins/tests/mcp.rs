@@ -326,3 +326,59 @@ fn resources_serve_the_api_schemas_examples_and_manifests() {
     assert!(mcp::read_resource(&host, "studio://contract").is_none());
     assert!(mcp::prompt(Some("a UDP lamp")).contains("plugin_scaffold"));
 }
+
+#[test]
+fn contributed_commands_list_with_their_tools_and_run_them() {
+    let sandbox = Sandbox::new("commands");
+    let contributes = json!({
+        "tools": [{"name": "echo", "description": "Echo the arguments."}],
+        "commands": [{"id": "say", "title": "Say Hello…", "tool": "echo"}],
+    });
+    let dir = sandbox.plugin("lamp-commands", &[], contributes);
+    let host = sandbox.host();
+    host.link_dev(&dir).unwrap();
+    let commands = host.commands();
+    assert_eq!(
+        commands,
+        json!([{"pluginId": "com.example.lamp-commands", "pluginName": "Fixture lamp-commands", "id": "say", "title": "Say Hello…", "tool": "plugin__lamp_commands__echo", "enabled": true}])
+    );
+    host.stop("com.example.lamp-commands").unwrap();
+    let answer = host.run_command("com.example.lamp-commands", "say").unwrap();
+    assert_eq!(answer, json!({"content": [{"type": "text", "text": "{}"}], "isError": false}));
+    assert!(host.run_command("com.example.lamp-commands", "nope").unwrap_err().contains("no command nope"));
+
+    // A disabled plugin's commands stay listed, switched off, and don't run.
+    host.set_enabled("com.example.lamp-commands", false).unwrap();
+    assert_eq!(host.commands()[0]["enabled"], json!(false));
+    assert!(host.run_command("com.example.lamp-commands", "say").unwrap_err().contains("isn't enabled"));
+}
+
+#[test]
+fn a_package_is_inspected_without_installing_it() {
+    let sandbox = Sandbox::new("inspect");
+    let host = sandbox.host();
+    let manifest = json!({
+        "id": "com.example.peek", "name": "Peek", "version": "2.0.0", "apiVersion": "^1.0", "author": "Someone",
+        "entry": {"command": FIXTURE},
+        "permissions": {"network": ["udp:lan"], "files": ["plugin-data"]},
+    })
+    .to_string();
+    let path = sandbox.base.join("peek.vixenplugin");
+    package(&path, &[("vixen-plugin.json", manifest.as_bytes(), 0o644)]);
+    let summary = host.inspect_package(&path).unwrap();
+    assert_eq!(summary["id"], json!("com.example.peek"));
+    assert_eq!(summary["author"], json!("Someone"));
+    assert_eq!(summary["permissions"], json!(["Send and receive UDP on your local network", "Keep its own settings in its data folder"]));
+    assert_eq!(summary["installedVersion"], Value::Null);
+    assert!(summary.get("problem").is_none());
+    assert_eq!(summary["sha256"].as_str().unwrap().len(), 64);
+    // Nothing was installed or left behind.
+    assert!(host.list()["plugins"].as_array().unwrap().is_empty());
+    let leftovers: Vec<_> = std::fs::read_dir(sandbox.root()).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().starts_with(".install")).collect();
+    assert!(leftovers.is_empty());
+
+    let newer = json!({"id": "com.example.peek", "name": "Peek", "version": "2.0.0", "apiVersion": "^2.0", "entry": {"command": FIXTURE}}).to_string();
+    let path = sandbox.base.join("peek2.vixenplugin");
+    package(&path, &[("vixen-plugin.json", newer.as_bytes(), 0o644)]);
+    assert!(host.inspect_package(&path).unwrap()["problem"].as_str().unwrap().contains("needs plugin API ^2.0"));
+}

@@ -1,4 +1,5 @@
 import SwiftUI
+import VixenBridge // STUDIO: the plugin host's shutdown
 import VixenKit
 
 #if canImport(VixenAdmin)
@@ -46,6 +47,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         AppHooks.openFiles?(urls)
     }
+
+    // STUDIO-BEGIN plugins-shutdown: stop every plugin process when Studio quits
+    func applicationWillTerminate(_ notification: Notification) {
+        studioPluginsShutdown()
+    }
+    // STUDIO-END plugins-shutdown
 }
 
 /// Puts the app together from whichever area modules this build has. Each area's module exports a scene named after it.
@@ -69,6 +76,7 @@ struct VixenMacApp: App {
         // STUDIO-BEGIN command-palette: View ▸ Command Palette… (⌘K) over every menu command, in every window
         AdministrationScene(model: model)
             .commands { StudioCommandPaletteCommands() }
+            .commands { StudioPluginsCommands() }
         // STUDIO-END command-palette
         #endif
         #if canImport(VixenSetup)

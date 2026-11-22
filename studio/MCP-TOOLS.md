@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-145 tools, generated from the tested bridge tools/list result. No placeholder tools. Plugin-contributed tools (`plugin__<short-id>__<tool>`) are listed at runtime from the installed plugins.
+146 tools, generated from the tested bridge tools/list result. No placeholder tools. Plugin-contributed tools (`plugin__<short-id>__<tool>`) are listed at runtime from the installed plugins.
 
 | Tool | Read only | Description |
 |---|---|---|
@@ -149,3 +149,4 @@
 | plugin_unlink_dev | false | Stop a linked development plugin and remove the link; the folder is left alone. Needs confirm:true and the local setting Allow agents to manage plugins (Settings ▸ Plugins), which only the person at this Mac can turn on and which is off at every launch. |
 | plugin_reload | false | Stop a plugin, read its manifest again, forget earlier crashes and start it when enabled. Needs confirm:true and the local setting Allow agents to manage plugins (Settings ▸ Plugins), which only the person at this Mac can turn on and which is off at every launch. |
 | plugin_send_test_frame | false | Drive one plugin controller with a commissioning test pattern, like output_test_pattern on that controller: pattern movingPixel (default; one output at a time, stepMs each), colorBars or allOn, at brightnessPct, for durationMs or until output_test_stop. Same gating: the local Allow agents to control live output setting, Live Output on (the controller running) and confirm:true. Muted Studio sends nothing. |
+| plugin_required | true | The plugins this show's controllers need (its SystemData/StudioPlugins.json, rewritten on every save) and whether each is ready: id, versionRange, installedVersion, state, satisfied and, when not, message ("Needs plugin … — not installed"). The show window shows a banner while any isn't satisfied. |

@@ -172,6 +172,7 @@ impl Server {
                 tools.push(vixen_session::studio_palette::tool());
                 tools.extend(studio_plugins::mcp::tools());
                 tools.push(send_test_frame_tool());
+                tools.push(required_tool());
                 let plugin_tools = self.plugin_tools();
                 tools.extend(plugin_tools.iter().cloned());
                 self.listed_plugin_tools = Some(plugin_tools);
@@ -263,7 +264,7 @@ impl Server {
     /// `tools/call` for the plugin developer tools, `plugin_send_test_frame` and plugin-contributed tools; `None` for
     /// any other tool.
     fn call_plugin_tool(&mut self, name: &str, p: &Value) -> Option<Value> {
-        let known = studio_plugins::mcp::is_tool(name) || name == "plugin_send_test_frame" || name.starts_with(studio_plugins::tools::PREFIX);
+        let known = studio_plugins::mcp::is_tool(name) || name == "plugin_send_test_frame" || name == "plugin_required" || name.starts_with(studio_plugins::tools::PREFIX);
         if !known {
             return None;
         }
@@ -274,6 +275,7 @@ impl Server {
         let outcome = match self.plugin_host() {
             Err(why) => Err(format!("The plugin folder can't be opened: {why}")),
             Ok(host) if name.starts_with(studio_plugins::tools::PREFIX) => host.call_tool(name, args),
+            Ok(host) if name == "plugin_required" => host.requirements(&self.root).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
             Ok(_) if name == "plugin_send_test_frame" => self.send_test_frame(&args).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
             Ok(host) => {
                 let context = studio_plugins::mcp::Context { live_output_allowed: self.core.as_ref().is_some_and(|c| vixen_session::studio_live::allowed(c)) };
@@ -438,6 +440,11 @@ impl Server {
         )
     }
 }
+/// What the show window's missing-plugin banner reads.
+fn required_tool() -> Value {
+    json!({"name":"plugin_required","description":"The plugins this show's controllers need (its SystemData/StudioPlugins.json, rewritten on every save) and whether each is ready: id, versionRange, installedVersion, state, satisfied and, when not, message (\"Needs plugin … — not installed\"). The show window shows a banner while any isn't satisfied.","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+}
+
 fn send_test_frame_tool() -> Value {
     json!({"name":"plugin_send_test_frame","description":"Drive one plugin controller with a commissioning test pattern, like output_test_pattern on that controller: pattern movingPixel (default; one output at a time, stepMs each), colorBars or allOn, at brightnessPct, for durationMs or until output_test_stop. Same gating: the local Allow agents to control live output setting, Live Output on (the controller running) and confirm:true. Muted Studio sends nothing.","inputSchema":{"type":"object","properties":{"controllerId":{"type":"string"},"pattern":{"enum":["movingPixel","colorBars","allOn"]},"brightnessPct":{"type":"integer","minimum":1,"maximum":100},"stepMs":{"type":"integer","minimum":vixen_session::studio_commission::STEP_RANGE_MS.0,"maximum":vixen_session::studio_commission::STEP_RANGE_MS.1},"durationMs":{"type":"integer","minimum":25,"maximum":vixen_session::studio_commission::MAX_DURATION_MS},"confirm":{"type":"boolean"}},"required":["controllerId","confirm"],"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":true,"openWorldHint":true}})
 }

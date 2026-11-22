@@ -1,7 +1,7 @@
 //! Studio: the plugin host for Settings ▸ Plugins (`studio/PLUGINS-DESIGN.md`). One host per app process, opened on
 //! first use at `~/Library/Application Support/Vixen Studio/Plugins`; nothing starts until `studio_plugins_start_enabled`.
 //! Every call returns the JSON the matching MCP tool will return.
-use crate::core::FfiError;
+use crate::core::{FfiError, VixenCore};
 use std::path::Path;
 use studio_plugins::logs::Level;
 
@@ -111,4 +111,63 @@ pub fn studio_plugin_uninstall(id: String) -> Result<String, FfiError> {
 #[uniffi::export]
 pub fn studio_plugins_shutdown() {
     studio_plugins::shutdown_shared();
+}
+
+/// The inspector form for a plugin controller type's `configSchema` (JSON), as `studio_plugins::ui::form` describes it.
+#[uniffi::export]
+pub fn studio_plugin_config_form(schema: String) -> String {
+    let schema: serde_json::Value = serde_json::from_str(&schema).unwrap_or(serde_json::Value::Null);
+    studio_plugins::ui::form(&schema).to_string()
+}
+
+/// Every problem with `config` against `schema` (both JSON), as `[{field, message}]`: the inspector's live check, the
+/// same one `controller_configure` makes before it applies a configuration.
+#[uniffi::export]
+pub fn studio_plugin_check_config(schema: String, config: String) -> String {
+    let parse = |text: &str| serde_json::from_str::<serde_json::Value>(text);
+    match (parse(&schema), parse(&config)) {
+        (Ok(schema), Ok(config)) => serde_json::Value::Array(studio_plugins::schema::validate(&schema, &config).iter().map(|e| e.to_json()).collect()).to_string(),
+        _ => serde_json::json!([{"field": "/", "message": "isn't valid JSON"}]).to_string(),
+    }
+}
+
+/// What installing a folder or `.vixenplugin` (absolute path) would install, without installing it: for the install
+/// sheet's permissions. Nothing is kept.
+#[uniffi::export]
+pub fn studio_plugin_inspect_package(path: String) -> Result<String, FfiError> {
+    host()?.inspect_package(Path::new(&path)).map(|v| v.to_string()).map_err(FfiError::new)
+}
+
+/// The commands plugins contribute to the Plugins menu and ⌘K: `[{pluginId, pluginName, id, title, tool, enabled}]`.
+#[uniffi::export]
+pub fn studio_plugin_commands() -> Result<String, FfiError> {
+    host()?.refresh();
+    Ok(host()?.commands().to_string())
+}
+
+/// Runs a contributed command (its tool, no arguments), starting the plugin if needed: `{content, isError}`. Blocks up to
+/// the tool timeout, so call it off the main actor.
+#[uniffi::export]
+pub fn studio_plugin_run_command(plugin_id: String, command_id: String) -> Result<String, FfiError> {
+    host()?.run_command(&plugin_id, &command_id).map(|v| v.to_string()).map_err(FfiError::new)
+}
+
+#[uniffi::export]
+impl VixenCore {
+    /// Keeps the plugin host in step with the open show, called by the show window when it appears and on its poll: tells
+    /// it the profile and whether real output may flow (Live Output on and Studio not muted), starts the enabled plugins
+    /// the first time, and returns `studio_plugins_required` for the show (the missing-plugin banner).
+    pub fn studio_plugins_sync(&self) -> Result<String, FfiError> {
+        static STARTED: std::sync::Once = std::sync::Once::new();
+        let host = host()?;
+        let root = self.inner.paths.root().to_path_buf();
+        let name = self.inner.profile_name().unwrap_or_else(|| root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default());
+        host.set_profile(Some((name, root.to_string_lossy().into_owned())));
+        let muted_by_launch = std::env::var_os("VIXEN_MUTE").is_some() || std::env::var_os("VIXEN_UI_TEST").is_some();
+        host.set_muted(muted_by_launch || !self.inner.execution().is_open());
+        STARTED.call_once(|| {
+            host.start_enabled();
+        });
+        host.requirements(&root).map(|v| v.to_string()).map_err(FfiError::new)
+    }
 }

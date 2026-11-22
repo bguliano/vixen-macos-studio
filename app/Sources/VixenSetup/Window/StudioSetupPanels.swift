@@ -182,6 +182,8 @@ struct StudioControllersPanel: View {
     var section = false
     /// The single selected controller is E1.31 or DDP, so the network inspector edits it.
     @State private var networkController = false
+    /// The single selected controller belongs to a plugin, so the plugin inspector edits its settings.
+    @State private var pluginController = false
 
     var body: some View {
         let panel = model.controllerPanel
@@ -189,18 +191,13 @@ struct StudioControllersPanel: View {
             if !section {
                 StudioColumnHeader(title: "Controllers") {
                     Menu {
-                        ForEach(model.controllerTypes, id: \.id) { type in
-                            Button(type.name) {
-                                model.controllerTypeID = type.id
-                                Task { await model.addController() }
-                            }
-                        }
+                        StudioAddControllerMenuItems(model: model)
                     } label: {
                         Label("Add", systemImage: "plus")
                             .labelStyle(.titleAndIcon)
                     }
                     .fixedSize()
-                    .help("Add a controller such as E1.31 (sACN), DDP or a serial device")
+                    .help("Add a controller such as E1.31 (sACN), DDP, a serial device or a plugin's type")
                     .disabled(model.studioEditingPaused)
                 }
                 ControllerOutline(model: model)
@@ -218,6 +215,10 @@ struct StudioControllersPanel: View {
                 VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
                     if panel.oneController && networkController {
                         StudioControllerNetworkInspector(model: model)
+                        Divider()
+                    }
+                    if panel.oneController && pluginController {
+                        StudioPluginControllerInspector(model: model)
                         Divider()
                     }
                     // The network inspector already shows the protocol and outputs.
@@ -245,8 +246,10 @@ struct StudioControllersPanel: View {
                             StudioActionButton(title: "Advanced…", symbol: "gearshape", enabled: panel.oneController,
                                                help: "Multicast, a universe table set by hand, priority and other settings") { Task { await model.configureController() } }
                         } else {
-                            StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
-                                               help: "Network address, universes and other settings") { Task { await model.configureController() } }
+                            if !pluginController {
+                                StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
+                                                   help: "Network address, universes and other settings") { Task { await model.configureController() } }
+                            }
                             StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
                                                help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
                         }
@@ -301,6 +304,7 @@ struct StudioControllersPanel: View {
         .padding(StudioMetrics.spacingM)
         .task(id: model.controllerPanel) {
             networkController = await model.studioSelectedNetworkController()
+            pluginController = await model.studioSelectedPluginController()
         }
     }
 

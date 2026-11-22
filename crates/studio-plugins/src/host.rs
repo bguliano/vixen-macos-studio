@@ -209,6 +209,7 @@ impl Slot {
                     "display": manifest.permissions.display,
                     "serial": manifest.permissions.serial,
                 });
+                out["permissionText"] = json!(crate::ui::permission_sentences(&manifest.permissions));
             }
             out["negotiatedApiVersion"] = json!(self.plugin_api_version);
             out["capabilities"] = self.capabilities.clone();
@@ -372,6 +373,65 @@ impl PluginHost {
             info["startError"] = json!(why);
         }
         Ok(info)
+    }
+
+    /// What installing `source` would install, without installing it: the install sheet's name, version, description,
+    /// permissions in words and size ([`crate::ui::package_summary`]), plus `problem` when it can't be installed.
+    pub fn inspect_package(&self, source: &Path) -> Result<Value, String> {
+        let staged = crate::install::stage(&self.root(), source)?;
+        let manifest = staged.manifest.clone().expect("stage reads the manifest");
+        let mut out = crate::ui::package_summary(&manifest, staged.files, staged.bytes, staged.sha256.as_deref());
+        let installed = crate::host::plugin_version(&self.inner, &manifest.id);
+        out["installedVersion"] = json!(installed.map(|v| v.to_string()));
+        if !manifest.api_version.matches(&API_VERSION) {
+            out["problem"] = json!(format!("It needs plugin API {}; this Vixen Studio has {API_VERSION}", manifest.api_version.as_str()));
+        } else if self.inner.registry().record(&manifest.id).is_some_and(|r| r.source == PluginSource::Dev) {
+            out["problem"] = json!("It is linked as a development folder; unlink it first");
+        }
+        Ok(out)
+    }
+
+    /// The commands plugins contribute (Plugins menu, ⌘K): `[{pluginId, pluginName, id, title, tool, enabled}]`, plugins
+    /// in name order. `tool` is the MCP name of the plugin tool the command runs; `enabled` is false when that tool
+    /// can't be called now (plugin disabled, crashed or invalid, or the tool isn't offered).
+    pub fn commands(&self) -> Value {
+        let tools = self.contributed_tools();
+        let slots = self.inner.slots();
+        let mut plugins: Vec<&Slot> = slots.values().filter(|s| s.manifest.as_ref().is_some_and(|m| !m.commands.is_empty())).collect();
+        plugins.sort_by(|a, b| {
+            let name = |s: &Slot| s.manifest.as_ref().map(|m| m.name.to_lowercase()).unwrap_or_default();
+            name(a).cmp(&name(b)).then(a.id.cmp(&b.id))
+        });
+        let mut out = Vec::new();
+        for slot in plugins {
+            let manifest = slot.manifest.as_ref().expect("filtered");
+            for command in &manifest.commands {
+                let tool = tools.iter().find(|t| t.plugin_id == manifest.id && t.name == command.tool);
+                out.push(json!({
+                    "pluginId": manifest.id,
+                    "pluginName": manifest.name,
+                    "id": command.id,
+                    "title": command.title,
+                    "tool": tool.map(|t| t.mcp_name.clone()),
+                    "enabled": tool.is_some(),
+                }));
+            }
+        }
+        Value::Array(out)
+    }
+
+    /// Runs a contributed command: calls its tool with no arguments, starting the plugin if needed. Returns the tool's
+    /// answer `{content, isError}`.
+    pub fn run_command(&self, plugin_id: &str, command_id: &str) -> Result<Value, String> {
+        let commands = self.commands();
+        let command = commands
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["pluginId"] == plugin_id && c["id"] == command_id)
+            .ok_or_else(|| format!("{plugin_id} has no command {command_id}"))?;
+        let tool = command["tool"].as_str().ok_or_else(|| format!("{} can't run now: {plugin_id} isn't enabled and running", command["title"].as_str().unwrap_or(command_id)))?;
+        self.call_tool(tool, json!({}))
     }
 
     /// Stops and removes an installed plugin's files and registry entry. Its data folder and log stay.

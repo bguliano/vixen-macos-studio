@@ -65,18 +65,13 @@ struct StudioControllersSection: View {
             }
             Spacer(minLength: StudioMetrics.spacingS)
             Menu {
-                ForEach(model.controllerTypes, id: \.id) { type in
-                    Button(type.name) {
-                        model.controllerTypeID = type.id
-                        Task { await model.addController() }
-                    }
-                }
+                StudioAddControllerMenuItems(model: model)
             } label: {
                 Label("Add", systemImage: "plus")
                     .labelStyle(.titleAndIcon)
             }
             .fixedSize()
-            .help("Add a controller such as E1.31 (sACN), DDP or a serial device")
+            .help("Add a controller such as E1.31 (sACN), DDP, a serial device or a plugin's type")
             .disabled(model.studioEditingPaused)
         }
     }

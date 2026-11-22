@@ -33,7 +33,7 @@
  },
  "block:command-palette": {
   "file": "app/Sources/VixenApp/VixenApp.swift",
-  "hash": "4068e4b09abec6a6"
+  "hash": "67d18e2bcf22b9c2"
  },
  "block:commissioning-tests": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
@@ -398,6 +398,10 @@
  "block:plugins-module-counters": {
   "file": "crates/vixen-output/src/modules/mod.rs",
   "hash": "79bdd3fb6c196349"
+ },
+ "block:plugins-shutdown": {
+  "file": "app/Sources/VixenApp/VixenApp.swift",
+  "hash": "857d07c643198b8f"
  },
  "block:plugins-store-config": {
   "file": "crates/vixen-session/src/dialogs/store.rs",
@@ -766,6 +770,10 @@
  "line:app/Sources/VixenAdmin/SmallWindows.swift:8f1f7c3c23bd229a": {
   "file": "app/Sources/VixenAdmin/SmallWindows.swift",
   "hash": "8f1f7c3c23bd229a"
+ },
+ "line:app/Sources/VixenApp/VixenApp.swift:233796539a6cd025": {
+  "file": "app/Sources/VixenApp/VixenApp.swift",
+  "hash": "233796539a6cd025"
  },
  "line:app/Sources/VixenDialogs/Common.swift:0b4f7b1e6b58b7fd": {
   "file": "app/Sources/VixenDialogs/Common.swift",
@@ -1522,6 +1530,10 @@
  "line:app/Sources/VixenSetup/Window/SetupModel.swift:7d79b4f49096c8c0": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
   "hash": "7d79b4f49096c8c0"
+ },
+ "line:app/Sources/VixenSetup/Window/SetupModel.swift:7fa2e88ba2a980bf": {
+  "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
+  "hash": "7fa2e88ba2a980bf"
  },
  "line:app/Sources/VixenSetup/Window/SetupModel.swift:8bc1fb4f24f9a262": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",

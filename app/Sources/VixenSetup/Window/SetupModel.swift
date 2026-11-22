@@ -69,7 +69,7 @@ final class SetupModel {
     private(set) var summary = SetupPatchSummary.none
 
     // Controllers panel.
-    let controllerTypes = setupControllerTypes()
+    var controllerTypes: [SetupModuleType] { setupControllerTypes() } // STUDIO: read each time, so plugin types installed later can be added
     var controllerTypeID = setupControllerTypes().first?.id ?? ""
     private(set) var controllerPanel = SetupControllerPanelState.none
 

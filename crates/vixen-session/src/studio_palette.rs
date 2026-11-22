@@ -13,6 +13,8 @@ pub struct Entry {
     pub shortcut: String,
     pub enabled: bool,
     pub checked: bool,
+    /// The MCP tool the app says this command runs (a plugin's contributed command), when it isn't one of [`agent_tool`]'s.
+    pub tool: Option<String>,
 }
 
 impl Entry {
@@ -27,7 +29,7 @@ impl Entry {
     }
 }
 
-/// Entries from JSON `[{path:[..], shortcut, enabled, checked}]`. At most 5,000 entries of at most 8 levels.
+/// Entries from JSON `[{path:[..], shortcut, enabled, checked, tool?}]`. At most 5,000 entries of at most 8 levels.
 pub fn parse_entries(value: &Value) -> Result<Vec<Entry>, String> {
     let list = value.as_array().ok_or("entries must be an array")?;
     if list.len() > 5_000 {
@@ -49,6 +51,7 @@ pub fn parse_entries(value: &Value) -> Result<Vec<Entry>, String> {
                 shortcut: e["shortcut"].as_str().unwrap_or("").chars().take(20).collect(),
                 enabled: e["enabled"].as_bool().unwrap_or(true),
                 checked: e["checked"].as_bool().unwrap_or(false),
+                tool: e["tool"].as_str().filter(|t| !t.is_empty() && t.len() <= 64).map(str::to_string),
             })
         })
         .collect()
@@ -237,7 +240,7 @@ pub fn search(entries: &[Entry], query: &str, window: &str, limit: usize) -> Vec
             if let Some(r) = reason(e, window) {
                 v["reason"] = json!(r);
             }
-            if let Some(t) = agent_tool(e, window) {
+            if let Some(t) = agent_tool(e, window).map(str::to_string).or_else(|| e.tool.clone()) {
                 v["agentTool"] = json!(t);
             }
             v
@@ -283,7 +286,7 @@ mod tests {
     use super::*;
 
     fn e(path: &[&str], enabled: bool) -> Entry {
-        Entry { path: path.iter().map(|s| s.to_string()).collect(), shortcut: String::new(), enabled, checked: false }
+        Entry { path: path.iter().map(|s| s.to_string()).collect(), shortcut: String::new(), enabled, checked: false, tool: None }
     }
 
     fn menu() -> Vec<Entry> {
@@ -340,6 +343,18 @@ mod tests {
         assert!(search(&recent, "beat", "sequencer", 5).is_empty());
         // Every word must match something.
         assert!(search(&m, "save zzzz", "sequencer", 5).is_empty());
+    }
+
+    #[test]
+    fn plugin_commands_name_the_tool_the_app_gave_them() {
+        let list = parse_entries(&json!([
+            {"path": ["Plugins", "Lamp Output", "Discover Lamps…"], "tool": "plugin__lamp__discover"},
+            {"path": ["Plugins", "Lamp Output", "Help"], "tool": ""}
+        ]))
+        .unwrap();
+        let found = search(&list, "discover lamps", "show", 5);
+        assert_eq!(found[0]["agentTool"], "plugin__lamp__discover");
+        assert!(search(&list, "help", "show", 5)[0].get("agentTool").is_none());
     }
 
     #[test]

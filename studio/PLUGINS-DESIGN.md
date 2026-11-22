@@ -10,7 +10,7 @@ keeps it current, including the status below.
 | P1 Host core | Shipped: `crates/studio-plugins`, schemas in `studio/plugins/schema/`, FFI in `crates/vixen-ffi/src/studio_plugins.rs`. |
 | P2 Controllers | Shipped: `crates/studio-plugins/src/controllers.rs` (+ `schema.rs`), the engine hook `crates/vixen-output/src/modules/studio_external.rs`. `display.snapshot` moved to P2b. |
 | P3 MCP | Shipped: `crates/studio-plugins/src/{mcp,tools,harness,scaffold,install}.rs`, templates in `studio/plugins/templates/`, wired in `crates/studio-mcp`. |
-| P4 UI | Not started. |
+| P4 UI | Shipped: Settings ▸ Plugins (`app/Sources/VixenAdmin/StudioPluginsSettings.swift`), the missing-plugin banner, the Plugins menu (`app/Sources/VixenKit/StudioPlugins.swift`), the plugin controller inspector and Add Controller's Plugins heading (`app/Sources/VixenSetup/Window/StudioPluginControllerInspector.swift`, `StudioAddControllerMenu.swift`); the form, permissions and commands are worked out in `crates/studio-plugins/src/ui.rs`. Harness: `scripts/check_studio_plugins_ui.py`. |
 | P5 SDKs, examples, CLI | Not started. |
 | P6 Docs | Not started. |
 
@@ -130,6 +130,40 @@ What P3 settled:
   commissioning patterns cover testing.
 - **Resources and prompt.** `plugins://api` serves this file until P6 writes `docs/plugins/PROTOCOL.md`;
   `plugins://examples/<language>` the scaffold's controller plugin as Markdown until P5's examples exist.
+
+What P4 settled:
+
+- **Settings ▸ Plugins** lists every installed and linked plugin (name, version, Development, state, an On switch) and
+  the selected one's description, controller types, agent tools and permissions in words; Reload, Show in Finder,
+  Log… (a live log sheet, filtered by level) and Uninstall… (Unlink… for a dev folder) confirm destructive steps with
+  verbs. Install from File… (a folder or `.vixenplugin`, also by dropping one on the list) first reads the package
+  without installing it (`inspect_package`: stage, validate, delete) and shows an install sheet with what it adds and
+  "This plugin can: …" from `ui::permission_sentences`; only Install copies it. The "Allow agents to manage plugins"
+  switch lives here. Plugins ▸ Manage Plugins… and the banner open Settings on this tab (`studio.settingsTab`).
+- **The app drives the host.** The show window calls `VixenCore::studio_plugins_sync` when the profile is up and every
+  3 s: it gives the host the profile, sets `muted` from Live Output (and `VIXEN_MUTE`/`VIXEN_UI_TEST`), starts the
+  enabled plugins once per launch, and returns the show's requirements. Quitting calls `studio_plugins_shutdown`.
+  `VIXEN_STUDIO_PLUGINS` (absolute) replaces the plugin folder, so UI tests never touch the user's plugins.
+- **Missing-plugin banner** above the show window's sections while any requirement isn't satisfied, naming each with
+  the host's reason; MCP `plugin_required` returns the same list. A save rewrites `StudioPlugins.json` from the show's
+  controllers, so the banner follows the show as it is now.
+- **Inspector form.** `ui::form(configSchema)` turns the schema subset into fields: string (`ipv4`/`hostname`
+  placeholders), number, integer, boolean, choice (`enum`, labels from `x-enumNames`), object (a disclosure group),
+  table (an array of flat objects: a row per item with Add Row and remove), list (an array of strings or numbers),
+  anything else as JSON text. Properties come in `x-order` order, then by name; `title` and `description` label them.
+  Each finished edit (Return, leaving the field, a switch, a choice) is checked with `schema::validate`; problems show
+  under their fields and the controller keeps its last good configuration, otherwise it is `controller_configure
+  {id, config}` on the working copy, one step on the display's Undo (an edit that changes nothing makes none). The
+  plugin's own refusals (`controller.configure` `-32004`) reach the form as `configErrors` in the controller's
+  `plugin` description. A controller whose plugin is missing shows the reason and Manage Plugins….
+- **Add Controller** lists built-in types, then plugin types under "Plugins" (Install Plugins… when there are none),
+  read from Rust each time so a newly installed type appears without reopening the pane.
+- **Plugins menu**: one submenu per plugin with its contributed commands (`commands()`: title, the MCP name of the tool
+  it runs, enabled while that tool can be called), then Manage Plugins…. Running one calls its tool with no arguments
+  (`run_command`, starting the plugin if needed) and shows the answer's text. The ⌘K palette finds them as menu items;
+  the app hands Rust each one's tool, so palette entries and `command_palette` name it as `agentTool`.
+- **Deferred:** applying `outputNames` answers to output names, and the controller context menu's Configure… for a
+  plugin controller (the inspector does it).
 
 ## Why
 

@@ -1,0 +1,380 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 7
+  },
+  {
+   "action": "snapshot",
+   "name": "01-show-banner"
+  },
+  {
+   "action": "studioPluginBanner"
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Vixen Studio",
+    "Settings\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.settings",
+   "path": [
+    "tab",
+    "plugins"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "link",
+    "@WORK@/dev/lamp"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "list"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "02-settings-plugins",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "inspect",
+    "@WORK@/pkg/porch.vixenplugin"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "03-install-sheet",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "dump",
+   "name": "03-install-sheet"
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "confirm"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "list"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "select",
+    "com.example.lamp"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.2
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "04-settings-after-install",
+    "@settings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "log",
+    "com.example.lamp"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "05-log",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "closeLog"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.settings",
+   "path": [
+    "tab",
+    "general"
+   ]
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3.5
+  },
+  {
+   "action": "menus",
+   "name": "06-menus"
+  },
+  {
+   "action": "snapshot",
+   "name": "06-show-after"
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "controllerType",
+    "Lamp"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "addController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "Porch Lamp"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "3"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "snapshot",
+   "name": "07-controllers-plugin"
+  },
+  {
+   "action": "dump",
+   "name": "07-controllers-plugin"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "commit",
+    "/host",
+    "10.0.0.300"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "08-bad-address"
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "commit",
+    "/host",
+    "10.0.0.30"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "commit",
+    "/port",
+    "70000"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "commit",
+    "/port",
+    "5000"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "toggle",
+    "/fast"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "09-good-address"
+  },
+  {
+   "action": "displayUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Porch Lamp"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "displayUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Porch Lamp"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "snapshot",
+   "name": "10-after-undo"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "dump",
+   "name": "10-after-undo"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

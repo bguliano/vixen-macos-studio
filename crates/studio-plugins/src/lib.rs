@@ -23,6 +23,7 @@ pub mod scaffold;
 pub mod schema;
 pub mod semver;
 pub mod tools;
+pub mod ui;
 
 pub use host::{HostOptions, PluginHost, State};
 pub use manifest::Manifest;
@@ -53,8 +54,12 @@ pub fn host_capabilities() -> Value {
     json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true})
 }
 
-/// `~/Library/Application Support/Vixen Studio/Plugins`.
+/// `~/Library/Application Support/Vixen Studio/Plugins`, or `VIXEN_STUDIO_PLUGINS` when set (an absolute folder: UI tests
+/// use a throwaway one, so they never start the user's plugins).
 pub fn default_root() -> Result<PathBuf, String> {
+    if let Some(folder) = std::env::var_os("VIXEN_STUDIO_PLUGINS").map(PathBuf::from).filter(|p| p.is_absolute()) {
+        return Ok(folder);
+    }
     let home = std::env::var_os("HOME").filter(|h| !h.is_empty()).ok_or("HOME is not set")?;
     Ok(PathBuf::from(home).join("Library/Application Support/Vixen Studio/Plugins"))
 }

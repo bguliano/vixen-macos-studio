@@ -793,6 +793,8 @@ impl ExternalControllers for PluginControllers {
             "frameEncoding": found.as_ref().map(|t| Encoding::preferred(&t.controller).name()),
             "maxOutputs": found.as_ref().map(|t| t.controller.max_outputs),
             "problem": self.problem(config),
+            // The plugin's own field errors from its last refused `controller.configure`, for the inspector.
+            "configErrors": self.inner().and_then(|inner| crate::host::instance(&inner, &config.ids.instance_id.to_string())).map(|i| lock(&i.config_errors).clone()).unwrap_or_default(),
         })
         .to_string()
     }

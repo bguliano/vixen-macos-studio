@@ -116,7 +116,13 @@ public enum StudioCommandPalette {
     static func publish() -> (kind: String, commands: [PaletteCommand]) {
         let kind = windowKind()
         let found = commands()
-        let json = found.map { ["path": $0.path, "shortcut": $0.shortcut, "enabled": $0.enabled, "checked": $0.checked] as [String: Any] }
+        let plugins = StudioPluginsModel.shared
+        let json = found.map { command -> [String: Any] in
+            var entry: [String: Any] = ["path": command.path, "shortcut": command.shortcut, "enabled": command.enabled, "checked": command.checked]
+            // A plugin's command runs its contributed tool, which agents call by that name.
+            if let tool = plugins.tool(forMenuPath: command.path) { entry["tool"] = tool }
+            return entry
+        }
         if let data = try? JSONSerialization.data(withJSONObject: json), let text = String(data: data, encoding: .utf8) {
             _ = try? studioPalettePublish(window: kind, entriesJson: text)
         }

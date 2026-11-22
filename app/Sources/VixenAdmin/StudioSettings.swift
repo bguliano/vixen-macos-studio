@@ -3,19 +3,35 @@ import VixenKit
 
 /// Studio's Settings window (⌘,): Studio's own preferences first, then Vixen's engine options.
 struct StudioSettingsView: View {
+    /// Plugins ▸ Manage Plugins… opens Settings on Plugins.
+    @AppStorage(StudioSettingsTab.storageKey) private var tab = "general"
+
     var body: some View {
-        TabView {
-            Tab("General", systemImage: "gearshape") {
+        TabView(selection: $tab) {
+            Tab("General", systemImage: "gearshape", value: "general") {
                 StudioGeneralSettings()
             }
-            Tab("Agents", systemImage: "sparkles") {
+            Tab("Agents", systemImage: "sparkles", value: "agents") {
                 StudioAgentSettings()
             }
-            Tab("Engine", systemImage: "cpu") {
+            Tab("Plugins", systemImage: "puzzlepiece.extension", value: StudioSettingsTab.plugins) {
+                StudioPluginsSettings()
+            }
+            Tab("Engine", systemImage: "cpu", value: "engine") {
                 OptionsForm()
             }
         }
         .scenePadding()
+        .onAppear {
+            // `{ "action": "hook", "name": "studio.settings", "path": ["tab", "plugins"] }`: the tab bar isn't scriptable.
+            guard UITestHarness.isActive else { return }
+            UITestHarness.hooks["studio.settings"] = { args in
+                guard args.first == "tab", args.count > 1 else { return "FAIL tab <general|agents|plugins|engine>" }
+                tab = args[1]
+                try? await Task.sleep(for: .milliseconds(500))
+                return tab
+            }
+        }
     }
 }
 

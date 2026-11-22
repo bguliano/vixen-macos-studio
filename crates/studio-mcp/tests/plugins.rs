@@ -92,3 +92,26 @@ fn an_agent_scaffolds_validates_links_and_calls_a_plugin_through_mcp() {
     host.shutdown_all();
     let _ = std::fs::remove_dir_all(&base);
 }
+
+#[test]
+fn plugin_required_reports_what_the_show_needs() {
+    let base = std::env::temp_dir().join(format!("studio-mcp-plugins-required-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(base.join("show/SystemData")).unwrap();
+    for file in ["SystemConfig.xml", "ModuleStore.xml"] {
+        std::fs::copy(profile().join("SystemData").join(file), base.join("show/SystemData").join(file)).unwrap();
+    }
+    std::fs::write(base.join("show/SystemData/StudioPlugins.json"), r#"{"plugins":[{"id":"com.example.lamp","versionRange":"^1.2"}]}"#).unwrap();
+    let host: &'static studio_plugins::PluginHost = Box::leak(Box::new(studio_plugins::PluginHost::new(&base.join("Plugins"), Default::default()).unwrap()));
+    let mut server = studio_mcp::Server::open(&base.join("show")).unwrap().with_plugin_host(host);
+    server.dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{},"capabilities":{}}})).unwrap();
+    let tools = server.dispatch(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})).unwrap();
+    let listed = tools["result"]["tools"].as_array().unwrap().iter().find(|t| t["name"] == "plugin_required").cloned().expect("listed");
+    assert_eq!(listed["annotations"]["readOnlyHint"], json!(true));
+    let (error, needs) = call(&mut server, 3, "plugin_required", json!({}));
+    assert!(!error, "{needs}");
+    assert_eq!(needs["plugins"][0]["id"], json!("com.example.lamp"));
+    assert_eq!(needs["plugins"][0]["satisfied"], json!(false));
+    assert_eq!(needs["plugins"][0]["message"], json!("Needs plugin com.example.lamp ^1.2 — not installed"));
+    let _ = std::fs::remove_dir_all(&base);
+}
