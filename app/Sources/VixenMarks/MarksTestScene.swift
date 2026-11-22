@@ -237,6 +237,7 @@ enum MarksTestHooks {
             guard let name = args.first, let open = openSequence else { return "FAIL needs a sequence name and the Marks Test window" }
             return await open(name)
         }
+        StudioTimingPicker.installTestHooks() // STUDIO: queue Import ▸ Timing from Sequence…'s answers (#61)
         UITestHarness.hooks["marksNextFile"] = { args in
             MarkFiles.queued.append(contentsOf: args)
             return "queued \(MarkFiles.queued.count)"

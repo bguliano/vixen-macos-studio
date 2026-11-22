@@ -28,6 +28,8 @@ pub mod window_chrome;
 pub mod inspector;
 #[path = "studio_marks_panel.rs"]
 pub mod marks_panel;
+#[path = "studio_marks_from_sequence.rs"]
+pub mod marks_from_sequence;
 #[path = "studio_sequence_audio.rs"]
 pub mod audio;
 
@@ -595,6 +597,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
         "sequence_audio" => return audio::execute(core, &mut s, a, agent),
         "marks_collection_edit" | "marks_collection_delete" | "marks_import" => return marks_panel::execute(&mut s, name, a, agent),
+        "marks_import_from_sequence" => return marks_from_sequence::execute(&mut s, a, agent),
         "sequence_row_height" => return crate::studio_row_height::execute(&mut s, a),
         "marks_create" => {
             let times = a["timesMs"]
@@ -1215,6 +1218,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(inspector::tools());
     entries.extend(audio::tools());
     entries.extend(marks_panel::tools());
+    entries.extend(marks_from_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()

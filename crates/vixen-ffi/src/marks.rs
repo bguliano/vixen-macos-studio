@@ -19,6 +19,7 @@ use vixen_core::Color;
 use vixen_io::marks_files::{PangolinMode, PangolinRecord};
 use vixen_session::marks as logic;
 use vixen_session::sequence::{RenderCounters, SequenceSession};
+#[path = "studio_marks_from_sequence.rs"] mod studio_from_sequence; // STUDIO: Import ▸ Timing from Sequence… (#61)
 
 #[derive(uniffi::Enum, Copy, Clone, PartialEq, Eq, Debug)]
 pub enum MarkKind {

@@ -1167,6 +1167,10 @@
   "file": "app/Sources/VixenMarks/MarksTestScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenMarks/MarksTestScene.swift:f9677da835b1cc32": {
+  "file": "app/Sources/VixenMarks/MarksTestScene.swift",
+  "hash": "f9677da835b1cc32"
+ },
  "line:app/Sources/VixenPreview/DesignerCanvas.swift:1986b8b7dc6dfe23": {
   "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
   "hash": "1986b8b7dc6dfe23"
@@ -1726,6 +1730,10 @@
  "line:crates/vixen-ffi/src/marks.rs:6f42f2a237410b0a": {
   "file": "crates/vixen-ffi/src/marks.rs",
   "hash": "6f42f2a237410b0a"
+ },
+ "line:crates/vixen-ffi/src/marks.rs:7de77810ecdd7ea2": {
+  "file": "crates/vixen-ffi/src/marks.rs",
+  "hash": "7de77810ecdd7ea2"
  },
  "line:crates/vixen-ffi/src/marks.rs:85c89d97ae2f3896": {
   "file": "crates/vixen-ffi/src/marks.rs",

@@ -216,7 +216,9 @@ Preview designer (6), Dialogs (7). Each becomes an inspector or a live sheet wit
   Offset Time is a live popover on the row (its changes are one Undo step); Import is a menu of file types, so the Import
   Type dialog is gone; a single-colour Pangolin import comes in white and is recoloured from the row; the selection and
   export sheets confirm with verbs (Import, Export…). MCP: `marks_collection_edit`, `marks_collection_delete`,
-  `marks_import`. Harness: `scripts/check_studio_marks_live.py` with `scripts/ui/studio-marks-live.json`. *Done for Edit Image Maps
+  `marks_import`. Harness: `scripts/check_studio_marks_live.py` with `scripts/ui/studio-marks-live.json`. Import ▸ Timing from
+  Sequence… (#61) turns another sequence's effects into mark collections, per element or merged, with an offset and a snap
+  collection chosen beside the file list (`marks_import_from_sequence`; harness `scripts/check_studio_timing_import.py`). *Done for Edit Image Maps
   (B7):* the library, a map's editor and the Image Mapper apply each change at once (New, Rename, Clone, Delete, Make
   Default, a picture from File, a drop or another app, Clear, the notes, the name) as one step on the profile's shared
   history, labelled in words ("Change Image Map"); each step keeps the picture folders it changed, so Undo puts the pictures
