@@ -20,7 +20,24 @@ const MANAGE: [&str; 7] = ["plugin_install", "plugin_uninstall", "plugin_enable"
 
 const MANIFEST_SCHEMA: &str = include_str!("../../../studio/plugins/schema/manifest.schema.json");
 const PROTOCOL_SCHEMA: &str = include_str!("../../../studio/plugins/schema/protocol.schema.json");
-const DESIGN: &str = include_str!("../../../studio/PLUGINS-DESIGN.md");
+/// The developer documentation in `docs/plugins/`, served as `plugins://docs/<page>`; `plugins://api` is PROTOCOL.
+pub const DOCS: [(&str, &str); 11] = [
+    ("README", include_str!("../../../docs/plugins/README.md")),
+    ("GETTING_STARTED", include_str!("../../../docs/plugins/GETTING_STARTED.md")),
+    ("PROTOCOL", include_str!("../../../docs/plugins/PROTOCOL.md")),
+    ("MANIFEST", include_str!("../../../docs/plugins/MANIFEST.md")),
+    ("CONTROLLERS", include_str!("../../../docs/plugins/CONTROLLERS.md")),
+    ("TOOLS_AND_EVENTS", include_str!("../../../docs/plugins/TOOLS_AND_EVENTS.md")),
+    ("PERMISSIONS", include_str!("../../../docs/plugins/PERMISSIONS.md")),
+    ("PACKAGING", include_str!("../../../docs/plugins/PACKAGING.md")),
+    ("TESTING", include_str!("../../../docs/plugins/TESTING.md")),
+    ("TROUBLESHOOTING", include_str!("../../../docs/plugins/TROUBLESHOOTING.md")),
+    ("AGENTS", include_str!("../../../docs/plugins/AGENTS.md")),
+];
+
+fn doc(page: &str) -> Option<&'static str> {
+    DOCS.iter().find(|(name, _)| name.eq_ignore_ascii_case(page.trim_end_matches(".md"))).map(|(_, text)| *text)
+}
 
 fn tool(name: &str, description: &str, properties: Value, required: &[&str], read_only: bool) -> Value {
     json!({
@@ -187,10 +204,14 @@ fn validate(host: &PluginHost, args: &Value, context: &Context) -> Result<Value,
 /// Static resources, then each plugin's manifest.
 pub fn resources(host: &PluginHost) -> Vec<Value> {
     let mut list = vec![
-        json!({"uri": "plugins://api", "name": "Plugin API and design", "description": "How plugins work: manifest, protocol (every method), controllers, tools, permissions, lifecycle.", "mimeType": "text/markdown"}),
+        json!({"uri": "plugins://api", "name": "Plugin protocol reference", "description": "Every protocol method with its params, result, errors and JSON examples; framing, timeouts and lifecycle (docs/plugins/PROTOCOL.md).", "mimeType": "text/markdown"}),
         json!({"uri": "plugins://schema/manifest", "name": "vixen-plugin.json JSON Schema", "mimeType": "application/schema+json"}),
         json!({"uri": "plugins://schema/protocol", "name": "Plugin protocol JSON Schema (every method's params and result)", "mimeType": "application/schema+json"}),
     ];
+    for (page, text) in DOCS {
+        let title = text.lines().next().unwrap_or(page).trim_start_matches("# ");
+        list.push(json!({"uri": format!("plugins://docs/{page}"), "name": format!("Plugin docs: {title}"), "mimeType": "text/markdown"}));
+    }
     for (language, example) in EXAMPLES {
         list.push(json!({"uri": format!("plugins://examples/{language}"), "name": format!("Example {language} plugin: {}", example.folder), "description": example.about, "mimeType": "text/markdown"}));
         list.push(json!({"uri": format!("plugins://sdk/{language}"), "name": format!("The {language} plugin SDK ({})", sdk(language).map(|(file, _)| file).unwrap_or_default()), "description": "The one file a plugin copies next to its main file to speak the protocol.", "mimeType": "text/plain"}));
@@ -209,7 +230,11 @@ pub fn read_resource(host: &PluginHost, uri: &str) -> Option<Result<Value, Strin
     let rest = uri.strip_prefix("plugins://")?;
     let text = |mime: &str, text: String| Ok(json!([{"uri": uri, "mimeType": mime, "text": text}]));
     Some(match rest {
-        "api" => text("text/markdown", DESIGN.to_string()),
+        "api" => text("text/markdown", doc("PROTOCOL").expect("bundled").to_string()),
+        _ if rest.starts_with("docs/") => match doc(&rest["docs/".len()..]) {
+            Some(page) => text("text/markdown", page.to_string()),
+            None => Err(format!("no such page; there are {}", DOCS.iter().map(|(name, _)| *name).collect::<Vec<_>>().join(", "))),
+        },
         "schema/manifest" => text("application/schema+json", MANIFEST_SCHEMA.to_string()),
         "schema/protocol" => text("application/schema+json", PROTOCOL_SCHEMA.to_string()),
         _ if rest.starts_with("examples/") => match example(&rest["examples/".len()..]) {
@@ -308,8 +333,9 @@ pub fn prompt(goal: Option<&str>) -> String {
     format!(
         "{goal}Build a Vixen Studio plugin. A plugin is a folder with vixen-plugin.json and a program in any language that Studio \
          runs and talks to with JSON-RPC 2.0 over stdin/stdout, one message per line (logs to stderr, never stdout).\n\
-         1. Read plugins://api (design and every protocol method), plugins://schema/manifest and plugins://schema/protocol, and \
-         plugins://examples/python, plugins://examples/typescript or plugins://examples/rust.\n\
+         1. Read plugins://docs/AGENTS (this workflow in detail), plugins://api (every protocol method), plugins://docs/CONTROLLERS \
+         for an output plugin, and plugins://examples/python, plugins://examples/typescript or plugins://examples/rust; \
+         plugins://schema/manifest and plugins://schema/protocol are the JSON Schemas.\n\
          2. plugin_scaffold {{id (reverse-DNS, lowercase), name, language (python, typescript or rust), kind: controller (an \
          output type, e.g. a network light protocol) or tools (agent tools)}}. It writes a working plugin under Plugins/dev/, \
          with the language's SDK file next to the main file (it speaks the protocol; don't edit it), and returns the folder. \

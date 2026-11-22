@@ -14,6 +14,7 @@ modern Mac design and workflows, and lets AI agents operate it through MCP.
 | Workflows | Same as Windows Vixen | Reworked where Vixen's are confusing or slow |
 | Show files | Vixen 3.13 format | The same format: shows move freely between both apps and Windows Vixen |
 | AI agents | — | Full control through a built-in MCP server |
+| Plugins | — | Add controller types (any light or protocol), agent tools and menu commands in any language: [docs/plugins](docs/plugins/README.md) |
 
 Both apps can be installed side by side.
 

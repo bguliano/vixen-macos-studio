@@ -12,7 +12,7 @@ keeps it current, including the status below.
 | P3 MCP | Shipped: `crates/studio-plugins/src/{mcp,tools,harness,scaffold,install}.rs`, templates in `studio/plugins/templates/`, wired in `crates/studio-mcp`. |
 | P4 UI | Shipped: Settings ▸ Plugins (`app/Sources/VixenAdmin/StudioPluginsSettings.swift`), the missing-plugin banner, the Plugins menu (`app/Sources/VixenKit/StudioPlugins.swift`), the plugin controller inspector and Add Controller's Plugins heading (`app/Sources/VixenSetup/Window/StudioPluginControllerInspector.swift`, `StudioAddControllerMenu.swift`); the form, permissions and commands are worked out in `crates/studio-plugins/src/ui.rs`. Harness: `scripts/check_studio_plugins_ui.py`. |
 | P5 SDKs, examples, CLI | Shipped: SDKs in `studio/plugins/sdk/{python,typescript}/` and `crates/studio-plugin-sdk` (package `vixen-plugin-sdk`), templates in `studio/plugins/templates/{python,typescript,rust}/`, examples in `studio/plugins/examples/`, the CLI in `crates/studio-plugins/src/{cli,pack}.rs` (`vixen-studio-mcp plugin …`). |
-| P6 Docs | Not started. |
+| P6 Docs | Shipped: developer docs in `docs/plugins/` (served as `plugins://api` and `plugins://docs/<page>`), the drift tests `crates/studio-plugins/tests/docs.rs` and `crates/studio-mcp/tests/plugins.rs` (MCP-TOOLS.md, tool names), the end-to-end agent check `crates/studio-mcp/tests/plugin_agent.rs`. |
 
 What P1 settled, beyond the design below:
 
@@ -128,7 +128,7 @@ What P3 settled:
 - **`plugin_send_test_frame {controllerId, pattern?, …, confirm}`** is `output_test_pattern` on one plugin controller
   (movingPixel by default), after checking the controller is a plugin's. Explicit `values` were left out: the
   commissioning patterns cover testing.
-- **Resources and prompt.** `plugins://api` serves this file until P6 writes `docs/plugins/PROTOCOL.md`;
+- **Resources and prompt.** `plugins://api` served this file until P6 (now `docs/plugins/PROTOCOL.md`);
   `plugins://examples/<language>` serves the P5 examples.
 
 What P4 settled:
@@ -206,6 +206,41 @@ What P5 settled:
   caches, `target/`, symlinks refused, a missing in-folder `entry.command` refused; writes `<package>.sha256`;
   `install::stage` accepts the result) and `run DIR [--frames chase|ramp|blink|rgb|off] [--seconds] [--fps] [--type]
   [--outputs] [--config]` (one live controller, printing the log, statuses, messages and stats as they arrive).
+
+What P6 settled:
+
+- **Pages.** `docs/plugins/`: README (overview, diagram, SDKs, examples, CLI, security, versions), GETTING_STARTED (the
+  console-output tutorial from `plugin new`; walked through with the CLI), PROTOCOL, MANIFEST, CONTROLLERS,
+  TOOLS_AND_EVENTS, PERMISSIONS, PACKAGING, TESTING, TROUBLESHOOTING and AGENTS. `docs/plugins/` is Studio-only (listed
+  in STUDIO.md), so it needs no markers. Linked from README.md, STUDIO.md and studio/MCP.md.
+- **The pages say what ships, not the plan:** only `liveOutput.changed` is sent; `display.snapshot` answers `-32601`;
+  `outputNaming`/`outputNames` are recorded, not applied; network and serial permissions are declarations, not
+  enforced (no sandbox yet). `controller.stats` values are running totals (the host raises its counters to them); the
+  SDKs' docstrings and two examples treat them as increments, which is backlog B42.
+- **Resources.** `plugins://api` is PROTOCOL.md; `plugins://docs/<page>` serves every page by name (`mcp::DOCS`,
+  bundled with `include_str!`). The design file is no longer served. `build_plugin` points at `plugins://docs/AGENTS`
+  and `plugins://docs/CONTROLLERS` first.
+- **Drift tests.** `studio-plugins/tests/docs.rs`: PROTOCOL.md's methods per direction, each method's first line
+  (direction, kind, timeout), its Param/Result tables (names, types rendered from the schema, required) and every JSON
+  example (validated against its method's schema), the error table, framing limit and API version, against
+  `protocol.schema.json`; MANIFEST.md's field tables (names, required, every enum value) against
+  `manifest.schema.json`, and its complete example (plus CONTROLLERS.md's recipe schema) through `Manifest::parse`;
+  across all pages, relative links and anchors, `plugins://` URIs (read through `read_resource`), CLI flags (against
+  `cli::USAGE`), and `mcp::DOCS` equal to the files. `studio-mcp/tests/plugins.rs`: MCP-TOOLS.md equals the bridge's
+  `tools/list` (regenerate with `STUDIO_REGENERATE_MCP_TOOLS=1 cargo test -p studio-mcp --test plugins mcp_tools`),
+  and every tool name the pages put in backticks exists.
+- **End-to-end agent check** (`studio-mcp/tests/plugin_agent.rs`): on a copy of target/show-copy's system data served
+  by a live, unmuted `AppCore` (as the app serves it, with the shared host's provider registered and the host muted
+  until Live Output), the agent uses only MCP plus file writes in its scaffolded folder: reads `plugins://docs/AGENTS`,
+  `plugins://api` and the TypeScript example; scaffolds a TypeScript controller plugin; rewrites it into a UDP sender
+  (host/port settings); validates it (all pass, no warnings); is refused `plugin_link_dev` until the manage switch,
+  then links it; deletes the copy's own controllers (a Generic Serial board and a dummy) so nothing real can start;
+  creates and configures a controller of the new type (a host name refused as `/host: must be an IPv4 address`);
+  patches a new megatree to it; is refused `plugin_send_test_frame` and `output_start` without the live-output
+  permission, and a 127.0.0.1 UDP listener receives nothing; then, with Live Output open, the host unmuted and the
+  permission on, starts it (the only running controller) and sends All On at 40 %, and the listener receives the
+  6-byte datagram of 102s; `plugin_info` shows the instance live with frames sent; revoking the permission stops it.
+  The test fails when the plugin sends nothing.
 
 ## Why
 

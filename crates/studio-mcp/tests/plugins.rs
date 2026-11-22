@@ -115,3 +115,47 @@ fn plugin_required_reports_what_the_show_needs() {
     assert_eq!(needs["plugins"][0]["message"], json!("Needs plugin com.example.lamp ^1.2 — not installed"));
     let _ = std::fs::remove_dir_all(&base);
 }
+
+/// studio/MCP-TOOLS.md is the server's tools/list as a table, and docs/plugins only names MCP tools that exist.
+/// `STUDIO_REGENERATE_MCP_TOOLS=1 cargo test -p studio-mcp --test plugins mcp_tools` rewrites the table.
+#[test]
+fn mcp_tools_md_and_the_plugin_docs_match_tools_list() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let base = std::env::temp_dir().join(format!("studio-mcp-plugins-docs-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let host: &'static studio_plugins::PluginHost = Box::leak(Box::new(studio_plugins::PluginHost::new(&base.join("Plugins"), Default::default()).unwrap()));
+    let mut server = studio_mcp::Server::open(&profile()).unwrap().with_plugin_host(host);
+    server.dispatch(json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{},"capabilities":{}}})).unwrap();
+    let tools = server.dispatch(json!({"jsonrpc":"2.0","id":2,"method":"tools/list"})).unwrap();
+    let tools: Vec<Value> = tools["result"]["tools"].as_array().unwrap().iter().filter(|t| !t["name"].as_str().unwrap().starts_with("plugin__")).cloned().collect();
+    let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+
+    let mut table = format!(
+        "# Implemented MCP tools\n\n{} tools, generated from the tested bridge tools/list result. No placeholder tools. Plugin-contributed tools (`plugin__<short-id>__<tool>`) are listed at runtime from the installed plugins.\n\n| Tool | Read only | Description |\n|---|---|---|\n",
+        tools.len()
+    );
+    for tool in &tools {
+        let read_only = tool["annotations"]["readOnlyHint"].as_bool().unwrap_or(false);
+        table.push_str(&format!("| {} | {read_only} | {} |\n", tool["name"].as_str().unwrap(), tool["description"].as_str().unwrap().replace('|', "\\|").replace('\n', " ")));
+    }
+    let path = repo.join("studio/MCP-TOOLS.md");
+    if std::env::var_os("STUDIO_REGENERATE_MCP_TOOLS").is_some() {
+        std::fs::write(&path, &table).unwrap();
+    }
+    assert!(std::fs::read_to_string(&path).unwrap() == table, "studio/MCP-TOOLS.md is stale: run STUDIO_REGENERATE_MCP_TOOLS=1 cargo test -p studio-mcp --test plugins mcp_tools");
+
+    // Every `plugin_…` or other snake_case tool name in backticks on the plugin pages is a real tool.
+    for entry in std::fs::read_dir(repo.join("docs/plugins")).unwrap().flatten() {
+        let text = std::fs::read_to_string(entry.path()).unwrap();
+        for word in text.split('`').skip(1).step_by(2) {
+            let name = word.split([' ', '{']).next().unwrap();
+            let tool_like = name.contains('_') && name.chars().all(|c| c.is_ascii_lowercase() || c == '_') && !name.starts_with('_');
+            let known_tool_family = ["plugin_", "controller_", "output_", "patch_", "command_"].iter().any(|p| name.starts_with(p));
+            if tool_like && known_tool_family && !name.starts_with("plugin__") {
+                assert!(names.contains(&name), "{}: `{name}` isn't an MCP tool", entry.file_name().to_string_lossy());
+            }
+        }
+    }
+    let _ = std::fs::remove_dir_all(&base);
+}
