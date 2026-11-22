@@ -167,6 +167,10 @@
   "file": "app/Sources/VixenDialogs/E131Sheet.swift",
   "hash": "05c2de71e6bcac6e"
  },
+ "block:effect-gallery": {
+  "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
+  "hash": "ed26640dca8622ee"
+ },
  "block:exclusive-save-temp": {
   "file": "crates/vixen-io/src/file.rs",
   "hash": "d7ab4cb764f2d32e"
@@ -1407,6 +1411,14 @@
   "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
   "hash": "31b097030d073de4"
  },
+ "line:app/Sources/VixenSequencer/SequencerSheets.swift:4482f0d868524ea2": {
+  "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
+  "hash": "4482f0d868524ea2"
+ },
+ "line:app/Sources/VixenSequencer/SequencerSheets.swift:588ffa590505e0e6": {
+  "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
+  "hash": "588ffa590505e0e6"
+ },
  "line:app/Sources/VixenSequencer/SequencerSheets.swift:5f71200610ba76b5": {
   "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
   "hash": "5f71200610ba76b5"
@@ -1414,6 +1426,14 @@
  "line:app/Sources/VixenSequencer/SequencerSheets.swift:c3b52bffe899c0b6": {
   "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
   "hash": "c3b52bffe899c0b6"
+ },
+ "line:app/Sources/VixenSequencer/SequencerSheets.swift:df346cd8e66c7438": {
+  "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
+  "hash": "df346cd8e66c7438"
+ },
+ "line:app/Sources/VixenSequencer/SequencerSheets.swift:e278a0f84e65a525": {
+  "file": "app/Sources/VixenSequencer/SequencerSheets.swift",
+  "hash": "e278a0f84e65a525"
  },
  "line:app/Sources/VixenSequencer/StatusBarView.swift:11dd5e48eedf0723": {
   "file": "app/Sources/VixenSequencer/StatusBarView.swift",
@@ -1674,6 +1694,10 @@
  "line:crates/vixen-ffi/src/admin.rs:e6687d4596f82cd6": {
   "file": "crates/vixen-ffi/src/admin.rs",
   "hash": "e6687d4596f82cd6"
+ },
+ "line:crates/vixen-ffi/src/lib.rs:0759917a99e3703f": {
+  "file": "crates/vixen-ffi/src/lib.rs",
+  "hash": "0759917a99e3703f"
  },
  "line:crates/vixen-ffi/src/lib.rs:4401e1a2eb529ad6": {
   "file": "crates/vixen-ffi/src/lib.rs",

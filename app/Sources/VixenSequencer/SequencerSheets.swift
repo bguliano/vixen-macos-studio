@@ -21,6 +21,7 @@ enum SequencerSheet: Identifiable {
     case text(TextPrompt)
     case beatsAndBars
     case placeOnMarks // STUDIO: Edit ▸ Place Effect on Marks… (StudioPlaceOnMarksSheet.swift)
+    case effectGallery // STUDIO: Edit ▸ Effect Gallery… (StudioEffectGallerySheet.swift)
 
     var id: String {
         switch self {
@@ -36,6 +37,7 @@ enum SequencerSheet: Identifiable {
         case .text(let prompt): "text-\(prompt.prompt)"
         case .beatsAndBars: "beats-and-bars"
         case .placeOnMarks: "place-on-marks" // STUDIO: Place Effect on Marks sheet
+        case .effectGallery: "effect-gallery" // STUDIO: Effect Gallery sheet
         }
     }
 }
@@ -94,6 +96,8 @@ struct SequencerSheetView: View {
             #endif
         case .placeOnMarks: // STUDIO: Place Effect on Marks sheet
             PlaceOnMarksSheet(model: model) // STUDIO: Place Effect on Marks sheet
+        case .effectGallery: // STUDIO: Effect Gallery sheet
+            EffectGallerySheet(model: model) // STUDIO: Effect Gallery sheet
         }
     }
 }

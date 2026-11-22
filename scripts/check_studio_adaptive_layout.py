@@ -36,7 +36,7 @@ WINDOWS = [
     "Preview Configuration", "Custom Prop Editor", "Dummy Lighting Controller", "Debug Controller Output", "@settings",
 ]
 # Sheets have no titles: the run names each by its snapshot.
-SHEETS = ["place-on-marks", "export-sequence", "controller-setup", "property-setup"]
+SHEETS = ["place-on-marks", "effect-gallery", "export-sequence", "controller-setup", "property-setup"]
 
 
 def size(detail: str) -> tuple:
@@ -101,6 +101,8 @@ def check(out: Path) -> None:
     assert about[0] <= 700 and about[1] <= 560, about
     # A timeline row was selected first, so Place Effect on Marks shows its whole form, not "No Rows Selected".
     assert sheets["place-on-marks"][1] >= 500, sheets
+    # The same row, so the Effect Gallery shows its effect list and thumbnails.
+    assert sheets["effect-gallery"][1] >= 560, sheets
     prop = max(minimums["Custom Prop Editor"])
     assert prop[0] <= 760, prop
     toolbar = (out / "layout-Custom Prop Editor.txt").read_text()
@@ -118,7 +120,7 @@ def check(out: Path) -> None:
 
     assert script[-1].get("path") == ["restore"] and steps[-1]["ok"], "the user's appearance wasn't restored"
     for name in ["show-controllers-dark", "show-display-light", "sequencer-light", "sequencer-regrown", "settings-light",
-                 "place-on-marks-dark", "export-sequence-light", "controller-setup-dark", "property-setup-light",
+                 "place-on-marks-dark", "effect-gallery-light", "export-sequence-light", "controller-setup-dark", "property-setup-light",
                  "preview-designer-dark", "prop-editor-light", "prop-editor-wide", "monitor-dummy-dark",
                  "monitor-debug-light"]:
         assert (out / f"{name}.png").stat().st_size > 10_000, name

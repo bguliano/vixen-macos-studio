@@ -1564,6 +1564,118 @@
   {
    "action": "menu",
    "path": [
+    "Edit",
+    "Effect Gallery\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 8
+  },
+  {
+   "action": "windows"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "dark"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "effect-gallery-dark",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "appearance",
+    "light"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "effect-gallery-light",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "@sheet"
+   ]
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "key",
+   "key": "escape"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "focus",
+   "window": "Christmas Can-Can"
+  },
+  {
+   "action": "menu",
+   "path": [
     "Sequence",
     "Export"
    ]

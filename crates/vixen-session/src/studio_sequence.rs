@@ -32,6 +32,8 @@ pub mod marks_panel;
 pub mod marks_from_sequence;
 #[path = "studio_sequence_audio.rs"]
 pub mod audio;
+#[path = "studio_effect_gallery.rs"]
+pub mod effect_gallery;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -326,6 +328,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     }
     if name == "effects_library" {
         return crate::studio_effects_library::execute(a);
+    }
+    if name == "effect_gallery" {
+        return effect_gallery::execute(core, a);
     }
     if name == "sequence_open" || name == "sequence_create" {
         let mut reloaded = false;
@@ -1220,6 +1225,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_onset_marks","Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named \"<prefix> - low\", \"- mid\" and \"- high\" (prefix default \"Onsets\"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count.",json!({"sequenceId":string,"media":string,"bands":{"type":"array","items":{"type":"string","enum":["low","mid","high"]},"minItems":1,"maxItems":3},"minStrength":{"type":"number","minimum":0,"maximum":1},"prefix":string}),vec!["sequenceId"],false),
         ("effects_on_marks",mark_effects::DESCRIPTION,mark_effects::schema(),vec!["sequenceId","markCollection","template"],false),
         ("effect_step",step_effects::DESCRIPTION,step_effects::schema(),vec!["sequenceId","mode","segments"],false),
+        ("effect_gallery",effect_gallery::DESCRIPTION,effect_gallery::schema(),vec!["targetId","variants","file","confirm"],false),
         ("sequence_undo","Undo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_redo","Redo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_render","Render dirty effects and wait for the real sequence schedule; no playback/output.",json!({"sequenceId":string}),vec!["sequenceId"],false),
@@ -1234,7 +1240,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(marks_from_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {

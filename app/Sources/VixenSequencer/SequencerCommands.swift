@@ -252,6 +252,10 @@ private struct PasteboardItems: View {
             Button("Place Effect on Marks…") { model?.openPlaceOnMarks() }
                 .disabled(model == nil)
             // STUDIO-END place-effect-on-marks
+            // STUDIO-BEGIN effect-gallery: compare effect variants on the selected row's prop before placing one (#62)
+            Button("Effect Gallery…") { model?.openEffectGallery() }
+                .disabled(model == nil)
+            // STUDIO-END effect-gallery
             Divider()
         }
         Button("Cut") {

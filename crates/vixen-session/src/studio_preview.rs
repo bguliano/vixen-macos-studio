@@ -3,7 +3,7 @@
 use crate::{app::AppCore, sequence::SequenceSession};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
-use std::{path::Path, sync::Arc};
+use std::{collections::HashSet, path::Path, sync::Arc};
 use uuid::Uuid;
 use vixen_core::{CombinedState, TimeSpan};
 use vixen_engine::{EvalScratch, Schedule};
@@ -22,6 +22,7 @@ struct Light {
     y: f32,
     radius: f32,
     index: usize,
+    element: Uuid,
     discrete: Option<[u8; 3]>,
 }
 
@@ -83,11 +84,11 @@ impl Renderer {
             let Some(Some(node)) = resolved.get(link.node as usize).copied() else {
                 continue;
             };
-            let Some(index) = system
+            let Some((element, index)) = system
                 .tree
                 .node(node)
                 .element_id
-                .and_then(|e| schedule.elements().index_of(&e))
+                .and_then(|e| Some((e, schedule.elements().index_of(&e)?)))
             else {
                 continue;
             };
@@ -107,6 +108,7 @@ impl Renderer {
                 y: light.y * scale,
                 radius: (light.size / 2.0).clamp(0.5, 32.0) * scale,
                 index: index as usize,
+                element,
                 discrete,
             });
         }
@@ -128,6 +130,37 @@ impl Renderer {
 
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
+    }
+
+    /// How many linked lights it paints.
+    pub fn lights(&self) -> usize {
+        self.total
+    }
+
+    /// Keeps only the lights of `elements` and crops to them, scaled to fit `max_width` by `max_height` (at most four
+    /// times their preview size), so one prop fills a thumbnail. Call on a renderer built at scale 1. Returns how many
+    /// lights are left; with none the size is unchanged.
+    pub fn focus(&mut self, elements: &HashSet<Uuid>, max_width: u32, max_height: u32) -> usize {
+        self.lights.retain(|l| elements.contains(&l.element));
+        self.total = self.lights.len();
+        if self.lights.is_empty() {
+            return 0;
+        }
+        let reach = self.lights.iter().map(|l| l.radius).fold(0.0, f32::max) * if self.glow { 3.0 } else { 1.0 } + 2.0;
+        let left = self.lights.iter().map(|l| l.x).fold(f32::MAX, f32::min) - reach;
+        let top = self.lights.iter().map(|l| l.y).fold(f32::MAX, f32::min) - reach;
+        let width = self.lights.iter().map(|l| l.x).fold(f32::MIN, f32::max) + reach - left;
+        let height = self.lights.iter().map(|l| l.y).fold(f32::MIN, f32::max) + reach - top;
+        let scale = (max_width as f32 / width).min(max_height as f32 / height).min(4.0);
+        for light in &mut self.lights {
+            light.x = (light.x - left) * scale;
+            light.y = (light.y - top) * scale;
+            light.radius = (light.radius * scale).max(0.75);
+        }
+        self.scale = scale;
+        self.width = ((width * scale).round() as u32).max(16);
+        self.height = ((height * scale).round() as u32).max(16);
+        self.total
     }
 
     /// Paints the lights at `time_ms` onto black, returning how many were lit.
@@ -204,6 +237,36 @@ pub(crate) fn paint_disc(
     }
 }
 
+/// Every preview that shows any of `elements`' lights, with how many, most first: where a prop's own geometry is.
+pub fn previews_linking(core: &AppCore, elements: &HashSet<Uuid>) -> Vec<(Uuid, String, usize)> {
+    let system = core.system.read();
+    let mut found = Vec::new();
+    for entry in crate::preview::preview_entries(&system) {
+        let Ok(data) = crate::preview::load_preview_data(&system.module_store, &entry) else {
+            continue;
+        };
+        let scene = vixen_preview::Scene::build(&data, Some(&system.tree));
+        let resolved = scene.resolve_nodes(&system.tree);
+        let lit = scene
+            .links
+            .iter()
+            .filter(|link| {
+                resolved
+                    .get(link.node as usize)
+                    .copied()
+                    .flatten()
+                    .and_then(|node| system.tree.node(node).element_id)
+                    .is_some_and(|e| elements.contains(&e))
+            })
+            .count();
+        if lit > 0 {
+            found.push((entry.id, entry.name.clone(), lit));
+        }
+    }
+    found.sort_by(|a, b| b.2.cmp(&a.2));
+    found
+}
+
 pub fn frame(
     core: &AppCore,
     session: &mut SequenceSession,
@@ -256,26 +319,58 @@ pub fn video(
         scale,
         range.glow,
     )?;
+    let times: Vec<f64> = range.times().collect();
+    let started = std::time::Instant::now();
+    let (frames, audio, width, height, lit) = encode(&mut renderer, &times, range.fps, range.start_ms, range.end_ms, audio, path, &mut |_, _| {})?;
+    Ok(json!({
+        "path": path,
+        "width": width,
+        "height": height,
+        "fps": range.fps,
+        "frames": frames,
+        "startMs": range.start_ms,
+        "endMs": range.end_ms,
+        "audio": audio,
+        "lights": renderer.total,
+        "maxIlluminated": lit,
+        "seconds": (started.elapsed().as_secs_f64() * 100.0).round() / 100.0,
+        "codec": "H.264 video, AAC audio, MP4",
+        "renderer": "CPU inspection frames using real scene/schedule",
+        "omitted": OMITTED,
+    }))
+}
+
+/// Paints `times` from `renderer` into an H.264 MP4 (with `audio` for the span as AAC when given). Returns what was
+/// written, the even frame size and the most lights lit in one frame. `overlay` draws on each frame after the lights.
+pub fn encode(
+    renderer: &mut Renderer,
+    times: &[f64],
+    fps: f64,
+    start_ms: f64,
+    end_ms: f64,
+    audio: Option<&Path>,
+    path: &Path,
+    overlay: &mut dyn FnMut(f64, &mut image::RgbaImage),
+) -> Result<(usize, Value, u32, u32, usize), String> {
     let (width, height) = renderer.size();
     // H.264 needs even dimensions; the extra row or column stays black.
     let (width, height) = (width + width % 2, height + height % 2);
     let mut image = image::RgbaImage::new(width, height);
-    let times: Vec<f64> = range.times().collect();
-    let started = std::time::Instant::now();
     let mut lit = 0usize;
     let mut next = 0;
     let written = video::write(
         path,
         width,
         height,
-        range.fps,
-        range.start_ms,
-        range.end_ms,
+        fps,
+        start_ms,
+        end_ms,
         audio,
         &mut |bgra: &mut [u8], row: usize| {
             let time = *times.get(next)?;
             next += 1;
             lit = lit.max(renderer.paint(time, &mut image));
+            overlay(time, &mut image);
             for (y, line) in image.rows().enumerate() {
                 for (out, px) in bgra[y * row..y * row + width as usize * 4]
                     .chunks_exact_mut(4)
@@ -287,22 +382,7 @@ pub fn video(
             Some(())
         },
     )?;
-    Ok(json!({
-        "path": path,
-        "width": width,
-        "height": height,
-        "fps": range.fps,
-        "frames": written.frames,
-        "startMs": range.start_ms,
-        "endMs": range.end_ms,
-        "audio": written.audio,
-        "lights": renderer.total,
-        "maxIlluminated": lit,
-        "seconds": (started.elapsed().as_secs_f64() * 100.0).round() / 100.0,
-        "codec": "H.264 video, AAC audio, MP4",
-        "renderer": "CPU inspection frames using real scene/schedule",
-        "omitted": OMITTED,
-    }))
+    Ok((written.frames, written.audio, width, height, lit))
 }
 
 /// Tiles the range's frames into one PNG, each captioned with its sequence time, for reviewing a passage as one image.
@@ -385,31 +465,68 @@ fn timestamp(ms: f64) -> String {
     )
 }
 
-/// Draws digits, ':' and '.' from a 3x5 bitmap font at double size.
-fn caption(image: &mut image::RgbaImage, x: u32, y: u32, text: &str) {
-    const GLYPHS: [[u8; 5]; 12] = [
-        [7, 5, 5, 5, 7],
-        [2, 6, 2, 2, 7],
-        [7, 1, 7, 4, 7],
-        [7, 1, 7, 1, 7],
-        [5, 5, 7, 1, 1],
-        [7, 4, 7, 1, 7],
-        [7, 4, 7, 5, 7],
-        [7, 1, 1, 1, 1],
-        [7, 5, 7, 5, 7],
-        [7, 5, 7, 1, 7],
-        [0, 2, 0, 2, 0],
-        [0, 0, 0, 0, 2],
-    ];
+/// A 3x5 glyph, one row per byte with the leftmost column in bit 2: digits, letters (either case), space and
+/// `: . - # / ( ) % + , ' _`. Anything else is a dot.
+fn glyph(ch: char) -> [u8; 5] {
+    match ch.to_ascii_uppercase() {
+        '0' => [7, 5, 5, 5, 7],
+        '1' => [2, 6, 2, 2, 7],
+        '2' => [7, 1, 7, 4, 7],
+        '3' => [7, 1, 7, 1, 7],
+        '4' => [5, 5, 7, 1, 1],
+        '5' => [7, 4, 7, 1, 7],
+        '6' => [7, 4, 7, 5, 7],
+        '7' => [7, 1, 1, 1, 1],
+        '8' => [7, 5, 7, 5, 7],
+        '9' => [7, 5, 7, 1, 7],
+        'A' => [2, 5, 7, 5, 5],
+        'B' => [6, 5, 6, 5, 6],
+        'C' => [3, 4, 4, 4, 3],
+        'D' => [6, 5, 5, 5, 6],
+        'E' => [7, 4, 6, 4, 7],
+        'F' => [7, 4, 6, 4, 4],
+        'G' => [3, 4, 5, 5, 3],
+        'H' => [5, 5, 7, 5, 5],
+        'I' => [7, 2, 2, 2, 7],
+        'J' => [1, 1, 1, 5, 2],
+        'K' => [5, 5, 6, 5, 5],
+        'L' => [4, 4, 4, 4, 7],
+        'M' => [5, 7, 7, 5, 5],
+        'N' => [6, 5, 5, 5, 5],
+        'O' => [2, 5, 5, 5, 2],
+        'P' => [6, 5, 6, 4, 4],
+        'Q' => [2, 5, 5, 6, 3],
+        'R' => [6, 5, 6, 5, 5],
+        'S' => [3, 4, 2, 1, 6],
+        'T' => [7, 2, 2, 2, 2],
+        'U' => [5, 5, 5, 5, 7],
+        'V' => [5, 5, 5, 5, 2],
+        'W' => [5, 5, 7, 7, 5],
+        'X' => [5, 5, 2, 5, 5],
+        'Y' => [5, 5, 2, 2, 2],
+        'Z' => [7, 1, 2, 4, 7],
+        ' ' => [0, 0, 0, 0, 0],
+        ':' => [0, 2, 0, 2, 0],
+        '-' => [0, 0, 7, 0, 0],
+        '#' => [5, 7, 5, 7, 5],
+        '/' => [1, 1, 2, 4, 4],
+        '(' => [1, 2, 2, 2, 1],
+        ')' => [4, 2, 2, 2, 4],
+        '%' => [5, 1, 2, 4, 5],
+        '+' => [0, 2, 7, 2, 0],
+        ',' => [0, 0, 0, 2, 4],
+        '\'' => [2, 2, 0, 0, 0],
+        '_' => [0, 0, 0, 0, 7],
+        _ => [0, 0, 0, 0, 2],
+    }
+}
+
+/// Draws `text` in the 3x5 font at double size: 8 px per character, 10 px tall.
+pub(crate) fn caption(image: &mut image::RgbaImage, x: u32, y: u32, text: &str) {
     let (width, height) = image.dimensions();
     let mut left = x;
     for ch in text.chars() {
-        let glyph = match ch {
-            '0'..='9' => GLYPHS[ch as usize - '0' as usize],
-            ':' => GLYPHS[10],
-            _ => GLYPHS[11],
-        };
-        for (row, bits) in glyph.iter().enumerate() {
+        for (row, bits) in glyph(ch).iter().enumerate() {
             for col in 0..3 {
                 if bits & (4 >> col) != 0 {
                     for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
