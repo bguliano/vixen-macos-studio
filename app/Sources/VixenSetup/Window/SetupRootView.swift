@@ -21,6 +21,7 @@ struct SetupRootView: View {
                         .opacity(studioControllers ? 0 : 1)
                         .allowsHitTesting(!studioControllers)
                         .accessibilityHidden(studioControllers)
+                        .environment(\.studioCoveredBySection, studioControllers)
                     if studioControllers {
                         StudioControllersSection(model: model)
                     }

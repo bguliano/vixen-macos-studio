@@ -56,12 +56,16 @@ How each property becomes a field:
 | `"type": "boolean"` | A switch. |
 | `enum` | A choice; `x-enumNames` (an array the same length) gives each value its label. |
 | `"type": "object"` with `properties` | A disclosure group with the nested fields. |
-| `"type": "array"` of flat objects | A table: one row per item, with Add Row and remove. |
+| `"type": "array"` of flat objects | A table: one row per item, with Add Row and remove. When its columns don't fit the inspector, each row shows as a card, labels above values. A new row starts from the item schema's defaults. |
 | `"type": "array"` of strings or numbers | A list. |
 | anything else | JSON text. |
 
 `title` labels a field (default: the property name), `description` explains it under the field, and `x-order` (an
-array of property names on the object) sets the order; unlisted properties follow by name.
+array of property names on the object, or on a table's `items`) sets the order; unlisted properties follow by name.
+An integer `x-order` on a property also works (lowest first).
+
+The inspector's ⋯ menu has **Copy Settings** and **Paste Settings**: the configuration as JSON, so you can put a
+working example in your docs and users paste it in. A paste is checked like any edit and is one step on Undo.
 
 Settings your schema can't express (a value that depends on another, a device that must be reachable) are checked in
 your `configure`: refuse with `-32004` and `data.errors` (the SDKs: raise `ConfigError(message, field="/port")`). The

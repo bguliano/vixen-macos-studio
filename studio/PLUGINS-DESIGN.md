@@ -185,7 +185,11 @@ What P4 settled:
 - **Inspector form.** `ui::form(configSchema)` turns the schema subset into fields: string (`ipv4`/`hostname`
   placeholders), number, integer, boolean, choice (`enum`, labels from `x-enumNames`), object (a disclosure group),
   table (an array of flat objects: a row per item with Add Row and remove), list (an array of strings or numbers),
-  anything else as JSON text. Properties come in `x-order` order, then by name; `title` and `description` label them.
+  anything else as JSON text. Properties come in the order of the object's `x-order` array (on a table, its `items`),
+  then by a property's integer `x-order`, then by name; `title` and `description` label them. The inspector never grows
+  past its column: a table too wide becomes one card per row, and in Display the inspector scrolls under the controller
+  list. A new row's missing required values show once the row is edited or left. Copy Settings and Paste Settings move
+  the configuration as JSON; a paste is one checked edit.
   Each finished edit (Return, leaving the field, a switch, a choice) is checked with `schema::validate`; problems show
   under their fields and the controller keeps its last good configuration, otherwise it is `controller_configure
   {id, config}` on the working copy, one step on the display's Undo (an edit that changes nothing makes none). The

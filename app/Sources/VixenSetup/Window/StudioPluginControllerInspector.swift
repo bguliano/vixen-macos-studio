@@ -1,11 +1,13 @@
 import SwiftUI
+import AppKit
 import VixenBridge
 import VixenKit
 
 /// The controller inspector for one plugin controller (Display ▸ Controllers): the plugin's `configSchema` as a native
 /// form (`studio_plugins::ui::form` in Rust decides the fields), checked as it's typed, with the plugin's own refusals
 /// shown under the field they name. Each finished edit is `controller_configure {id, config}`, the command agents call,
-/// on the working copy, so it publishes as one step on the display's Undo.
+/// on the working copy, so it publishes as one step on the display's Undo. It never grows past its column: a table too
+/// wide for it becomes one card per row.
 struct StudioPluginControllerInspector: View {
     let model: SetupModel
 
@@ -16,6 +18,11 @@ struct StudioPluginControllerInspector: View {
     @State private var draft: JSONValue = .object([:])
     @State private var draftErrors: [String: String] = [:]
     @State private var failure: String?
+    /// Table rows added and not yet edited or left (`/devices/2`): their missing required values aren't errors yet.
+    @State private var freshRows: Set<String> = []
+    /// Display's columns stay alive, invisible, under the Controllers section; the harness then edits the section's copy.
+    @Environment(\.studioCoveredBySection) private var covered
+    @State private var coveredNow = StudioPluginFormHarness.Covered()
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
@@ -26,6 +33,7 @@ struct StudioPluginControllerInspector: View {
                 Color.clear.frame(height: 1)
             }
         }
+        .onChange(of: covered, initial: true) { _, now in coveredNow.value = now }
         .task(id: model.controllerPanel) {
             let token = UUID()
             installHarnessHook(token)
@@ -43,10 +51,25 @@ struct StudioPluginControllerInspector: View {
         HStack(alignment: .firstTextBaseline) {
             Label(plugin.pluginName ?? plugin.pluginId ?? "Plugin", systemImage: "puzzlepiece.extension")
                 .font(.callout.weight(.semibold))
-            Spacer()
+                .lineLimit(1)
+            Spacer(minLength: StudioMetrics.spacingXS)
             Text([plugin.installedVersion ?? plugin.pluginVersion, plugin.frameEncoding].compactMap { $0 }.joined(separator: " · "))
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+            if plugin.configSchema != nil {
+                Menu {
+                    Button("Copy Settings") { copySettings() }
+                    Button("Paste Settings") { pasteSettings() }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("Copy this controller's settings as JSON, or paste settings from another show or a plugin's docs")
+                .accessibilityLabel("Settings actions")
+            }
         }
         if let problem = plugin.problem {
             VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
@@ -86,6 +109,8 @@ struct StudioPluginControllerInspector: View {
     // MARK: Fields
 
     private func errors(at pointer: String) -> [String] {
+        // A new row's missing values wait until the row has been edited or left.
+        if freshRows.contains(where: { pointer.hasPrefix($0 + "/") }) { return [] }
         var out: [String] = []
         if let text = draftErrors[pointer] { out.append(text) }
         for error in info?.plugin.configErrors ?? [] where error.field == pointer || (pointer.isEmpty && error.field == "/") {
@@ -156,53 +181,131 @@ struct StudioPluginControllerInspector: View {
         .font(.callout)
     }
 
-    /// An array of objects: one row per item, a column per property, Add Row and a remove button per row.
+    /// An array of objects: one row per item, a column per property, Add Row and a remove button per row. When the
+    /// columns don't fit the inspector, each row becomes a card with its labels above their values.
     @ViewBuilder
     private func tableView(_ field: FormField, pointer: String) -> some View {
         let rows = draft[pointer]?.array ?? []
-        let columns = field.columns ?? []
         VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
             Text(field.label)
                 .foregroundStyle(.secondary)
-            Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingXS, verticalSpacing: StudioMetrics.spacingXS) {
-                GridRow {
-                    ForEach(columns) { Text($0.label).font(.caption).foregroundStyle(.secondary) }
-                    Color.clear.frame(width: 1, height: 1)
-                }
-                ForEach(rows.indices, id: \.self) { index in
-                    GridRow {
-                        ForEach(columns) { column in
-                            cell(column, pointer: "\(pointer)/\(index)\(column.pointer)")
-                        }
-                        Button {
-                            var items = rows
-                            items.remove(at: index)
-                            set(pointer, .array(items))
-                        } label: {
-                            Image(systemName: "minus.circle")
-                        }
-                        .buttonStyle(.borderless)
-                        .help("Remove this row")
-                        .disabled(rows.count <= (field.minItems ?? 0))
-                    }
-                    ForEach(columns) { column in
-                        ForEach(errors(at: "\(pointer)/\(index)\(column.pointer)"), id: \.self) { text in
-                            Text("Row \(index + 1) \(column.label): \(text)")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .gridCellColumns(columns.count + 1)
-                        }
-                    }
+            if !rows.isEmpty {
+                ViewThatFits(in: .horizontal) {
+                    tableGrid(field, pointer: pointer, rows: rows)
+                    tableCards(field, pointer: pointer, rows: rows)
                 }
             }
-            Button("Add Row") { set(pointer, .array(rows + [field.newRow ?? .object([:])])) }
+            if let waiting = rows.indices.first(where: { freshRows.contains("\(pointer)/\($0)") && hasHiddenErrors(in: "\(pointer)/\($0)") }) {
+                Text("Row \(waiting + 1) needs its values before your changes apply.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Button("Add Row") { addRow(field, rows: rows) }
                 .controlSize(.small)
                 .disabled(field.maxItems.map { rows.count >= $0 } ?? false)
         }
     }
 
+    private func addRow(_ field: FormField, rows: [JSONValue]) {
+        freshRows.insert("\(field.pointer)/\(rows.count)")
+        set(field.pointer, .array(rows + [field.newRow ?? .object([:])]))
+    }
+
+    private func tableGrid(_ field: FormField, pointer: String, rows: [JSONValue]) -> some View {
+        let columns = field.columns ?? []
+        return Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingXS, verticalSpacing: StudioMetrics.spacingXS) {
+            GridRow {
+                ForEach(columns) {
+                    Text($0.label).font(.caption).foregroundStyle(.secondary).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
+                Color.clear.frame(width: 1, height: 1)
+            }
+            ForEach(rows.indices, id: \.self) { index in
+                GridRow {
+                    ForEach(columns) { column in
+                        cell(column, pointer: "\(pointer)/\(index)\(column.pointer)")
+                    }
+                    removeRowButton(field, pointer: pointer, rows: rows, index: index)
+                }
+                ForEach(columns) { column in
+                    ForEach(errors(at: "\(pointer)/\(index)\(column.pointer)"), id: \.self) { text in
+                        Text("Row \(index + 1) \(column.label): \(text)")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .gridCellColumns(columns.count + 1)
+                    }
+                }
+            }
+        }
+    }
+
+    private func tableCards(_ field: FormField, pointer: String, rows: [JSONValue]) -> some View {
+        let columns = field.columns ?? []
+        return VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
+            ForEach(rows.indices, id: \.self) { index in
+                VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
+                    HStack {
+                        Text("Row \(index + 1)").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                        Spacer(minLength: 0)
+                        removeRowButton(field, pointer: pointer, rows: rows, index: index)
+                    }
+                    ForEach(columns) { column in
+                        let at = "\(pointer)/\(index)\(column.pointer)"
+                        VStack(alignment: .leading, spacing: 2) {
+                            if column.kind == "boolean" {
+                                Toggle(column.label, isOn: Binding(get: { draft[at]?.bool ?? column.defaultValue?.bool ?? false }, set: { set(at, .bool($0)) }))
+                            } else {
+                                Text(column.label).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                                cell(column, pointer: at, compact: true)
+                            }
+                            ForEach(errors(at: at), id: \.self) { text in
+                                Text(text)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+                .padding(StudioMetrics.spacingS)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.background.secondary, in: RoundedRectangle(cornerRadius: StudioMetrics.smallCornerRadius))
+            }
+        }
+    }
+
+    private func removeRowButton(_ field: FormField, pointer: String, rows: [JSONValue], index: Int) -> some View {
+        Button {
+            var items = rows
+            items.remove(at: index)
+            // Rows after the removed one move up a place, and keep whether they're new.
+            freshRows = Set(freshRows.compactMap { row -> String? in
+                guard row.hasPrefix(pointer + "/"), let n = Int(row.dropFirst(pointer.count + 1)) else { return row }
+                return n == index ? nil : n > index ? "\(pointer)/\(n - 1)" : row
+            })
+            set(pointer, .array(items))
+        } label: {
+            Image(systemName: "minus.circle")
+        }
+        .buttonStyle(.borderless)
+        .help("Remove this row")
+        .accessibilityLabel("Remove row \(index + 1)")
+        .disabled(rows.count <= (field.minItems ?? 0))
+    }
+
+    private func hasHiddenErrors(in row: String) -> Bool {
+        draftErrors.keys.contains { $0.hasPrefix(row + "/") }
+    }
+
+    /// A new table row stops being new once one of its values is edited or left.
+    private func touch(_ pointer: String) {
+        freshRows = freshRows.filter { !pointer.hasPrefix($0 + "/") }
+    }
+
     @ViewBuilder
-    private func cell(_ column: FormField, pointer: String) -> some View {
+    private func cell(_ column: FormField, pointer: String, compact: Bool = false) -> some View {
         switch column.kind {
         case "boolean":
             Toggle(column.label, isOn: Binding(get: { draft[pointer]?.bool ?? column.defaultValue?.bool ?? false }, set: { set(pointer, .bool($0)) }))
@@ -213,12 +316,13 @@ struct StudioPluginControllerInspector: View {
                 ForEach(column.options ?? [], id: \.value) { Text($0.label).tag($0.value) }
             }
             .labelsHidden()
-            .fixedSize()
+            .fixedSize(horizontal: !compact, vertical: false)
+            .frame(maxWidth: compact ? .infinity : nil, alignment: .leading)
         default:
-            StudioCommitField(text: draft[pointer].map(text(of:)) ?? "", prompt: column.prompt) { typed in
+            StudioCommitField(text: draft[pointer].map(text(of:)) ?? "", prompt: column.prompt, leave: { touch(pointer) }) { typed in
                 commitText(typed, field: column, pointer: pointer)
             }
-            .frame(minWidth: 70)
+            .frame(minWidth: compact ? 0 : 70, idealWidth: compact ? nil : 110, maxWidth: .infinity)
             .accessibilityLabel(column.label)
         }
     }
@@ -300,6 +404,7 @@ struct StudioPluginControllerInspector: View {
     /// Puts `value` at `pointer` (nil removes it), checks the whole configuration and applies it when it checks out;
     /// otherwise the problems show under their fields and the controller keeps its last good configuration.
     private func set(_ pointer: String, _ value: JSONValue?) {
+        touch(pointer)
         var next = draft
         if pointer.isEmpty {
             next = value ?? .object([:])
@@ -314,6 +419,28 @@ struct StudioPluginControllerInspector: View {
         // A change that ends where the controller already is makes no Undo step.
         guard problems.isEmpty, next != (info.plugin.config ?? .object([:])) else { return }
         apply(config, to: info.id)
+    }
+
+    // MARK: Copy and paste
+
+    /// The controller's settings as JSON, for another show or a plugin's issue tracker.
+    private func copySettings() {
+        let config = info?.plugin.config ?? .object([:])
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(config.prettyJSONText, forType: .string)
+    }
+
+    /// Settings from the clipboard replace the configuration through the same check as typing, so they apply as one
+    /// step on Undo, or their problems show under the fields they name.
+    private func pasteSettings(_ text: String? = nil) {
+        let text = text ?? NSPasteboard.general.string(forType: .string) ?? ""
+        guard let value = JSONValue(jsonText: text.trimmingCharacters(in: .whitespacesAndNewlines)), case .object = value else {
+            failure = "The clipboard doesn't hold settings: copy a JSON object such as {\"host\": \"192.168.1.50\"}."
+            return
+        }
+        failure = nil
+        freshRows = []
+        set("", value)
     }
 
     private func apply(_ config: String, to id: String) {
@@ -358,14 +485,17 @@ struct StudioPluginControllerInspector: View {
         if switched || reset || (configChanged && draftErrors.isEmpty) {
             draft = next.plugin.config ?? .object([:])
             if switched || configChanged { draftErrors = [:] }
-            if switched { failure = nil }
+            if switched { failure = nil; freshRows = [] }
         }
     }
 
     // MARK: Harness
 
     /// `{ "action": "hook", "name": "studio.pluginForm", "path": [...] }`: `commit <pointer> <text>` hands a field's text
-    /// over as Return would, `toggle <pointer>` flips a switch, `state` answers the configuration shown and its problems.
+    /// over as Return would (a table cell too: `/devices/0/mac`), `toggle <pointer>` flips a switch, `addRow <pointer>`
+    /// presses a table's Add Row, `leave <pointer>` moves focus out of a cell, `copy` and `paste <json>` run Copy and
+    /// Paste Settings, `state` answers the configuration shown and its problems (`errors`, every one; `shown`, those on
+    /// screen).
     private func installHarnessHook(_ token: UUID) {
         guard UITestHarness.isActive else { return }
         StudioPluginFormHarness.install()
@@ -377,21 +507,56 @@ struct StudioPluginControllerInspector: View {
                 }
                 return nil
             }
-            guard info != nil else { return nil }
+            guard info != nil, !coveredNow.value else { return nil }
             switch args.first ?? "" {
             case "commit":
-                guard args.count >= 2, let field = find(args[1], in: form) else { return "FAIL no field \(args.dropFirst().first ?? "")" }
-                commitText(args.dropFirst(2).joined(separator: " "), field: field, pointer: field.pointer)
+                guard args.count >= 2, let (field, pointer) = Self.locate(args[1], in: form) else { return "FAIL no field \(args.dropFirst().first ?? "")" }
+                commitText(args.dropFirst(2).joined(separator: " "), field: field, pointer: pointer)
             case "toggle":
                 guard args.count >= 2 else { return "FAIL toggle <pointer>" }
                 set(args[1], .bool(!(draft[args[1]]?.bool ?? false)))
+            case "addRow":
+                guard args.count >= 2, let field = find(args[1], in: form), field.kind == "table" else { return "FAIL no table \(args.dropFirst().first ?? "")" }
+                addRow(field, rows: draft[field.pointer]?.array ?? [])
+            case "leave":
+                guard args.count >= 2 else { return "FAIL leave <pointer>" }
+                touch(args[1])
+            case "copy":
+                // Puts back what the pasteboard held, so a run's earlier copies stay checkable.
+                let before = NSPasteboard.general.string(forType: .string)
+                copySettings()
+                let copied = NSPasteboard.general.string(forType: .string) ?? ""
+                if let before {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(before, forType: .string)
+                }
+                return "copied=\(copied)"
+            case "paste":
+                pasteSettings(args.dropFirst().joined(separator: " "))
             case "state": break
             default: return "FAIL unknown \(args.first ?? "")"
             }
             try? await Task.sleep(for: .milliseconds(1_500))
             let problems = draftErrors.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "; ")
-            return "config=\(info?.plugin.config?.jsonText ?? "nil") draft=\(draft.jsonText) errors=[\(problems)] failure=\(failure ?? "")"
+            let shown = draftErrors.keys.sorted().filter { !errors(at: $0).isEmpty }.joined(separator: ",")
+            return "config=\(info?.plugin.config?.jsonText ?? "nil") draft=\(draft.jsonText) errors=[\(problems)] shown=[\(shown)] failure=\(failure ?? "")"
         }
+    }
+
+    /// A form field by pointer, including a table cell (`/devices/0/mac` is the `devices` table's `mac` column).
+    private static func locate(_ pointer: String, in fields: [FormField]) -> (FormField, String)? {
+        for field in fields {
+            if field.pointer == pointer { return (field, pointer) }
+            if let inner = locate(pointer, in: field.fields ?? []) { return inner }
+            if field.kind == "table", pointer.hasPrefix(field.pointer + "/") {
+                let rest = pointer.dropFirst(field.pointer.count + 1)
+                if let slash = rest.firstIndex(of: "/"), Int(rest[..<slash]) != nil,
+                   let column = (field.columns ?? []).first(where: { $0.pointer == String(rest[slash...]) }) {
+                    return (column, pointer)
+                }
+            }
+        }
+        return nil
     }
 
     // MARK: Rust's JSON
@@ -510,6 +675,8 @@ struct StudioCommitField: View {
     let text: String
     let prompt: String
     var axis: Axis = .horizontal
+    /// Called when focus leaves the field, whether or not its text changed.
+    var leave: (() -> Void)? = nil
     let commit: (String) -> Void
     @State private var typed = ""
     @FocusState private var focused: Bool
@@ -521,6 +688,7 @@ struct StudioCommitField: View {
             .onSubmit { if typed != text { commit(typed) } }
             .onChange(of: focused) { _, now in
                 if !now, typed != text { commit(typed) }
+                if !now { leave?() }
             }
             .onChange(of: text, initial: true) { _, new in
                 if !focused { typed = new }
@@ -562,6 +730,12 @@ enum JSONValue: Codable, Hashable, Sendable {
     var jsonText: String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return (try? encoder.encode(self)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
+    }
+
+    var prettyJSONText: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes, .prettyPrinted]
         return (try? encoder.encode(self)).flatMap { String(data: $0, encoding: .utf8) } ?? "null"
     }
 
@@ -607,9 +781,12 @@ enum JSONValue: Codable, Hashable, Sendable {
     }
 }
 
-/// The `studio.pluginForm` hook. Display and Controllers each keep a plugin inspector, so it acts in the one that came
-/// first and showing a controller (the one on screen), as a person editing one of them would.
+/// The `studio.pluginForm` hook. Display and Controllers each keep a plugin inspector, so it acts in the one on screen
+/// showing a controller, as a person editing one of them would.
 enum StudioPluginFormHarness {
+    /// Whether an inspector is under the Controllers section, readable from its hook.
+    final class Covered { var value = false }
+
     static var handlers: [UUID: ([String]) async -> String?] = [:] {
         didSet { order = order.filter { handlers[$0] != nil } + handlers.keys.filter { !order.contains($0) } }
     }
@@ -636,5 +813,17 @@ extension SetupModel {
                   let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else { return false }
             return object["plugin"] is [String: Any]
         }
+    }
+}
+
+private struct StudioCoveredBySectionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// Display Setup's columns are hidden under the show window's Controllers section.
+    var studioCoveredBySection: Bool {
+        get { self[StudioCoveredBySectionKey.self] }
+        set { self[StudioCoveredBySectionKey.self] = newValue }
     }
 }

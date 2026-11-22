@@ -14,6 +14,9 @@ Checks:
 - the Plugins menu lists the plugin's command under its name, then Manage Plugins…;
 - Add ▸ Lamp adds a plugin controller; its inspector shows the configSchema form; an invalid address stays in the form
   with its error and isn't applied; valid edits apply; each edit is one Undo step;
+- an 8-column settings table never widens the inspector (layout check at 1280 pt and at the minimum, in Controllers and
+  Display); a new row shows no "required" errors until it's left; Copy Settings and Paste Settings move the JSON, and a
+  paste is one Undo step;
 - with another process holding Plugins/.lock, Settings ▸ Plugins says the plugins run in that process (its pid), shows
   enabled plugins as Elsewhere and disables every change; once the lock is released this process owns the folder.
 The run never touches ~/Library/Application Support/Vixen Studio/Plugins (VIXEN_STUDIO_PLUGINS points elsewhere).
@@ -47,8 +50,14 @@ def prepare() -> Path:
         "colorOrder": {"enum": ["rgb", "grb", "bgr"], "x-enumNames": ["RGB", "GRB", "BGR"], "default": "rgb", "x-order": 3},
         "brightnessLimit": {"type": "number", "minimum": 0, "maximum": 1, "default": 1, "x-order": 4},
         "fast": {"type": "boolean", "title": "Fast mode", "x-order": 5},
-        "devices": {"type": "array", "maxItems": 8, "x-order": 6, "items": {"type": "object", "properties": {
-            "name": {"type": "string"}, "universe": {"type": "integer", "minimum": 1}, "on": {"type": "boolean", "default": True}}}},
+        # Eight columns, wider than the inspector, ordered by the documented x-order array (Govee Output's shape).
+        "devices": {"type": "array", "maxItems": 8, "x-order": 6, "items": {"type": "object", "required": ["mac"],
+            "x-order": ["name", "mac", "model", "universe", "startChannel", "segments", "colorOrder", "on"], "properties": {
+            "name": {"type": "string", "title": "Device name"}, "mac": {"type": "string", "title": "MAC address", "minLength": 12},
+            "model": {"type": "string", "default": "H6199"}, "universe": {"type": "integer", "minimum": 1, "default": 1},
+            "startChannel": {"type": "integer", "minimum": 1, "default": 1}, "segments": {"type": "integer", "minimum": 1, "default": 1},
+            "colorOrder": {"enum": ["rgb", "grb"], "x-enumNames": ["RGB", "GRB"], "default": "rgb"},
+            "on": {"type": "boolean", "title": "Enabled", "default": True}}}},
         "tags": {"type": "array", "items": {"type": "string"}, "x-order": 7}}}
     lamp = {"id": "com.example.lamp", "name": "Lamp Output", "version": "1.2.0", "apiVersion": "^1.0",
             "description": "Drives LAN lamps as a Vixen controller (test fixture).",
@@ -126,14 +135,32 @@ def check() -> None:
     assert re.search(r"^Plugins\n  Lamp Output\n    Say Hello…\n  ---\n  Manage Plugins…", menus, re.M), menus
     forms = [h for h in hooks if h.startswith("config=")]
     config = [json.loads(re.match(r"config=(\{.*?\}) draft=", f).group(1)) for f in forms]
-    # state, bad host, good host, bad port, good port, fast, undo, undo
-    assert len(forms) == 8, forms
+    # state, bad host, good host, bad port, good port, fast, undo, undo (then B48's below)
+    assert len(forms) >= 8, forms
     assert "host" not in config[1] and "/host must be an IPv4 address" in forms[1], forms[1]
     assert config[2]["host"] == "10.0.0.30", forms[2]
     assert config[3]["port"] == 4048 and "/port must be at most 65535" in forms[3], forms[3]
     assert config[4]["port"] == 5000 and config[5]["fast"] is True, forms[5]
     assert "fast" not in config[6] and config[6]["port"] == 5000, forms[6]
     assert config[7]["port"] == 4048 and config[7]["host"] == "10.0.0.30", forms[7]
+    # B48: a new row of the 8-column table waits for its values without errors until it's edited or left; Copy
+    # Settings copies the configuration as JSON; Paste Settings applies pasted settings as one Undo step and refuses
+    # anything that isn't a settings object. Then: add row, leave it, paste, bad paste, undo, add row (Display).
+    assert len(forms) == 14, forms
+    added, left, pasted, bad, undone = forms[8:13]
+    assert '"devices":[{"colorOrder":"rgb","model":"H6199","on":true,"segments":1,"startChannel":1,"universe":1}]' in added, added
+    assert "/devices/0/mac is required" in added and "shown=[]" in added, added
+    assert "shown=[/devices/0/mac]" in left, left
+    copied_hook = next(h for h in hooks if h.startswith("copied="))
+    assert json.loads(copied_hook[len("copied="):])["host"] == "10.0.0.30", copied_hook
+    assert config[10]["host"] == "10.0.0.31" and config[10]["devices"][0]["mac"] == "AABBCCDDEEFF", pasted
+    assert config[10]["devices"] == [{"mac": "AABBCCDDEEFF", "name": "Porch"}] and "brightnessLimit" not in config[10], pasted
+    assert "doesn't hold settings" in bad and config[11] == config[10], bad
+    assert config[12]["host"] == "10.0.0.30" and "devices" not in config[12], undone
+    # The inspector column keeps its width: Controllers' inspector stays within its 360-point maximum.
+    panes = [h for h in hooks if re.fullmatch(r"[0-9]+(,[0-9]+)+", h)]
+    assert len(panes) == 4, panes
+    assert all(int(p.split(",")[-1]) <= 360 for p in panes[:2]), panes
     leftover = subprocess.run(["pgrep", "-f", str(FIXTURE)], capture_output=True, text=True).stdout.strip()
     assert not leftover, f"plugin processes left running: {leftover}"
 

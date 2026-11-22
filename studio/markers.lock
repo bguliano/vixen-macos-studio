@@ -561,7 +561,7 @@
  },
  "block:setup-controllers-section": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
-  "hash": "8c04a11ca1bba9d8"
+  "hash": "ce21b5aeddead9ae"
  },
  "block:setup-inline": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",

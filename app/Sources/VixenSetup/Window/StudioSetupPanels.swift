@@ -211,80 +211,18 @@ struct StudioControllersPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }
-            if panel.anyController {
-                VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
-                    if panel.oneController && networkController {
-                        StudioControllerNetworkInspector(model: model)
-                        Divider()
-                    }
-                    if panel.oneController && pluginController {
-                        StudioPluginControllerInspector(model: model)
-                        Divider()
-                    }
-                    // The network inspector already shows the protocol and outputs.
-                    if !(panel.oneController && networkController) {
-                        Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingS, verticalSpacing: 2) {
-                            GridRow {
-                                Text("Type").foregroundStyle(.secondary)
-                                Text(panel.typeLabel).lineLimit(1).truncationMode(.tail)
-                            }
-                            GridRow {
-                                Text("Outputs").foregroundStyle(.secondary)
-                                Text(panel.outputsLabel).monospacedDigit()
-                            }
-                        }
-                        .font(.callout)
-                    }
-                    StudioActionRow {
-                        if panel.canStart {
-                            StudioActionButton(title: "Start", symbol: "play.fill", help: "Start sending data to this controller") { Task { await model.startControllers() } }
-                        }
-                        if panel.canStop {
-                            StudioActionButton(title: "Stop", symbol: "stop.fill", help: "Stop sending data to this controller") { Task { await model.stopControllers() } }
-                        }
-                        if networkController {
-                            StudioActionButton(title: "Advanced…", symbol: "gearshape", enabled: panel.oneController,
-                                               help: "Multicast, a universe table set by hand, priority and other settings") { Task { await model.configureController() } }
-                        } else {
-                            if !pluginController {
-                                StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
-                                                   help: "Network address, universes and other settings") { Task { await model.configureController() } }
-                            }
-                            StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
-                                               help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
-                        }
-                        StudioActionButton(title: "Rename…", symbol: "pencil", enabled: panel.oneController) { Task { await model.renameController() } }
-                        StudioActionButton(title: "Find Elements", symbol: "text.magnifyingglass", enabled: panel.canFindElements,
-                                           help: "Select the elements patched to the selected outputs") {
-                            Task {
-                                await model.findElements()
-                                // The elements are in Display.
-                                if section { StudioDisplayPane.showDisplay?() }
-                            }
-                        }
-                        Menu {
-                            Button("Move Up") { Task { await model.moveControllers(up: true) } }
-                            Button("Move Down") { Task { await model.moveControllers(up: false) } }
-                        } label: {
-                            Label("Order", systemImage: "arrow.up.arrow.down")
-                        }
-                        .fixedSize()
-                        StudioActionButton(title: "Delete", symbol: "trash") { Task { await model.deleteControllers() } }
-                    }
-                    if !panel.oneController {
-                        Text("Select a single controller to configure, rename or change its outputs.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .studioCard(padding: StudioMetrics.spacingS)
-                .disabled(model.studioEditingPaused)
+            // In Display the column also lists the controllers, so a tall inspector scrolls under the list instead of
+            // pushing the window taller; the Controllers section scrolls the whole column itself.
+            if section {
+                selection(panel)
             } else {
-                Text(section
-                    ? "Select a controller to see its settings and start, stop, test or configure it."
-                    : "Select a controller to start, stop or configure it. Double-click to open its settings.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                StudioFitHeight {
+                    ScrollView {
+                        selection(panel)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                }
             }
             Spacer(minLength: 0)
             // In the show window the pane's own bar applies or discards, across the whole width.
@@ -308,10 +246,104 @@ struct StudioControllersPanel: View {
         }
     }
 
+    /// The selected controllers' inspector and actions, or what to select.
+    @ViewBuilder
+    private func selection(_ panel: SetupControllerPanelState) -> some View {
+        if panel.anyController {
+            VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
+                if panel.oneController && networkController {
+                    StudioControllerNetworkInspector(model: model)
+                    Divider()
+                }
+                if panel.oneController && pluginController {
+                    StudioPluginControllerInspector(model: model)
+                    Divider()
+                }
+                // The network inspector already shows the protocol and outputs.
+                if !(panel.oneController && networkController) {
+                    Grid(alignment: .leading, horizontalSpacing: StudioMetrics.spacingS, verticalSpacing: 2) {
+                        GridRow {
+                            Text("Type").foregroundStyle(.secondary)
+                            Text(panel.typeLabel).lineLimit(1).truncationMode(.tail)
+                        }
+                        GridRow {
+                            Text("Outputs").foregroundStyle(.secondary)
+                            Text(panel.outputsLabel).monospacedDigit()
+                        }
+                    }
+                    .font(.callout)
+                }
+                StudioActionRow {
+                    if panel.canStart {
+                        StudioActionButton(title: "Start", symbol: "play.fill", help: "Start sending data to this controller") { Task { await model.startControllers() } }
+                    }
+                    if panel.canStop {
+                        StudioActionButton(title: "Stop", symbol: "stop.fill", help: "Stop sending data to this controller") { Task { await model.stopControllers() } }
+                    }
+                    if networkController {
+                        StudioActionButton(title: "Advanced…", symbol: "gearshape", enabled: panel.oneController,
+                                           help: "Multicast, a universe table set by hand, priority and other settings") { Task { await model.configureController() } }
+                    } else {
+                        if !pluginController {
+                            StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
+                                               help: "Network address, universes and other settings") { Task { await model.configureController() } }
+                        }
+                        StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
+                                           help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
+                    }
+                    StudioActionButton(title: "Rename…", symbol: "pencil", enabled: panel.oneController) { Task { await model.renameController() } }
+                    StudioActionButton(title: "Find Elements", symbol: "text.magnifyingglass", enabled: panel.canFindElements,
+                                       help: "Select the elements patched to the selected outputs") {
+                        Task {
+                            await model.findElements()
+                            // The elements are in Display.
+                            if section { StudioDisplayPane.showDisplay?() }
+                        }
+                    }
+                    Menu {
+                        Button("Move Up") { Task { await model.moveControllers(up: true) } }
+                        Button("Move Down") { Task { await model.moveControllers(up: false) } }
+                    } label: {
+                        Label("Order", systemImage: "arrow.up.arrow.down")
+                    }
+                    .fixedSize()
+                    StudioActionButton(title: "Delete", symbol: "trash") { Task { await model.deleteControllers() } }
+                }
+                if !panel.oneController {
+                    Text("Select a single controller to configure, rename or change its outputs.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .studioCard(padding: StudioMetrics.spacingS)
+            .disabled(model.studioEditingPaused)
+        } else {
+            Text(section
+                ? "Select a controller to see its settings and start, stop, test or configure it."
+                : "Select a controller to start, stop or configure it. Double-click to open its settings.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private func legend(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 7, height: 7)
             Text(text)
         }
+    }
+}
+
+/// Gives its one child its natural height, or less when that's all there is: a scroll view inside sizes to its
+/// content until the column runs out of room, then scrolls.
+struct StudioFitHeight: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let natural = child.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: proposal.width ?? natural.width, height: min(natural.height, proposal.height ?? natural.height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
     }
 }

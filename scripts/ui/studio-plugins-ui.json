@@ -388,6 +388,261 @@
    "name": "10-after-undo"
   },
   {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1280",
+    "800",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Porch Lamp"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "addRow",
+    "/devices"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "11-wide-table-1280",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "12-wide-table-min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "leave",
+    "/devices/0/mac"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "13-row-left",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "copy"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "paste",
+    "{\"host\": \"10.0.0.31\", \"port\": 4048, \"colorOrder\": \"grb\", \"devices\": [{\"name\": \"Porch\", \"mac\": \"AABBCCDDEEFF\"}]}"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "14-pasted",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "paste",
+    "not settings"
+   ]
+  },
+  {
+   "action": "displayUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Porch Lamp"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "studioSection",
+   "name": "display"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "addRow",
+    "/devices"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1280",
+    "800",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "15-display-1280",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "16-display-min",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "panes",
+    "Vixen Studio"
+   ]
+  },
+  {
    "action": "quit"
   }
  ]

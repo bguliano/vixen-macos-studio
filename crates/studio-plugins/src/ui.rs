@@ -12,7 +12,8 @@ const MAX_DEPTH: usize = 4;
 /// `maxLength`), `number`/`integer` (`minimum`, `maximum`), `boolean`, `choice` (`options: [{value, label}]`),
 /// `object` (`fields`), `table` (an array of objects: `columns`, `newRow`, `minItems`, `maxItems`), `list` (an array of
 /// strings or numbers: `item`, `minItems`, `maxItems`) or `json` (anything else, edited as text). Properties come in
-/// `x-order` order (lowest first), then by name. A schema that isn't an object of properties gives one `json` field
+/// the order of the object's `x-order` array of property names, then by each property's integer `x-order` (lowest
+/// first), then by name. A schema that isn't an object of properties gives one `json` field
 /// for the whole configuration.
 pub fn form(schema: &Value) -> Value {
     if schema.get("properties").and_then(Value::as_object).is_some() {
@@ -29,7 +30,12 @@ fn fields(schema: &Value, at: &str, depth: usize) -> Vec<Value> {
     let Some(properties) = schema.get("properties").and_then(Value::as_object) else { return Vec::new() };
     let required: Vec<&str> = schema.get("required").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
     let mut names: Vec<&String> = properties.keys().collect();
-    let order = |name: &String| properties[name].get("x-order").and_then(Value::as_i64).unwrap_or(i64::MAX);
+    // The documented form is an array of names on the object; an integer on each property also works.
+    let listed: Vec<&str> = schema.get("x-order").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).collect();
+    let order = |name: &String| {
+        let position = listed.iter().position(|n| n == name).unwrap_or(usize::MAX);
+        (position, properties[name].get("x-order").and_then(Value::as_i64).unwrap_or(i64::MAX))
+    };
     names.sort_by(|a, b| order(a).cmp(&order(b)).then(a.cmp(b)));
     names
         .into_iter()
@@ -254,6 +260,28 @@ mod tests {
         assert_eq!(by("advanced")["fields"][0]["kind"], "integer");
         assert_eq!(by("blob")["kind"], "json");
         assert_eq!(form["unsupported"], false);
+    }
+
+    #[test]
+    fn an_x_order_array_orders_objects_and_table_columns() {
+        let schema = json!({
+            "type": "object",
+            "x-order": ["zone", "devices"],
+            "properties": {
+                "alpha": {"type": "string"},
+                "devices": {"type": "array", "items": {
+                    "type": "object",
+                    "x-order": ["name", "mac"],
+                    "properties": {"mac": {"type": "string"}, "name": {"type": "string"}, "brightness": {"type": "integer", "x-order": 1}, "apple": {"type": "string"}}
+                }},
+                "zone": {"type": "string"},
+                "beta": {"type": "string", "x-order": 1}
+            }
+        });
+        let form = form(&schema);
+        let keys = |list: &Value| list.as_array().unwrap().iter().map(|f| f["key"].as_str().unwrap().to_string()).collect::<Vec<_>>();
+        assert_eq!(keys(&form["fields"]), ["zone", "devices", "beta", "alpha"]);
+        assert_eq!(keys(&form["fields"][1]["columns"]), ["name", "mac", "brightness", "apple"]);
     }
 
     #[test]
