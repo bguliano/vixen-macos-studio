@@ -398,6 +398,11 @@ private struct ViewMenuItems: View {
         toggle("Lock Waveform Height", ui?.prefs.lockWaveformHeight) { model?.set(.lockWaveformHeight, $0) }
         Divider()
         // STUDIO: the native toolbar is customised with View ▸ Customize Toolbar…, so Vixen's Toolbars submenu is gone
+        // STUDIO-BEGIN sidebar-drawer-menu: View ▸ Hide Sidebar collapses the whole left-hand drawer, as the toolbar's Effects button does (B50)
+        Button(model?.studioSidebarShown ?? true ? "Hide Sidebar" : "Show Sidebar") { model?.toggleStudioSidebar() }
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            .disabled(model == nil)
+        // STUDIO-END sidebar-drawer-menu
         // STUDIO-BEGIN inspector-drawer-menu: View ▸ Hide Inspector collapses the whole right-hand drawer, as the toolbar button does (#69)
         Button(model?.studioInspectorShown ?? true ? "Hide Inspector" : "Show Inspector") { model?.toggleStudioInspector() }
             .keyboardShortcut("i", modifiers: [.command, .option])

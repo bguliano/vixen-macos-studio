@@ -124,7 +124,7 @@ struct DockArea: NSViewRepresentable {
         /// Shows or hides the side panes to match the layout, and puts the dividers where they were saved.
         func apply(_ panels: ShellPanels?) {
             guard let split, let panels, split.arrangedSubviews.count == 3 else { return }
-            let hideLeft = panels.leftTabs.isEmpty
+            let hideLeft = panels.leftTabs.isEmpty || model.studioSidebarCollapsed // STUDIO: the Effects button collapses the whole sidebar (B50)
             let hideRight = panels.rightTabs.isEmpty || model.studioInspectorCollapsed // STUDIO: the Inspector button collapses the whole drawer (#69)
             let changed = !placed || hideLeft != leftHidden || hideRight != rightHidden
             guard changed else { return }

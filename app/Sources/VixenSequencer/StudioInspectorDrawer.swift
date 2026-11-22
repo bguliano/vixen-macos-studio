@@ -6,9 +6,13 @@ import VixenKit
 // drawer, as a Mac inspector does. Toggling only the Effect Editor tab left the libraries, marks and layers holding the
 // drawer open. Collapsing hides the pane without closing its tabs, so they come back as they were, at their width; new
 // windows open the way the last one was left.
+//
+// The toolbar's Effects button and View ▸ Hide Sidebar (⌃⌘S) do the same for the left-hand drawer (B50): the View menu
+// reopens Layer Editor and Find Effects there (KEEP F71, F72), so toggling only the Effects tab could leave it open.
 
 extension SequencerModel {
     static let studioInspectorCollapsedKey = "studio.sequencerInspectorCollapsed"
+    static let studioSidebarCollapsedKey = "studio.sequencerSidebarCollapsed"
 
     /// The right-hand drawer is on screen: not collapsed, and with at least one tab docked there.
     var studioInspectorShown: Bool {
@@ -45,8 +49,44 @@ extension SequencerModel {
         UserDefaults.standard.set(collapsed, forKey: Self.studioInspectorCollapsedKey)
     }
 
+    /// The left-hand drawer is on screen: not collapsed, and with at least one tab docked there.
+    var studioSidebarShown: Bool {
+        !studioSidebarCollapsed && !(panels?.leftTabs.isEmpty ?? true)
+    }
+
+    func toggleStudioSidebar() {
+        if studioSidebarShown {
+            setStudioSidebarCollapsed(true)
+            return
+        }
+        setStudioSidebarCollapsed(false)
+        // Every left-hand tab was closed, floated or moved: the Effects library comes back docked there.
+        guard let panels, panels.leftTabs.isEmpty else { return }
+        if panels.floating.contains(where: { $0.panel == .effects }) {
+            redockPanel(.effects)
+        } else if panels.visible.contains(.effects) {
+            togglePanel(.effects)
+            togglePanel(.effects)
+        } else {
+            togglePanel(.effects)
+        }
+    }
+
+    /// A panel shown or docked on the left opens a collapsed sidebar, so it never goes into a hidden pane.
+    func studioRevealSidebar(for panel: ShellPanel) {
+        guard studioSidebarCollapsed, panels?.leftTabs.contains(where: { $0.panel == panel }) ?? false else { return }
+        setStudioSidebarCollapsed(false)
+    }
+
+    private func setStudioSidebarCollapsed(_ collapsed: Bool) {
+        guard studioSidebarCollapsed != collapsed else { return }
+        studioSidebarCollapsed = collapsed
+        UserDefaults.standard.set(collapsed, forKey: Self.studioSidebarCollapsedKey)
+    }
+
     /// `sequencer.inspectorDrawer`: whether the drawer shows, and whether the window's right pane is really hidden.
-    /// `path` ["toggle"] presses the toolbar's Inspector button first.
+    /// `path` ["toggle"] presses the toolbar's Inspector button first. `sequencer.sidebarDrawer` does the same for the
+    /// left pane and the Effects button.
     func registerStudioInspectorHook(_ window: NSWindow) {
         UITestHarness.hooks["sequencer.inspectorDrawer"] = { [weak self, weak window] path in
             guard let self, let window else { return "FAIL no sequencer" }
@@ -57,6 +97,16 @@ extension SequencerModel {
             let pane = window.contentView.flatMap(Self.studioDockSplit)?.arrangedSubviews.last
             let paneText = pane.map { "paneHidden=\($0.isHidden) paneWidth=\(Int($0.frame.width))" } ?? "pane=none"
             return "shown=\(self.studioInspectorShown) collapsed=\(self.studioInspectorCollapsed) rightTabs=\(self.panels?.rightTabs.count ?? 0) \(paneText)"
+        }
+        UITestHarness.hooks["sequencer.sidebarDrawer"] = { [weak self, weak window] path in
+            guard let self, let window else { return "FAIL no sequencer" }
+            if path.first == "toggle" {
+                self.toggleStudioSidebar()
+                window.contentView?.layoutSubtreeIfNeeded()
+            }
+            let pane = window.contentView.flatMap(Self.studioDockSplit)?.arrangedSubviews.first
+            let paneText = pane.map { "paneHidden=\($0.isHidden) paneWidth=\(Int($0.frame.width))" } ?? "pane=none"
+            return "shown=\(self.studioSidebarShown) collapsed=\(self.studioSidebarCollapsed) leftTabs=\(self.panels?.leftTabs.count ?? 0) \(paneText)"
         }
     }
 

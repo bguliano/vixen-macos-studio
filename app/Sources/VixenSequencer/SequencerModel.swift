@@ -30,6 +30,7 @@ final class SequencerModel: OpenEditor {
     var studioAgentFlashRevision: UInt64? // STUDIO: the agent edits the timeline last flashed (StudioAgentFlash.swift)
     var studioAgentFlashes: [TimelineStudioAgentFlash] = [] // STUDIO: R39 flashes, kept for the harness only
     var studioInspectorCollapsed = UserDefaults.standard.bool(forKey: SequencerModel.studioInspectorCollapsedKey) // STUDIO: the right drawer collapsed by the Inspector button (StudioInspectorDrawer.swift, #69)
+    var studioSidebarCollapsed = UserDefaults.standard.bool(forKey: SequencerModel.studioSidebarCollapsedKey) // STUDIO: the left drawer collapsed by the Effects button (StudioInspectorDrawer.swift, B50)
     private(set) var toolbars: ShellToolbars?
     private(set) var panels: ShellPanels?
     /// Updated at display rate only while playing, on its own, so only the label redraws.
@@ -870,6 +871,7 @@ final class SequencerModel: OpenEditor {
         panels = shell?.panels()
         syncFloatingPanels()
         studioRevealInspector(for: panel) // STUDIO: showing a right-hand panel opens a collapsed inspector drawer (#69)
+        studioRevealSidebar(for: panel) // STUDIO: showing a left-hand panel opens a collapsed sidebar (B50)
     }
 
     func selectPanel(_ panel: ShellPanel, side: ShellSide) {
@@ -897,6 +899,7 @@ final class SequencerModel: OpenEditor {
         panels = shell?.panels()
         syncFloatingPanels()
         studioRevealInspector(for: panel) // STUDIO: docking a panel on the right opens a collapsed inspector drawer (#69)
+        studioRevealSidebar(for: panel) // STUDIO: docking a panel on the left opens a collapsed sidebar (B50)
     }
 
     /// Floating panels are `NSPanel`s, so they stay beside the window and the key monitor still hears them.

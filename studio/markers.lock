@@ -619,6 +619,10 @@
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "fddef2a35d3b6a92"
  },
+ "block:sidebar-drawer-menu": {
+  "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
+  "hash": "1dcb1f95d14bbd25"
+ },
  "block:snapping-mark-lines": {
   "file": "app/Sources/VixenTimeline/Surfaces.swift",
   "hash": "f48582aa0cceac0f"
@@ -1459,6 +1463,10 @@
   "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
   "hash": "ee4610a9fd858fec"
  },
+ "line:app/Sources/VixenSequencer/SequencerContent.swift:14ef01a7ab765d16": {
+  "file": "app/Sources/VixenSequencer/SequencerContent.swift",
+  "hash": "14ef01a7ab765d16"
+ },
  "line:app/Sources/VixenSequencer/SequencerContent.swift:197352c5598170eb": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "197352c5598170eb"
@@ -1507,6 +1515,10 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "0ee1277f8dce3946"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:195715f52282683b": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "195715f52282683b"
+ },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:298fade4d2d5b195": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "298fade4d2d5b195"
@@ -1531,6 +1543,10 @@
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "6b9eda5eb466fb37"
  },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:764cf5df9e884ca8": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "764cf5df9e884ca8"
+ },
  "line:app/Sources/VixenSequencer/SequencerModel.swift:79deb2a1f7d27a5d": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "79deb2a1f7d27a5d"
@@ -1554,6 +1570,10 @@
  "line:app/Sources/VixenSequencer/SequencerModel.swift:f769a3213b44196f": {
   "file": "app/Sources/VixenSequencer/SequencerModel.swift",
   "hash": "f769a3213b44196f"
+ },
+ "line:app/Sources/VixenSequencer/SequencerModel.swift:fcb8c00add2fb49b": {
+  "file": "app/Sources/VixenSequencer/SequencerModel.swift",
+  "hash": "fcb8c00add2fb49b"
  },
  "line:app/Sources/VixenSequencer/SequencerScene.swift:03768e20d6f49931": {
   "file": "app/Sources/VixenSequencer/SequencerScene.swift",

@@ -12,8 +12,12 @@ struct StudioSequencerToolbar: CustomizableToolbarContent {
 
     var body: some CustomizableToolbarContent {
         ToolbarItem(id: "effects-panel", placement: .navigation) {
-            panelToggle("Effects", systemImage: "sidebar.leading", panel: .effects,
-                        help: "Show or hide the effects library")
+            // The whole left-hand drawer, not only its Effects tab: Layer Editor and Find reopen there too (B50).
+            Toggle(isOn: Binding(get: { model.studioSidebarShown }, set: { _ in model.toggleStudioSidebar() })) {
+                Label("Effects", systemImage: "sidebar.leading")
+            }
+            .toggleStyle(.button)
+            .help("Show or hide the sidebar: the effects library and other panels on the left (⌃⌘S)")
         }
 
         ToolbarItem(id: "mode", placement: .navigation) {
@@ -91,17 +95,6 @@ struct StudioSequencerToolbar: CustomizableToolbarContent {
             }
             .help("Align and distribute selected effects")
         }
-    }
-
-    private func panelToggle(_ title: String, systemImage: String, panel: ShellPanel, help: String) -> some View {
-        Toggle(isOn: Binding(
-            get: { model.panels?.visible.contains(panel) ?? false },
-            set: { _ in model.togglePanel(panel) }
-        )) {
-            Label(title, systemImage: systemImage)
-        }
-        .toggleStyle(.button)
-        .help(help)
     }
 }
 
