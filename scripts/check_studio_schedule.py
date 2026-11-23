@@ -8,7 +8,8 @@ Checks, from the pane's state after each step and from the saved profile:
 - the show's existing show and schedule are listed, the schedule as ended (its last day was in 2019);
 - Add Show adds "New Show" and starts renaming it; typing a name and Return renames it;
 - steps added to two sections and reordered list in run order, each edit one labelled undo step;
-- Add Schedule schedules the selected show from today, on and upcoming; its end time and days change in place;
+- Add Schedule schedules the selected show from today, on and upcoming (or due, if the check runs inside its hours);
+  its end time and days change in place;
 - its On switch turns it off ("Turn Off Schedule");
 - Edit ▸ Undo (the window's undo manager), the pane's Undo button and Edit ▸ Redo walk those steps;
 - deleting the show deletes its schedule in the same step, and Undo brings both back;
@@ -41,6 +42,10 @@ def check(out: Path, profile: Path) -> None:
         found = [s for s in part(state, 1).removeprefix("schedules: ").split("; ") if s.startswith("Front Yard ")]
         return found[0] if found else ""
 
+    # An enabled schedule that hasn't ended reads "upcoming", or "due" while the clock is inside its days and hours.
+    def active(state: str, ending: str) -> bool:
+        return re.fullmatch(rf".*{re.escape(ending)} on (upcoming|due)", front_yard(state)) is not None
+
     (initial, added, renamed, steps_state, scheduled, edited, toggled, undo_menu, undo_button, redo, deleted, restored) = states
     original = "Christmas Lights 2018[1]: sequential=Wizards in Winter,Christmas Eve Sarajevo,Carey Grinch shutdown=Cameron-Zoom"
     assert part(initial, 0) == f"shows: {original}", initial
@@ -50,18 +55,18 @@ def check(out: Path, profile: Path) -> None:
     assert "Front Yard[0]" in part(renamed, 0) and field(renamed, "undo") == "Rename Show", renamed
     assert "Front Yard[0]: startup=Cameron-Zoom sequential=Pause for 5 s,Wizards in Winter" in part(steps_state, 0), steps_state
     assert field(steps_state, "undo") == "Reorder Show", steps_state
-    assert re.fullmatch(r"Front Yard \d{4}-\d\d-\d\d\.\.\d{4}-\d\d-\d\d 17:30-22:00 Every day on upcoming", front_yard(scheduled)), scheduled
+    assert re.fullmatch(r"Front Yard \d{4}-\d\d-\d\d\.\.\d{4}-\d\d-\d\d 17:30-22:00 Every day on (upcoming|due)", front_yard(scheduled)), scheduled
     assert field(scheduled, "undo") == "Add Schedule" and field(scheduled, "selected") == "schedule:1", scheduled
-    assert front_yard(edited).endswith("17:30-23:15 Fri, Sat on upcoming"), edited
+    assert active(edited, "17:30-23:15 Fri, Sat"), edited
     assert field(edited, "undo") == "Change Schedule", edited
     assert front_yard(toggled).endswith("Fri, Sat off off"), toggled
     assert field(toggled, "undo") == "Turn Off Schedule" and field(toggled, "menu").startswith("Undo Turn Off Schedule/"), toggled
-    assert front_yard(undo_menu).endswith("Fri, Sat on upcoming") and field(undo_menu, "redo") == "Turn Off Schedule", undo_menu
-    assert front_yard(undo_button).endswith("17:30-23:15 Every day on upcoming"), undo_button
-    assert front_yard(redo).endswith("17:30-23:15 Fri, Sat on upcoming"), redo
+    assert active(undo_menu, " Fri, Sat") and field(undo_menu, "redo") == "Turn Off Schedule", undo_menu
+    assert active(undo_button, "17:30-23:15 Every day"), undo_button
+    assert active(redo, "17:30-23:15 Fri, Sat"), redo
     assert part(deleted, 0) == f"shows: {original}" and front_yard(deleted) == "", deleted
     assert field(deleted, "undo") == "Delete Show", deleted
-    assert front_yard(restored).endswith("Fri, Sat on upcoming") and "Front Yard[1]" in part(restored, 0), restored
+    assert active(restored, " Fri, Sat") and "Front Yard[1]" in part(restored, 0), restored
     assert field(restored, "redo") == "Delete Show", restored
     assert section == ["schedule"], section
     assert windows and "Scheduler" not in windows[0] and "Shows " not in windows[0], windows
