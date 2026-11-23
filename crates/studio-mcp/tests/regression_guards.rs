@@ -67,6 +67,7 @@ struct Server {
     output: BufReader<ChildStdout>,
     next: u64,
     root: PathBuf,
+    endpoint: PathBuf,
 }
 
 impl Server {
@@ -81,7 +82,8 @@ impl Server {
             .unwrap();
         let input = child.stdin.take().unwrap();
         let output = BufReader::new(child.stdout.take().unwrap());
-        let mut server = Server { child, input, output, next: 1, root };
+        let endpoint = studio_mcp::socket::socket_path(&root).unwrap();
+        let mut server = Server { child, input, output, next: 1, root, endpoint };
         server.rpc("initialize", json!({"protocolVersion":"2024-11-05","clientInfo":{},"capabilities":{}}));
         server
     }
@@ -112,10 +114,21 @@ impl Server {
 }
 
 impl Drop for Server {
+    /// A stop signal, so the bridge removes its lock and endpoint (SIGKILL left an orphaned socket per run, B82); a kill
+    /// only if it doesn't exit within five seconds.
     fn drop(&mut self) {
+        // SAFETY: the pid is this test's own running child.
+        unsafe { libc::kill(self.child.id() as i32, libc::SIGTERM) };
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while matches!(self.child.try_wait(), Ok(None)) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
         let _ = std::fs::remove_dir_all(&self.root);
+        if !std::thread::panicking() {
+            assert!(!self.endpoint.exists(), "the bridge left its MCP socket behind");
+        }
     }
 }
 
