@@ -6,7 +6,8 @@ import VixenKit
 /// Commissioning tests in the Display pane: a Test submenu on one element, group or controller runs a moving pixel, R/G/B/W
 /// color bars or every light on, at a chosen brightness (25% unless changed), without a sequence. Tests need Live Output on;
 /// Rust plays them (`studio_commission.rs`), the same code as the MCP `output_test_pattern` tool, and the pane shows the
-/// running test with a Stop Test button until it's stopped or Live Output goes off.
+/// running test with a Stop Test button until it's stopped or Live Output goes off. The Controllers section's Test submenu
+/// is this same menu, drawn in SwiftUI by `StudioMenuContent`, so the two can't offer different items.
 extension SetupModel {
     private struct TestMenu: Decodable {
         let name: String?
@@ -29,11 +30,28 @@ extension SetupModel {
         return studioTestMenuItem(elementRow: selection[0], controllerId: nil)
     }
 
-    /// The Test item for the controller menu: one controller selected, in the live pane.
-    func studioControllerTestMenuItem() -> NSMenuItem? {
-        guard let session, controllerSelection.count == 1,
-              let id = session.firstControllerInfo(rows: controllerSelection)?.id else { return nil }
+    /// The Test item for the controller menu: `controllerId`, or the one controller selected, in the live pane.
+    func studioControllerTestMenuItem(controllerId: String? = nil) -> NSMenuItem? {
+        guard let id = controllerId ?? studioSelectedControllerId() else { return nil }
         return studioTestMenuItem(elementRow: nil, controllerId: id)
+    }
+
+    private func studioSelectedControllerId() -> String? {
+        guard let session, controllerSelection.count == 1 else { return nil }
+        return session.firstControllerInfo(rows: controllerSelection)?.id
+    }
+
+    /// Runs the item at `path` (titles, outermost first) in a controller's Test submenu, rebuilt now so it acts on the
+    /// brightness and test of the moment, not those of when the menu opened.
+    func studioRunControllerTest(_ path: [String], controllerId: String? = nil) {
+        var items = studioControllerTestMenuItem(controllerId: controllerId)?.submenu?.items ?? []
+        var found: NSMenuItem?
+        for title in path {
+            found = items.first { $0.title == title }
+            items = found?.submenu?.items ?? []
+        }
+        guard let item = found, item.isEnabled, let action = item.action else { return }
+        NSApp.sendAction(action, to: item.target, from: item)
     }
 
     private func studioTestMenuItem(elementRow: String?, controllerId: String?) -> NSMenuItem? {
@@ -43,11 +61,13 @@ extension SetupModel {
         guard let info = try? JSONDecoder().decode(TestMenu.self, from: Data(text.utf8)) else { return nil }
         let stored = UserDefaults.standard.integer(forKey: Self.studioTestBrightnessKey)
         let brightness = stored > 0 ? stored : info.defaultBrightnessPct
-        let runnable = info.block == nil && info.problem == nil
+        // Scripts run muted, which blocks every test; `displayTestIgnoreBlock` lets them reach the start anyway.
+        let block = live.testIgnoreBlock ? nil : info.block
+        let runnable = block == nil && info.problem == nil
 
         let menu = NSMenu()
         menu.autoenablesItems = false
-        if let block = info.block {
+        if let block {
             menu.addItem(SetupMenuItem(block, enabled: false))
         } else if let problem = info.problem {
             menu.addItem(SetupMenuItem(problem, enabled: false))
@@ -81,13 +101,45 @@ extension SetupModel {
         let levelsItem = SetupMenuItem("Brightness", tooltip: "How bright the next test runs; 25% keeps a first power-up gentle on supplies")
         levelsItem.submenu = levels
         menu.addItem(levelsItem)
-        menu.addItem(SetupMenuItem("Stop Test", enabled: info.running != nil) {
+        menu.addItem(SetupMenuItem("Stop Test", enabled: info.running != nil || live.commission != nil) {
             StudioDisplayLive.shared.stopTest(core: core)
         })
 
         let item = SetupMenuItem("Test")
         item.submenu = menu
         return item
+    }
+}
+
+/// An AppKit menu's items as SwiftUI menu content, so a SwiftUI context menu offers exactly what the NSMenu does:
+/// separators, submenus, disabled header lines, tooltips, and a checkmark on the chosen item of a group of choices.
+/// Choosing an item calls `run` with its title path instead of the item's own action, so the caller can act at that moment.
+struct StudioMenuContent: View {
+    let items: [NSMenuItem]
+    var path: [String] = []
+    let run: ([String]) -> Void
+
+    var body: some View {
+        let choices = items.contains { $0.state == .on }
+        ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+            if item.isSeparatorItem {
+                Divider()
+            } else if let submenu = item.submenu {
+                Menu(item.title) {
+                    StudioMenuContent(items: submenu.items, path: path + [item.title], run: run)
+                }
+                .help(item.toolTip ?? "")
+                .disabled(!item.isEnabled)
+            } else if choices {
+                Toggle(item.title, isOn: Binding(get: { item.state == .on }, set: { _ in run(path + [item.title]) }))
+                    .help(item.toolTip ?? "")
+                    .disabled(!item.isEnabled)
+            } else {
+                Button(item.title) { run(path + [item.title]) }
+                    .help(item.toolTip ?? "")
+                    .disabled(!item.isEnabled || item.action == nil)
+            }
+        }
     }
 }
 

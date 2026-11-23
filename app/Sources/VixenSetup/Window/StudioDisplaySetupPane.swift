@@ -153,6 +153,10 @@ final class StudioDisplayLive {
     @ObservationIgnored var testBlock: String?
     /// Scripts can't run a test while muted; `displayTestCommission` stands in for one to show the banner.
     @ObservationIgnored var testCommission: StudioCommissionStatus?
+    /// The arguments of the last test started, as JSON, for `displayTestState`: muted scripts can't see the test itself.
+    @ObservationIgnored private(set) var lastTestArguments: String?
+    /// `displayTestIgnoreBlock` offers the Test menu's patterns while muted, so scripts can start one and see it refused.
+    @ObservationIgnored var testIgnoreBlock = false
     /// `displayTestTreesMissing` makes the lists count as empty against a full working copy, to show the reload and the notice.
     @ObservationIgnored var testTreesMissing = false
     @ObservationIgnored private var history = ""
@@ -449,6 +453,7 @@ final class StudioDisplayLive {
     func startTest(arguments: [String: Any], core: VixenCore) {
         guard let data = try? JSONSerialization.data(withJSONObject: arguments),
               let json = String(data: data, encoding: .utf8) else { return }
+        lastTestArguments = json
         Task {
             let outcome: Result<String, StudioTestFailure> = await offMain {
                 do { return .success(try core.studioCommissionStart(argumentsJson: json)) } catch { return .failure(StudioTestFailure(text: studioErrorText(error))) }
@@ -605,6 +610,16 @@ extension SetupModel {
             UITestHarness.customActions["displayTestCommission"] = { step in
                 StudioDisplayLive.shared.testCommission = step.text.flatMap { try? JSONDecoder().decode(StudioCommissionStatus.self, from: Data($0.utf8)) }
                 return (true, nil)
+            }
+            UITestHarness.customActions["displayTestIgnoreBlock"] = { step in
+                StudioDisplayLive.shared.testIgnoreBlock = step.text == "on"
+                return (true, nil)
+            }
+            // The last test started (its arguments) and the one running now, as the banner reads it.
+            UITestHarness.customActions["displayTestState"] = { _ in
+                let live = StudioDisplayLive.shared
+                let running = live.commission.map { "Testing \($0.name): \($0.title) at \($0.brightnessPct)%" } ?? "none"
+                return (true, "started=\(live.lastTestArguments ?? "-") running=\(running) notice=\(live.notice ?? "-")")
             }
             // What Edit ▸ Undo does with the show window key: `undo:` up the responder chain to the window, which asks its undo manager.
             UITestHarness.customActions["displayMenuUndoRedo"] = { step in

@@ -80,6 +80,123 @@
    "name": "back"
   },
   {
+   "action": "studioControllersTestMenu"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "popup",
+   "x": 440,
+   "y": 196,
+   "button": "right",
+   "path": [
+    "Test",
+    "Brightness"
+   ],
+   "label": "100%"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioControllersTestMenu"
+  },
+  {
+   "action": "displayTestIgnoreBlock",
+   "text": "on"
+  },
+  {
+   "action": "studioControllersTest",
+   "name": "All On"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "displayTestState"
+  },
+  {
+   "action": "displayTestIgnoreBlock",
+   "text": "off"
+  },
+  {
+   "action": "displayTestCommission",
+   "text": "{\"title\":\"All On\",\"name\":\"Light Strip Controller\",\"lights\":3351,\"brightnessPct\":100,\"remainingMs\":null,\"agent\":false}"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "displayTestState"
+  },
+  {
+   "action": "studioControllersTestMenu"
+  },
+  {
+   "action": "snapshot",
+   "name": "controllers-testing"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "popup",
+   "x": 440,
+   "y": 247,
+   "button": "right",
+   "path": [
+    "Test"
+   ],
+   "label": "Stop Test"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "displayTestState"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 0.5
+  },
+  {
+   "action": "popup",
+   "x": 440,
+   "y": 196,
+   "button": "right",
+   "path": [
+    "Test",
+    "Brightness"
+   ],
+   "label": "25%"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "studioControllersTestMenu"
+  },
+  {
    "action": "popup",
    "name": "Add",
    "label": "Streaming ACN (E1.31)"

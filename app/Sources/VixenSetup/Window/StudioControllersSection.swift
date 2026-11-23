@@ -177,13 +177,16 @@ struct StudioControllersSection: View {
                 Button("Move Down") { act(on: ids) { await model.moveControllers(up: false) } }
             }
             .disabled(paused)
-            if one {
+            if one, let id = rows.first?.id {
+                // Display's own Test submenu for this controller, item for item: patterns, Brightness and Stop Test.
+                let test = model.studioControllerTestMenuItem(controllerId: id)?.submenu?.items ?? []
                 Menu("Test") {
-                    ForEach(Self.testPatterns, id: \.self) { title in
-                        Button(title) { act(on: ids) { model.studioRunControllerTest(title) } }
+                    StudioMenuContent(items: test) { path in
+                        act(on: ids) { model.studioRunControllerTest(path, controllerId: id) }
                     }
                 }
                 .help("Light what's patched to this controller, to check its wiring (needs Live Output on)")
+                .disabled(test.isEmpty)
             }
             Divider()
             Group {
@@ -201,8 +204,6 @@ struct StudioControllersSection: View {
             .disabled(paused)
         }
     }
-
-    static let testPatterns = ["Moving Pixel", "Color Bars (R, G, B, W)", "All On"]
 
     // MARK: Selection
 
@@ -299,15 +300,26 @@ struct StudioControllersSection: View {
             }
             return (true, nil)
         }
-    }
-}
-
-extension SetupModel {
-    /// Runs a pattern from the selected controller's Test submenu, the same item Display's menu shows.
-    func studioRunControllerTest(_ title: String) {
-        guard let item = studioControllerTestMenuItem()?.submenu?.items.first(where: { $0.title == title }),
-              item.isEnabled, let action = item.action else { return }
-        NSApp.sendAction(action, to: item.target, from: item)
+        // The selected controller's Test submenu as the section draws it: titles, `>` into submenus, `*` on the checked one.
+        UITestHarness.customActions["studioControllersTestMenu"] = { _ in
+            guard selection.count == 1, let id = selection.first,
+                  let items = model.studioControllerTestMenuItem(controllerId: id)?.submenu?.items else { return (false, "no Test menu") }
+            func describe(_ items: [NSMenuItem]) -> String {
+                items.map { item in
+                    if item.isSeparatorItem { return "-" }
+                    let title = (item.state == .on ? "*" : "") + item.title + (item.isEnabled ? "" : "(off)")
+                    return item.submenu.map { "\(title)>[\(describe($0.items))]" } ?? title
+                }.joined(separator: ", ")
+            }
+            return (true, describe(items))
+        }
+        // `{ "action": "studioControllersTest", "name": "Brightness/100%" }`: chooses that Test submenu item on the selection.
+        UITestHarness.customActions["studioControllersTest"] = { step in
+            guard selection.count == 1, let id = selection.first else { return (false, "select one controller") }
+            let path = (step.name ?? "").split(separator: "/").map(String.init)
+            act(on: selection) { model.studioRunControllerTest(path, controllerId: id) }
+            return (true, nil)
+        }
     }
 }
 

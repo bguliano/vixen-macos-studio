@@ -8,6 +8,9 @@ Checks, from the section's state after each step and from the saved profile:
 - the list shows every controller with run state, address, universes, patched outputs and a health level;
 - selecting a row selects that controller in Display's controller tree, and the inspector follows it;
 - Start in the inspector marks it running; Display shows the same selection, and coming back keeps it;
+- the context menu's Test submenu is Display's: the patterns, Brightness (25% checked) and Stop Test; Brightness ▸ 100%
+  checks 100% and All On then starts at 100% (refused while muted, so the arguments are checked); with a test running
+  Stop Test is offered and stops it; Brightness ▸ 25% puts the default back;
 - Add ▸ Streaming ACN (E1.31) adds a controller that needs an address (a warning); typing the address, the output
   count and choosing the WLED RGBW preset update the list's address and universes; Undo takes back the preset;
 - Move Down from the context menu reorders the list and Display; Find Elements moves to Display;
@@ -58,6 +61,20 @@ def check(out: Path, profile: Path) -> None:
     assert field(moved, "selected") == "Arduino" and field(moved, "tree") == "c0", moved
     assert int(field(moved, "treeRows")) == 3, moved
     assert sections[1] == "display", sections
+    menus = [s["detail"] for s in steps if s["action"] == "studioControllersTestMenu"]
+    tests = [s["detail"] for s in steps if s["action"] == "displayTestState"]
+    assert len(menus) == 4 and len(tests) == 3, (menus, tests)
+    for item in ("Moving Pixel", "Color Bars (R, G, B, W)", "All On", "Brightness>[", "Stop Test"):
+        assert item in menus[0], menus[0]
+    assert "*25%" in menus[0] and "Stop Test(off)" in menus[0], menus[0]
+    assert "*100%" in menus[1] and "*25%" not in menus[1], menus[1]
+    started = json.loads(re.search(r"started=(\{.*?\}) running=", tests[0]).group(1))
+    assert started["pattern"] == "allOn" and started["brightnessPct"] == 100 and "controllerId" in started, tests[0]
+    assert "muted" in tests[0], tests[0]
+    assert "running=Testing Light Strip Controller: All On at 100%" in tests[1], tests[1]
+    assert "Stop Test(off)" not in menus[2] and "Stop Test" in menus[2], menus[2]
+    assert "running=none" in tests[2], tests[2]
+    assert "*25%" in menus[3], menus[3]
     reopened = next(s["detail"] for s in steps if s["action"] == "studioControllersReopen")
     assert reopened.startswith("treeRows ") and "0" not in reopened.split(" ")[1].split(","), reopened
 
@@ -65,7 +82,7 @@ def check(out: Path, profile: Path) -> None:
     names = re.findall(r'<Controller name="([^"]*)"', config)
     assert names == ["Light Strip Controller", "Arduino", "Tree"], names
     assert "10.0.0.60" in (profile / "SystemData" / "ModuleStore.xml").read_text()
-    print("PASS: Controllers section list, selection sync with Display, start, add, address, outputs, preset, undo, move and find")
+    print("PASS: Controllers section list, selection sync with Display, start, Test menu brightness and stop, add, address, outputs, preset, undo, move and find")
 
 
 if __name__ == "__main__":
