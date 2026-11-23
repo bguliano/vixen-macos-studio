@@ -141,6 +141,11 @@ fn score(e: &Entry, query: &[String], whole: &str) -> Option<i64> {
     if !e.enabled {
         total -= 5;
     }
+    // The Window menu's entries open or bring forward a window; a command of the same name (Tools ▸ Scheduler ▸ Shows,
+    // which shows the Schedule pane) is what's meant, however deep in Tools it is (B69).
+    if e.top() == "Window" {
+        total -= 3;
+    }
     Some(total - e.path.len() as i64)
 }
 
@@ -171,7 +176,7 @@ pub fn reason(e: &Entry, window: &str) -> Option<String> {
             "This profile has no lip-sync image maps yet.".into()
         }
         ("File", "Save") | ("File", "Import Prop") => designer.into(),
-        // The preview designer's menus stay in the menu bar with other windows in front.
+        // The preview designer's menus, should one be off while a designer is in front.
         ("Settings", _) => designer.into(),
         ("View", "Prop Information" | "Prop Editor" | "Elements" | "Properties" | "Float Elements Panel" | "Float Properties Panel") => {
             designer.into()
@@ -181,9 +186,10 @@ pub fn reason(e: &Entry, window: &str) -> Option<String> {
         }
         ("Window", "Turn Off Preview Transparency") => "No preview window is transparent.".into(),
         ("Window", "Minimize") | ("Window", "Zoom") => "The front window can't be resized this way.".into(),
-        ("System", "Start") => "The execution engine is already running.".into(),
-        ("System", "Stop") => "The execution engine isn't running.".into(),
-        ("Scheduler", _) | ("System", _) | ("Tools", _) if window == "show" => {
+        ("Tools", "Start") if window == "show" => "The execution engine is already running.".into(),
+        ("Tools", "Stop") if window == "show" => "The execution engine isn't running.".into(),
+        ("Tools", _) if e.has("Plugins") => "The plugin isn't ready, or one of its commands is still running.".into(),
+        ("Tools", _) if window == "show" => {
             "Busy: wait for the current profile operation to finish.".into()
         }
         _ if window == "sequencer" && matches!(e.top(), "Sequence" | "Tools" | "Edit" | "View") => {
@@ -213,12 +219,12 @@ pub fn agent_tool(e: &Entry, window: &str) -> Option<&'static str> {
         ("Tools", "Beat/Bar Detection") => "sequence_music_marks",
         ("Tools", "Create Evenly Divided Marks") => "marks_create",
         ("Tools", "Sequence Length...") => "sequence_length",
-        ("System", "Logs") => "recent_logs",
-        ("System", "Setup Display") => "display_elements",
-        ("System", "Setup Previews") => "preview_list",
-        ("System", "View Installed Modules") => "studio_status",
-        ("Scheduler", "Shows") => "show_list",
-        ("Scheduler", "Schedules") => "schedule_list",
+        ("Tools", "Logs") => "recent_logs",
+        ("Tools", "Setup Display") => "display_elements",
+        ("Tools", "Setup Previews") => "preview_list",
+        ("Tools", "View Installed Modules") => "studio_status",
+        ("Tools", "Shows") => "show_list",
+        ("Tools", "Schedules") => "schedule_list",
         _ => return None,
     })
 }
@@ -348,8 +354,8 @@ mod tests {
     #[test]
     fn plugin_commands_name_the_tool_the_app_gave_them() {
         let list = parse_entries(&json!([
-            {"path": ["Plugins", "Lamp Output", "Discover Lamps…"], "tool": "plugin__lamp__discover"},
-            {"path": ["Plugins", "Lamp Output", "Help"], "tool": ""}
+            {"path": ["Tools", "Plugins", "Lamp Output", "Discover Lamps…"], "tool": "plugin__lamp__discover"},
+            {"path": ["Tools", "Plugins", "Lamp Output", "Help"], "tool": ""}
         ]))
         .unwrap();
         let found = search(&list, "discover lamps", "show", 5);
@@ -380,6 +386,32 @@ mod tests {
             assert!(reason(&entry, "show").is_some());
             assert!(reason(&entry, "sequencer").is_some());
         }
+    }
+
+    #[test]
+    fn a_tools_command_outranks_the_window_menu_entry_of_the_same_name() {
+        let list = [e(&["Tools", "Scheduler", "Shows"], true), e(&["Window", "Shows"], true)];
+        assert_eq!(search(&list, "shows", "show", 2)[0]["path"], json!(["Tools", "Scheduler", "Shows"]));
+        let list = [e(&["Window", "Shows"], true), e(&["Tools", "Scheduler", "Shows"], true)];
+        assert_eq!(search(&list, "shows", "show", 2)[0]["path"], json!(["Tools", "Scheduler", "Shows"]));
+    }
+
+    #[test]
+    fn the_show_windows_one_tools_menu_keeps_reasons_and_agent_tools() {
+        // System, Scheduler and Plugins are submenus of Tools in the show window (B69).
+        let tool = |path: &[&str]| agent_tool(&e(path, true), "show");
+        assert_eq!(tool(&["Tools", "Logs", "Application.Info.log"]), None);
+        assert_eq!(tool(&["Tools", "Logs"]), Some("recent_logs"));
+        assert_eq!(tool(&["Tools", "System Configuration", "Setup Display"]), Some("display_elements"));
+        assert_eq!(tool(&["Tools", "System Configuration", "Setup Previews"]), Some("preview_list"));
+        assert_eq!(tool(&["Tools", "Scheduler", "Shows"]), Some("show_list"));
+        assert_eq!(tool(&["Tools", "Scheduler", "Schedules"]), Some("schedule_list"));
+        let start = e(&["Tools", "Execution Engine", "Start"], false);
+        assert_eq!(reason(&start, "show").unwrap(), "The execution engine is already running.");
+        let plugin = e(&["Tools", "Plugins", "Lamp Output", "Discover Lamps…"], false);
+        assert!(reason(&plugin, "show").unwrap().contains("plugin"));
+        assert!(reason(&plugin, "sequencer").unwrap().contains("plugin"));
+        assert!(reason(&e(&["Tools", "Web Server"], false), "show").unwrap().starts_with("Busy"));
     }
 
     #[test]

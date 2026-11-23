@@ -11,7 +11,7 @@ Checks:
 - Settings ▸ Plugins links a development folder, which starts; the install sheet lists the package's permissions;
   Install installs and starts it; the log sheet opens;
 - the selected running plugin's details show Sandboxed, and Copy Profile puts its sandbox-exec profile on the pasteboard;
-- the Plugins menu lists the plugin's command under its name, then Manage Plugins…;
+- Tools ▸ Plugins lists the plugin's command under its name, then Manage Plugins…;
 - Add ▸ Lamp adds a plugin controller; its inspector shows the configSchema form; an invalid address stays in the form
   with its error and isn't applied; valid edits apply; each edit is one Undo step;
 - an 8-column settings table never widens the inspector (layout check at 1280 pt and at the minimum, in Controllers and
@@ -132,7 +132,7 @@ def check() -> None:
     # The install sheet's text isn't in the accessibility tree a test window gives; 03-install-sheet.png shows it.
     assert (WORK / "out/03-install-sheet.png").is_file()
     menus = (WORK / "out/06-menus.txt").read_text()
-    assert re.search(r"^Plugins\n  Lamp Output\n    Say Hello…\n  ---\n  Manage Plugins…", menus, re.M), menus
+    assert re.search(r"^Tools\n(?:  .*\n)*?  Plugins\n    Lamp Output\n      Say Hello…\n    ---\n    Manage Plugins…", menus, re.M), menus
     forms = [h for h in hooks if h.startswith("config=")]
     config = [json.loads(re.match(r"config=(\{.*?\}) draft=", f).group(1)) for f in forms]
     # state, bad host, good host, bad port, good port, fast, undo, undo (then B48's below)

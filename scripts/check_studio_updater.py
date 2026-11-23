@@ -224,7 +224,7 @@ def main():
             {"action": "window", "id": "administration"}, {"action": "wait", "seconds": 8},
             {"action": "windows"},
             {"action": "hook", "name": "studio.updater", "path": ["status"]},
-            {"action": "menu", "path": ["System", "Execution Engine", "Stop"]}, {"action": "wait", "seconds": 20},
+            {"action": "menu", "path": ["Tools", "Execution Engine", "Stop"]}, {"action": "wait", "seconds": 20},
             {"action": "windows"},
             {"action": "hook", "name": "studio.updater", "path": ["status"]}, {"action": "quit"}]}, WORK / "run-deferred", data)
         assert all(s["ok"] for s in steps), steps

@@ -21,6 +21,7 @@ struct PreviewDesignerCommands: Commands {
         }
         CommandGroup(after: .toolbar) {
             let model = registry.active
+            if model != nil { // STUDIO: only with a designer in front, so other windows' View menus keep to their own items (B69)
             Toggle("Prop Information", isOn: Binding(get: { model?.showInfo ?? false }, set: { model?.showInfo = $0 }))
                 .disabled(model == nil)
             Button("Prop Editor") { openWindow(id: WindowID.customPropEditor, value: UUID()) }
@@ -34,13 +35,14 @@ struct PreviewDesignerCommands: Commands {
                 .disabled(model == nil)
             Toggle("Float Properties Panel", isOn: Binding(get: { model?.propertiesFloating ?? false }, set: { model?.setFloating(.properties, $0) }))
                 .disabled(model == nil)
+            } // STUDIO: only with a designer in front (B69)
         }
         // Not after .pasteboard: the sequencer replaces that group, and SwiftUI then drops other scenes' groups placed after it.
         CommandGroup(before: .textEditing) {
             DesignerEditItems(model: registry.active)
         }
         CommandMenu("Settings") {
-            DesignerSettingsItems(model: registry.active)
+            if registry.active != nil { DesignerSettingsItems(model: registry.active) } // STUDIO: empty, so hidden, with no designer in front (B69)
         }
         CommandGroup(after: .windowArrangement) {
             // F70: the way back for a window that may not be right-clickable any more.
@@ -49,16 +51,18 @@ struct PreviewDesignerCommands: Commands {
         }
         CommandGroup(after: .help) {
             let model = registry.active
+            // STUDIO-BEGIN designer-help-items: only with a designer in front, without a second Vixen YouTube Channel (the show window's is always there) (B69)
+            if model != nil {
             Button("View Help") { model?.help("https://www.vixenlights.com/docs/usage/preview/preview-main-screen/") }
                 .keyboardShortcut(model == nil ? nil : KeyboardShortcut("?", modifiers: .command))
-                .disabled(model == nil)
-            Button("Vixen YouTube Channel") { model?.help("https://www.youtube.com/user/VixenLightsSoftware") }
                 .disabled(model == nil)
             Button("Template Help") { model?.help("https://www.vixenlights.com/docs/") }
                 .disabled(model == nil)
             // Q3: no handler upstream, kept until the owner decides.
             Button("Custom Prop Help") {}
                 .disabled(model == nil)
+            }
+            // STUDIO-END designer-help-items
         }
     }
 }

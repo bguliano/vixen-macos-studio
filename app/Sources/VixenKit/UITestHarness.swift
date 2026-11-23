@@ -642,6 +642,7 @@ private final class Runner {
     /// The menu bar as text: each item's title, its shortcut, and whether it's off, indented by depth.
     func dumpMenus(name: String) -> (Bool, String?) {
         guard let main = NSApp.mainMenu else { return (false, "no menu") }
+        StudioMenuBar.arrange() // STUDIO: the menu bar as it settles; a test window's key changes post nothing (B69)
         var lines: [String] = []
         func walk(_ menu: NSMenu, _ depth: Int) {
             menu.delegate?.menuNeedsUpdate?(menu)

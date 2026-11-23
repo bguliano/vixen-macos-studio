@@ -75,10 +75,10 @@ public final class StudioPluginsModel {
         return nil
     }
 
-    /// The MCP tool a Plugins menu item runs, for the ⌘K palette (`Plugins ▸ <plugin> ▸ <title>`).
+    /// The MCP tool a Plugins menu item runs, for the ⌘K palette (`Tools ▸ Plugins ▸ <plugin> ▸ <title>`).
     public func tool(forMenuPath path: [String]) -> String? {
-        guard path.count == 3, path[0] == StudioPluginsCommands.menuTitle else { return nil }
-        return commands.first { $0.pluginName == path[1] && $0.title == path[2] }?.tool
+        guard path.count == 4, path[0] == "Tools", path[1] == StudioPluginsMenu.menuTitle else { return nil }
+        return commands.first { $0.pluginName == path[2] && $0.title == path[3] }?.tool
     }
 
     /// Runs a contributed command (its tool, no arguments) and shows what it answered.
@@ -233,14 +233,15 @@ nonisolated struct StudioToolAnswer: Decodable {
 
 // MARK: The Plugins menu
 
-/// Plugins in the menu bar: each plugin's contributed commands in a submenu of its own, and Manage Plugins… for Settings ▸
-/// Plugins. The ⌘K palette finds the commands here, with the plugin tool each one runs.
-public struct StudioPluginsCommands: Commands {
+/// Tools ▸ Plugins, in the show window's and the sequencer's Tools menus (B69): each plugin's contributed commands in a
+/// submenu of its own, and Manage Plugins… for Settings ▸ Plugins. The ⌘K palette finds the commands here, with the
+/// plugin tool each one runs.
+public struct StudioPluginsMenu: View {
     public static let menuTitle = "Plugins"
     public init() {}
 
-    public var body: some Commands {
-        CommandMenu(Self.menuTitle) {
+    public var body: some View {
+        Menu(Self.menuTitle) {
             StudioPluginsMenuContent()
         }
     }

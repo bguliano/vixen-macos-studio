@@ -8,7 +8,7 @@ Checks, from the pane's state after each step and from the saved profile:
 - Add Preview adds "New Preview" and starts renaming it; typing a name and Return renames it;
 - Duplicate copies it as "<name> copy"; its On switch turns it off; Delete removes it; each is one undo step, labelled;
 - Edit ▸ Undo (the window's undo manager), the pane's Undo button and Edit ▸ Redo walk those steps;
-- System ▸ System Configuration ▸ Setup Previews shows this section, not a sheet;
+- Tools ▸ System Configuration ▸ Setup Previews shows this section, not a sheet;
 - Edit Layout swaps the pane to the designer (no Preview Configuration window), the designer runs in the show window, and
   its back button returns to the list; untouched, it adds no undo step;
 - while it shows, Edit ▸ Undo and Redo (sent down the show window's responder chain, as the menu sends them with no

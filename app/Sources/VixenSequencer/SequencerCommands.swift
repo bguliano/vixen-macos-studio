@@ -497,6 +497,10 @@ private struct ToolsMenu: View {
             Button("Dump (Readable XML)...") { model?.dumpEffectDefaults() }
                 .disabled(model == nil)
         }
+        // STUDIO-BEGIN sequencer-plugins-menu: Tools ▸ Plugins here too, the show window's Tools menu stepping aside (B69)
+        Divider()
+        StudioPluginsMenu()
+        // STUDIO-END sequencer-plugins-menu
     }
 }
 

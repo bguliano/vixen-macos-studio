@@ -65,7 +65,7 @@
  },
  "block:command-palette": {
   "file": "app/Sources/VixenApp/VixenApp.swift",
-  "hash": "67d18e2bcf22b9c2"
+  "hash": "4068e4b09abec6a6"
  },
  "block:commissioning-tests": {
   "file": "app/Sources/VixenSetup/Window/SetupPanels.swift",
@@ -130,6 +130,10 @@
  "block:designer-add-menu": {
   "file": "app/Sources/VixenPreview/DesignerCommands.swift",
   "hash": "10fcf4c582ce0e52"
+ },
+ "block:designer-help-items": {
+  "file": "app/Sources/VixenPreview/DesignerCommands.swift",
+  "hash": "3dbe4cebf5fb0615"
  },
  "block:designer-in-pane": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
@@ -403,6 +407,10 @@
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "6fea847d0a9cd1e7"
  },
+ "block:one-tools-menu": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "07d22d515fb72f59"
+ },
  "block:panel-tabs": {
   "file": "app/Sources/VixenSequencer/SequencerContent.swift",
   "hash": "2e68e2f86a0f473e"
@@ -602,6 +610,10 @@
  "block:sequence-settings-undo": {
   "file": "crates/vixen-session/src/undo.rs",
   "hash": "0bfc0cbe95cae17d"
+ },
+ "block:sequencer-plugins-menu": {
+  "file": "app/Sources/VixenSequencer/SequencerCommands.swift",
+  "hash": "fdb952e8053f6fee"
  },
  "block:setup-columns": {
   "file": "app/Sources/VixenSetup/Window/SetupRootView.swift",
@@ -879,9 +891,17 @@
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
   "hash": "14a0a69bfbff0862"
  },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:365c9b0534de44c3": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "365c9b0534de44c3"
+ },
  "line:app/Sources/VixenAdmin/AdministrationCommands.swift:390439794cef3a51": {
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
   "hash": "390439794cef3a51"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationCommands.swift:7f4b18c70df5d395": {
+  "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
+  "hash": "7f4b18c70df5d395"
  },
  "line:app/Sources/VixenAdmin/AdministrationCommands.swift:a80511a1c709127b": {
   "file": "app/Sources/VixenAdmin/AdministrationCommands.swift",
@@ -914,6 +934,10 @@
  "line:app/Sources/VixenApp/VixenApp.swift:233796539a6cd025": {
   "file": "app/Sources/VixenApp/VixenApp.swift",
   "hash": "233796539a6cd025"
+ },
+ "line:app/Sources/VixenApp/VixenApp.swift:87f4d83b6c1bb21e": {
+  "file": "app/Sources/VixenApp/VixenApp.swift",
+  "hash": "87f4d83b6c1bb21e"
  },
  "line:app/Sources/VixenDialogs/Common.swift:0b4f7b1e6b58b7fd": {
   "file": "app/Sources/VixenDialogs/Common.swift",
@@ -1259,6 +1283,10 @@
   "file": "app/Sources/VixenKit/UITestHarness.swift",
   "hash": "a645eda2b82a40e5"
  },
+ "line:app/Sources/VixenKit/UITestHarness.swift:ac38fff0b6dd18a1": {
+  "file": "app/Sources/VixenKit/UITestHarness.swift",
+  "hash": "ac38fff0b6dd18a1"
+ },
  "line:app/Sources/VixenKit/UITestHarness.swift:e0b2a61395d4fade": {
   "file": "app/Sources/VixenKit/UITestHarness.swift",
   "hash": "e0b2a61395d4fade"
@@ -1367,6 +1395,18 @@
   "file": "app/Sources/VixenPreview/DesignerCanvas.swift",
   "hash": "eaeee149d8a969cc"
  },
+ "line:app/Sources/VixenPreview/DesignerCommands.swift:23e4efbc60d36c3c": {
+  "file": "app/Sources/VixenPreview/DesignerCommands.swift",
+  "hash": "23e4efbc60d36c3c"
+ },
+ "line:app/Sources/VixenPreview/DesignerCommands.swift:54a31bb52c4362a0": {
+  "file": "app/Sources/VixenPreview/DesignerCommands.swift",
+  "hash": "54a31bb52c4362a0"
+ },
+ "line:app/Sources/VixenPreview/DesignerCommands.swift:836a6a8d077e4cea": {
+  "file": "app/Sources/VixenPreview/DesignerCommands.swift",
+  "hash": "836a6a8d077e4cea"
+ },
  "line:app/Sources/VixenPreview/DesignerDialogs.swift:4be024d1cee5f743": {
   "file": "app/Sources/VixenPreview/DesignerDialogs.swift",
   "hash": "4be024d1cee5f743"
@@ -1394,6 +1434,10 @@
  "line:app/Sources/VixenPreview/DesignerModel.swift:0f33d74b0dc11041": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "0f33d74b0dc11041"
+ },
+ "line:app/Sources/VixenPreview/DesignerModel.swift:1e15a1b03346980b": {
+  "file": "app/Sources/VixenPreview/DesignerModel.swift",
+  "hash": "1e15a1b03346980b"
  },
  "line:app/Sources/VixenPreview/DesignerModel.swift:282ab4d5689f13f8": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
@@ -2502,5 +2546,9 @@
  "line:scripts/package_release.sh:f2eef215f7498bc2": {
   "file": "scripts/package_release.sh",
   "hash": "f2eef215f7498bc2"
+ },
+ "line:scripts/test_profile_lock.py:1af795d1c129a211": {
+  "file": "scripts/test_profile_lock.py",
+  "hash": "1af795d1c129a211"
  }
 }

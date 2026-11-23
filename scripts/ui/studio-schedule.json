@@ -233,6 +233,7 @@
   {
    "action": "menu",
    "path": [
+    "Tools",
     "Scheduler",
     "Schedules"
    ]

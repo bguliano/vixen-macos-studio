@@ -55,6 +55,7 @@ final class DesignerRegistry {
             }
         }
         DesignerMenuBar.arrange(inFront: active != nil)
+        StudioMenuBar.setNeedsArrange() // STUDIO: Settings fills after this; show it once it has items (B69)
     }
 }
 

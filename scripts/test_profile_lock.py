@@ -44,7 +44,7 @@ def main() -> None:
 
     opening = [{"action": "window", "id": "administration"}, {"action": "wait", "seconds": 1},
                {"action": "dump", "name": "administration"}]
-    shutdown = {"action": "menu", "path": ["System", "Shutdown and Exit"]}
+    shutdown = {"action": "menu", "path": ["Vixen Studio", "Quit Vixen Studio"]}  # STUDIO: Shutdown and Exit is the app menu's Quit (B69)
     # Termination is asynchronous; do not let the harness's direct finish/exit
     # race the production shutdown task.
     shutdown_steps = [shutdown, {"action": "wait", "seconds": 10}]

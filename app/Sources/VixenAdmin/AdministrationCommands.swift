@@ -17,15 +17,19 @@ struct AdministrationCommands: Commands {
         CommandGroup(replacing: .newItem) {
             FileMenuItems(admin: admin, state: state)
         }
-        CommandMenu("System") {
-            SystemMenuItems(admin: admin, state: state)
-        }
+        // STUDIO-BEGIN one-tools-menu: one Tools menu holds System, Tools, Scheduler and Plugins, in that order (B69)
         CommandMenu("Tools") {
             ToolsMenuItems(admin: admin, state: state)
+            Divider()
+            SystemMenuItems(admin: admin, state: state)
+            Menu("Scheduler") {
+                SchedulerMenuItems(admin: admin, state: state)
+            }
+            .disabled(state.isBusy)
+            Divider()
+            StudioPluginsMenu()
         }
-        CommandMenu("Scheduler") {
-            SchedulerMenuItems(admin: admin, state: state)
-        }
+        // STUDIO-END one-tools-menu
         CommandGroup(replacing: .help) {
             HelpMenuItems(admin: admin, state: state)
         }
@@ -117,8 +121,7 @@ private struct SystemMenuItems: View {
                 Button("Stop") { admin.stopExecution() }
                     .disabled(!state.stopEnabled)
             }
-            Divider()
-            Button("Shutdown and Exit") { NSApp.terminate(nil) }
+            // STUDIO: Shutdown and Exit is the app menu's Quit Vixen Studio (⌘Q), its one place on the Mac (B69)
         }
         .disabled(state.isBusy)
     }
@@ -131,7 +134,7 @@ private struct ToolsMenuItems: View {
 
     var body: some View {
         Group {
-            OptionsMenuItem(title: "Options...")
+            // STUDIO: Options... is the app menu's Settings… (⌘,), its one place on the Mac (B69)
             Button("Custom Prop Editor") { openWindow(id: WindowID.customPropEditor, value: UUID()) }
             Button("Export Wizard") { openWindow(id: WindowID.exportWizard) }
             Button("Instrumentation...") { openWindow(id: WindowID.instrumentation) }

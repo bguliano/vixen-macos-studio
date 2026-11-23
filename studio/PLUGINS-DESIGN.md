@@ -174,7 +174,7 @@ What P4 settled:
   verbs. Install from File… (a folder or `.vixenplugin`, also by dropping one on the list) first reads the package
   without installing it (`inspect_package`: stage, validate, delete) and shows an install sheet with what it adds and
   "This plugin can: …" from `ui::permission_sentences`; only Install copies it. The "Allow agents to manage plugins"
-  switch lives here. Plugins ▸ Manage Plugins… and the banner open Settings on this tab (`studio.settingsTab`).
+  switch lives here. Tools ▸ Plugins ▸ Manage Plugins… and the banner open Settings on this tab (`studio.settingsTab`).
 - **The app drives the host.** The show window calls `VixenCore::studio_plugins_sync` when the profile is up and every
   3 s: it gives the host the profile, sets `muted` from Live Output (and `VIXEN_MUTE`/`VIXEN_UI_TEST`), starts the
   enabled plugins once per launch, and returns the show's requirements. Quitting calls `studio_plugins_shutdown`.
@@ -197,7 +197,7 @@ What P4 settled:
   `plugin` description. A controller whose plugin is missing shows the reason and Manage Plugins….
 - **Add Controller** lists built-in types, then plugin types under "Plugins" (Install Plugins… when there are none),
   read from Rust each time so a newly installed type appears without reopening the pane.
-- **Plugins menu**: one submenu per plugin with its contributed commands (`commands()`: title, the MCP name of the tool
+- **Plugins menu** (Tools ▸ Plugins, B69): one submenu per plugin with its contributed commands (`commands()`: title, the MCP name of the tool
   it runs, enabled while that tool can be called), then Manage Plugins…. Running one calls its tool with no arguments
   (`run_command`, starting the plugin if needed) and shows the answer's text. The ⌘K palette finds them as menu items;
   the app hands Rust each one's tool, so palette entries and `command_palette` name it as `agentTool`.

@@ -177,7 +177,7 @@ Storage needs `"permissions": { "files": ["plugin-data"] }`, which `plugin new` 
 
 Save. Studio restarts the plugin, and now:
 
-- **Plugins ▸ Console Output ▸ Frames Seen** runs the tool and shows its answer.
+- **Tools ▸ Plugins ▸ Console Output ▸ Frames Seen** runs the tool and shows its answer.
 - An AI agent connected to Studio sees the tool as `plugin__console_output__frames_seen`.
 - The log says when Live Output turns on and off.
 - The frame count survives restarts, in the plugin's data folder.

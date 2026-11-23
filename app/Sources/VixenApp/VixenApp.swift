@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UITestHarness.startIfRequested()
+        StudioMenuBar.install() // STUDIO: an empty window menu never shows in the menu bar (B69)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -76,7 +77,6 @@ struct VixenMacApp: App {
         // STUDIO-BEGIN command-palette: View ▸ Command Palette… (⌘K) over every menu command, in every window
         AdministrationScene(model: model)
             .commands { StudioCommandPaletteCommands() }
-            .commands { StudioPluginsCommands() }
         // STUDIO-END command-palette
         #endif
         #if canImport(VixenSetup)

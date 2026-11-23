@@ -96,7 +96,7 @@ command, edits are live with Undo, and each change is verified with harness runs
    chain, its menus (File, View, Edit, Settings, Help) follow it while it shows, and its alerts, sheets and floating panels
    attach there; the show window's frame isn't saved as the preview's. Leaving it (the back button or another section) asks
    what closing its window asked (invalid links, OpenGL) and writes the layout back as one undo step, "Edit Preview
-   Layout"; quitting writes it back without asking. System ▸ Setup Previews shows the
+   Layout"; quitting writes it back without asking. Tools ▸ System Configuration ▸ Setup Previews shows the
    section; the sheet is gone. Live windows leave "(OpenGL)" out of the title, and the frame rate shows only after
    Show Frame Rate in the window's menu. MCP `preview_create`, `preview_rename`, `preview_duplicate`, `preview_delete`,
    `preview_enable`; `preview_list` reports `enabled`. Harness: `scripts/ui/studio-previews.json` with
@@ -104,13 +104,13 @@ command, edits are live with Undo, and each change is verified with harness runs
 2. **Schedule section becomes a real pane.** Shows and schedules inline, next-run time, enable toggles, live edits with
    Undo. The Scheduler window is retired; copy fixed.
    *Done:* the show window's Schedule section (`StudioSchedulePane.swift`, `studio_schedule.rs`): the scheduler's switch
-   (Scheduler ▸ Enabled, local only) with its status, every schedule with its show, days, times, dates, next run
+   (Tools ▸ Scheduler ▸ Enabled, local only) with its status, every schedule with its show, days, times, dates, next run
    ("Tonight at 5:30 PM", Ended, No days ticked) and an On switch, opening in place to edit its show, first and last day,
    start and end time and days; every show with its steps by section (Before the show, Show, Alongside, After the show),
    double-click rename, Add ▸ sequence or pause, change, move and remove per step, Duplicate and Delete (a show's
    schedules go with it). Each edit is one step on the shared undo history and saved at once, published without
    rebuilding the output graph, and handed to the running scheduler, so a change applies at once and a playing show
-   keeps playing unless its schedule changed. Scheduler ▸ Shows and Schedules show the section; both windows are gone.
+   keeps playing unless its schedule changed. Tools ▸ Scheduler ▸ Shows and Schedules show the section; both windows are gone.
    Launch steps (running a program) are listed but not created (#59). MCP `show_create`, `show_rename`,
    `show_duplicate`, `show_delete`, `show_item_add`, `show_item_update`, `show_item_move`, `show_item_delete`,
    `schedule_create`, `schedule_update`, `schedule_enable`, `schedule_duplicate`, `schedule_delete`; `show_list` and

@@ -1,6 +1,6 @@
 # Agent tools, menu commands and events
 
-Besides controller types, a plugin can give AI agents new tools, put commands in Studio's Plugins menu, and hear about
+Besides controller types, a plugin can give AI agents new tools, put commands in Studio's Tools ▸ Plugins menu, and hear about
 what happens in Studio.
 
 ## Agent tools
@@ -41,7 +41,7 @@ and never act on real lights or the network beyond what their description says.
 
 ## Menu commands
 
-`contributes.commands` adds items to **Plugins ▸ *your plugin's name***, above Manage Plugins…. Each runs one of your
+`contributes.commands` adds items to **Tools ▸ Plugins ▸ *your plugin's name***, above Manage Plugins…. Each runs one of your
 tools with no arguments (starting the plugin if needed) and shows the answer's text. An item is enabled while its tool
 can be called. The ⌘K palette finds them too, and `command_palette` reports each with its `agentTool`, so an agent can
 run the same thing.

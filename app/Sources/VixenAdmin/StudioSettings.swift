@@ -3,7 +3,7 @@ import VixenKit
 
 /// Studio's Settings window (⌘,): Studio's own preferences first, then Vixen's engine options.
 struct StudioSettingsView: View {
-    /// Plugins ▸ Manage Plugins… opens Settings on Plugins.
+    /// Tools ▸ Plugins ▸ Manage Plugins… opens Settings on Plugins.
     @AppStorage(StudioSettingsTab.storageKey) private var tab = "general"
 
     var body: some View {

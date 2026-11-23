@@ -1,0 +1,175 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-show"
+  },
+  {
+   "action": "window",
+   "id": "display-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "focus",
+   "window": "Display Setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-setup"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "previewTarget",
+   "text": "Christmas Tree 2019"
+  },
+  {
+   "action": "window",
+   "id": "preview-setup"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "designerOnScreen"
+  },
+  {
+   "action": "focus",
+   "window": "Preview Configuration"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-designer"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-after-designer"
+  },
+  {
+   "action": "window",
+   "id": "custom-prop-editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "focus",
+   "window": "Custom Prop Editor"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-prop-editor"
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-after-prop-editor"
+  },
+  {
+   "action": "window",
+   "id": "sequencer"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "focus",
+   "window": "Untitled"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-sequencer"
+  },
+  {
+   "action": "focus",
+   "window": "Vixen Studio"
+  },
+  {
+   "action": "click",
+   "label": "Sequences"
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "menus",
+   "name": "menus-show-again"
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

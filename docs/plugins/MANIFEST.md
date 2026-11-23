@@ -150,7 +150,7 @@ An agent tool, listed to MCP clients as `plugin__<short-id>__<name>`. See [TOOLS
 
 ## `contributes.commands[]`
 
-A Plugins-menu item (Plugins ▸ *your plugin* ▸ *title*) and ⌘K palette entry. It calls its tool with no arguments and
+A Plugins-menu item (Tools ▸ Plugins ▸ *your plugin* ▸ *title*) and ⌘K palette entry. It calls its tool with no arguments and
 shows the answer's text.
 
 | Field | Type | Required | Rules |

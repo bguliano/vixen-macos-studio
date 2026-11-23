@@ -8,7 +8,7 @@
 //! at once and a show it is running keeps running unless its schedule was deleted or changed.
 //!
 //! Studio never creates or edits a Launch item (a show step that runs another program); one made in Windows Vixen is listed,
-//! and can be moved or removed. Turning the whole scheduler on stays a local switch (Scheduler ▸ Enabled), not a command.
+//! and can be moved or removed. Turning the whole scheduler on stays a local switch (Tools ▸ Scheduler ▸ Enabled), not a command.
 use crate::app::AppCore;
 use crate::scheduler::{self, run::State, Date, ScheduleItem, SchedulerData, TimeOfDay};
 use crate::shows::{self, ActionType, Show, ShowItem, ShowItemType};

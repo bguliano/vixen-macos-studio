@@ -746,7 +746,7 @@ final class StudioPreviewsModel {
 }
 
 /// The running core, for undo steps the window's menu performs and for the designer closing with the pane hidden, and the
-/// way to the section for System ▸ Setup Previews. Set by the show window.
+/// way to the section for Tools ▸ System Configuration ▸ Setup Previews. Set by the show window.
 @MainActor
 enum StudioPreviewsCore {
     static weak var admin: AdminModel?

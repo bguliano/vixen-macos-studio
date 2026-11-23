@@ -12,7 +12,7 @@ Checks, from the pane's state after each step and from the saved profile:
 - its On switch turns it off ("Turn Off Schedule");
 - Edit ▸ Undo (the window's undo manager), the pane's Undo button and Edit ▸ Redo walk those steps;
 - deleting the show deletes its schedule in the same step, and Undo brings both back;
-- Scheduler ▸ Schedules shows this section, not the Scheduler window;
+- Tools ▸ Scheduler ▸ Schedules shows this section, not the Scheduler window;
 - the profile on disk has the show with its steps and the schedule as left.
 
 SwiftUI toolbar buttons act on the harness's press but report that they didn't, so step flags are not checked.

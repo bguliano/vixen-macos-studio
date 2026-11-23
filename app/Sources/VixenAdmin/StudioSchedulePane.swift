@@ -282,7 +282,7 @@ private struct StudioScheduleEmpty: View {
     }
 }
 
-/// Scheduler ▸ Enabled, in place: schedules run only while it is on. A local switch; agents can't turn it.
+/// Tools ▸ Scheduler ▸ Enabled, in place: schedules run only while it is on. A local switch; agents can't turn it.
 private struct StudioSchedulerSwitch: View {
     let snapshot: StudioScheduleSnapshot
     @Environment(AdminModel.self) private var admin
@@ -313,7 +313,7 @@ private struct StudioSchedulerSwitch: View {
             .labelsHidden()
             .toggleStyle(.switch)
             .disabled(toggle == nil)
-            .help(on ? "Pause every schedule. A show playing now stops." : "Let schedules that are on run their shows. Same as Scheduler ▸ Enabled.")
+            .help(on ? "Pause every schedule. A show playing now stops." : "Let schedules that are on run their shows. Same as Tools ▸ Scheduler ▸ Enabled.")
         }
         .studioCard()
     }
@@ -323,8 +323,8 @@ private struct StudioSchedulerSwitch: View {
         if on { return "Schedules that are on play their shows at their times." }
         let next = snapshot.schedules.filter { $0.enabled && $0.nextRun != nil }.count
         return next > 0
-            ? "Nothing plays until you turn this on, even schedules that are on. Same as Scheduler ▸ Enabled."
-            : "Schedules play their shows only while this is on. Same as Scheduler ▸ Enabled."
+            ? "Nothing plays until you turn this on, even schedules that are on. Same as Tools ▸ Scheduler ▸ Enabled."
+            : "Schedules play their shows only while this is on. Same as Tools ▸ Scheduler ▸ Enabled."
     }
 }
 
@@ -1242,7 +1242,7 @@ final class StudioScheduleModel {
     }
 }
 
-/// The way to the section for Scheduler ▸ Shows and Schedules. Set by the show window.
+/// The way to the section for Tools ▸ Scheduler ▸ Shows and Schedules. Set by the show window.
 @MainActor
 enum StudioScheduleCore {
     static var reveal: (() -> Void)?
