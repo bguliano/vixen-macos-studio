@@ -8,7 +8,8 @@ Runs scripts/ui/prop-editor-menus.json on screen and reads the harness's menu du
 pasteboard group, and SwiftUI has dropped other scenes' groups placed after it (the preview designer's items went
 missing that way), so this guards the prop editor's group after .pasteboard. Checks:
 - with a prop editor in front, Edit lists Paste Prop Elements as New… (⇧⌘V) once, after Paste;
-- with no prop editor open (before it opens and after it closes), Edit doesn't list it.
+- with no prop editor open (before it opens and after it closes), Edit doesn't list it;
+- the Prop menu shows, with its items, only with a prop editor in front, and is hidden (not empty) otherwise.
 """
 import json
 import os
@@ -53,4 +54,22 @@ edit = edit_menu("menus-prop-editor")
 assert edit.count(item) == 1 and edit.index(item) > edit.index("Paste [v]"), edit
 for name in ("menus-admin", "menus-closed"):
     assert item not in edit_menu(name), (name, edit_menu(name))
+
+
+def prop_menu(name):
+    """The top-level Prop menu as its title line and item lines, or None."""
+    lines = (out / f"{name}.txt").read_text().splitlines()
+    starts = [i for i, line in enumerate(lines) if line.removesuffix(" (hidden)") == "Prop"]
+    if not starts:
+        return None
+    start = starts[0] + 1
+    end = next((i for i in range(start, len(lines)) if not lines[i].startswith(" ")), len(lines))
+    return lines[starts[0]], [line.strip() for line in lines[start:end] if line.startswith("  ") and not line.startswith("   ")]
+
+
+title, items = prop_menu("menus-prop-editor")
+assert title == "Prop" and "Vendor Browser" in [line.removesuffix(" (disabled)") for line in items], (title, items)
+for name in ("menus-admin", "menus-closed"):
+    menu = prop_menu(name)
+    assert menu is None or menu[0] == "Prop (hidden)", (name, menu)
 print("prop editor menus: OK", out)

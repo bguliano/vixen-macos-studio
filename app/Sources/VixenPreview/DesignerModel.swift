@@ -54,22 +54,11 @@ final class DesignerRegistry {
                 active = found
             }
         }
-        DesignerMenuBar.arrange(inFront: active != nil)
         StudioMenuBar.setNeedsArrange() // STUDIO: Settings fills after this; show it once it has items (B69)
     }
 }
 
-/// The Settings menu belongs to this window, so it steps aside when another one is in front.
 enum DesignerMenuBar {
-    static func arrange(inFront: Bool) {
-        guard let main = NSApp.mainMenu else { return }
-        for item in main.items where item.title == "Settings" && item.submenu?.items.first?.title == "Update Location Properties" {
-            if item.isHidden == inFront {
-                item.isHidden = !inFront
-            }
-        }
-    }
-
     /// The Edit menu names the action. The session's stack is the source of truth, so these aren't registered with an `UndoManager`, whose stack clears redo on a new action (F101).
     static func nameUndo(undo: String?, redo: String?) {
         guard let edit = NSApp.mainMenu?.items.first(where: { $0.title == "Edit" })?.submenu else { return }

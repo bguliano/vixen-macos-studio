@@ -19,6 +19,7 @@ struct PreviewDesignerCommands: Commands {
                 Button("Import Prop") { model.importProp() }
             }
         }
+        // View, Settings and Help: only with a designer in front, so the other windows' menus keep to their own items.
         CommandGroup(after: .toolbar) {
             let model = registry.active
             if model != nil { // STUDIO: only with a designer in front, so other windows' View menus keep to their own items (B69)
@@ -42,13 +43,14 @@ struct PreviewDesignerCommands: Commands {
             DesignerEditItems(model: registry.active)
         }
         CommandMenu("Settings") {
-            if registry.active != nil { DesignerSettingsItems(model: registry.active) } // STUDIO: empty, so hidden, with no designer in front (B69)
+            if let model = registry.active { DesignerSettingsItems(model: model) } // STUDIO: empty, so hidden, with no designer in front (B69)
         }
         CommandGroup(after: .windowArrangement) {
             // F70: the way back for a window that may not be right-clickable any more.
             Button("Turn Off Preview Transparency") { LivePreviewCoordinator.shared?.turnOffTransparency() }
                 .disabled(LivePreviewCoordinator.shared?.anyTransparent != true)
         }
+        // The Administration window's Help, always there, has upstream's Vixen YouTube Channel item.
         CommandGroup(after: .help) {
             let model = registry.active
             // STUDIO-BEGIN designer-help-items: only with a designer in front, without a second Vixen YouTube Channel (the show window's is always there) (B69)
@@ -104,28 +106,24 @@ private struct DesignerEditItems: View {
 }
 
 private struct DesignerSettingsItems: View {
-    let model: PreviewDesignerModel?
+    let model: PreviewDesignerModel
 
     var body: some View {
-        let settings = model?.settings
+        let settings = model.settings
         Toggle("Update Location Properties", isOn: Binding(get: { settings?.saveLocations ?? true }, set: { on in
-            model?.designer?.setSaveLocations(on: on)
-            model?.refreshSettings()
+            model.designer?.setSaveLocations(on: on)
+            model.refreshSettings()
         }))
         .help("Update location properties for each preview item for positioning.")
-        .disabled(model == nil)
-        Button("Location Offset Setup") { model?.sheet = .locationOffset }
-            .disabled(model == nil)
+        Button("Location Offset Setup") { model.sheet = .locationOffset }
         Toggle("Use OpenGL Preview", isOn: Binding(get: { settings?.useOpenGl ?? false }, set: { on in
-            model?.designer?.setUseOpenGl(on: on)
-            model?.refreshSettings()
+            model.designer?.setUseOpenGl(on: on)
+            model.refreshSettings()
         }))
-        .disabled(model == nil)
         Toggle("Keep Insert Mode Active", isOn: Binding(get: { settings?.keepInsertMode ?? false }, set: { on in
-            model?.designer?.setKeepInsertMode(on: on)
-            model?.refreshSettings()
+            model.designer?.setKeepInsertMode(on: on)
+            model.refreshSettings()
         }))
         .help("Stay in insert mode after inserting each Prop.")
-        .disabled(model == nil)
     }
 }
