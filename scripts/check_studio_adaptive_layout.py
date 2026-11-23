@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Verify every Studio window lays out at its minimum size, in light and dark (UI roadmap R42).
 
-Usage: check_studio_adaptive_layout.py <UI output directory>
-Harness script: scripts/ui/studio-adaptive-layout.json, run on a copy of target/show-copy.
+Usage: check_studio_adaptive_layout.py [Vixen.app] [show folder]
+       check_studio_adaptive_layout.py <UI output directory>   (check a run you made yourself)
+Defaults: build/Vixen.app and target/show-copy (APFS-cloned to a disposable folder under target/, never written).
+Runs scripts/ui/studio-adaptive-layout.json. Both sequencer drawer settings are cleared for the run and put back
+afterwards, since a collapsed drawer doesn't count toward the sequencer's minimum (B54); a run you made yourself needs
+them cleared too.
 
 The script opens each window (the show window's five sections, About, Installed Modules, Release Notes,
 Instrumentation, Display Setup, the sequence package and export wizards, a sequencer, the preview designer, the Custom
@@ -27,8 +31,11 @@ Look at the PNGs as well: the hook can't see text a view truncates without sayin
 sheet.
 """
 import json
-import sys
+import os
 from pathlib import Path
+import subprocess
+import sys
+import uuid
 
 WINDOWS = [
     "Vixen Studio", "About Vixen Studio", "Installed Modules", "Vixen Release Notes", "Instrumentation",
@@ -126,6 +133,44 @@ def check(out: Path) -> None:
         assert (out / f"{name}.png").stat().st_size > 10_000, name
 
 
+def run(app: Path, show: Path) -> Path:
+    root = Path(__file__).resolve().parents[1]
+    work = root / "target" / ("studio-adaptive-layout-" + uuid.uuid4().hex[:8])
+    out = work / "out"
+    profile = work / "show"
+    out.mkdir(parents=True)
+    subprocess.run(["cp", "-cR", str(show), str(profile)], check=True)
+    env = dict(os.environ, VIXEN_MUTE="1", VIXEN_DATA=str(profile),
+               VIXEN_UI_TEST=str(root / "scripts/ui/studio-adaptive-layout.json"), VIXEN_UI_TEST_OUT=str(out))
+    domain = "io.github.bguliano.vixen-macos-studio"
+    keys = ["studio.sequencerSidebarCollapsed", "studio.sequencerInspectorCollapsed"]
+    saved = {key: subprocess.run(["defaults", "read", domain, key], capture_output=True, text=True) for key in keys}
+    for key in keys:
+        subprocess.run(["defaults", "delete", domain, key], capture_output=True)
+    try:
+        with (work / "app.log").open("w") as log:
+            process = subprocess.Popen([str(app / "Contents/MacOS/Vixen")], env=env, stdout=log, stderr=log)
+            try:
+                process.wait(timeout=900)
+            finally:
+                if process.poll() is None:
+                    process.kill()
+    finally:
+        for key, value in saved.items():
+            if value.returncode == 0:
+                subprocess.run(["defaults", "write", domain, key, "-bool", "true" if value.stdout.strip() == "1" else "false"],
+                               check=True)
+            else:
+                subprocess.run(["defaults", "delete", domain, key], capture_output=True)
+    return out
+
+
 if __name__ == "__main__":
-    check(Path(sys.argv[1]))
-    print("ok")
+    root = Path(__file__).resolve().parents[1]
+    first = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+    if first and (first / "result.json").exists():
+        out = first
+    else:
+        out = run(first or root / "build/Vixen.app", Path(sys.argv[2]) if len(sys.argv) > 2 else root / "target/show-copy")
+    check(out)
+    print("ok:", out)
