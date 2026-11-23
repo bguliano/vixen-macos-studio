@@ -25,3 +25,6 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
   `motif_place` on a mark collection instead of building each hit yourself: pick a built-in (`motif_list`) or save your
   own recipe with `motif_save`, pass two `targetSets` to alternate left/right, and check it with `dryRun:true` first. It
   is one undo step.
+- For soft-edged zones on a tree or matrix, use `effect_band` with `featherPct` (or `featherLights`, rows of lights)
+  instead of tuning a parked Wipe by hand; add `exclusive:true` and the band cuts whatever was lighting its rows for its
+  time (other rows and other props keep their effects), so stacked zones never overlap. One undo step.

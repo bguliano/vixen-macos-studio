@@ -465,6 +465,20 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "sequence_effects" => {
             json!({"effects":s.effects().take(10000).map(|e|json!({"id":e.id.0,"typeId":e.node.type_id.to_string(),"startMs":e.node.start.total_ms(),"durationMs":e.node.time_span.total_ms(),"targets":e.node.targets.iter().map(|(id,_)|id.to_string()).collect::<Vec<_>>(),"label":studio_access_label(e)})).collect::<Vec<_>>(),"total":s.effect_count()})
         }
+        "effect_band" if a.get("exclusive") == Some(&json!(true)) => {
+            let planned = plan_band(core, &s, a)?;
+            let (from, to) = (a["fromPct"].as_f64().unwrap(), a["toPct"].as_f64().unwrap());
+            let (mut actions, cut) = cut_for_band(core, &mut s, &planned, from, to);
+            let ids: Vec<EffectId> = planned.into_iter().map(|new| apply_add(&mut s, new)).collect();
+            let all: Vec<u64> = ids.iter().map(|id| id.0).collect();
+            actions.push(UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids });
+            let group = UndoAction::Group { label: format!("Add exclusive band{}", if agent { " (Agent)" } else { "" }), actions };
+            if agent {
+                s.studio_agent_flash.note(&group);
+            }
+            s.record_undo(group);
+            json!({"effectId":all[0],"effectIds":all,"cut":cut})
+        }
         "effect_add" | "effect_band" => {
             let planned = if name == "effect_band" { plan_band(core, &s, a)? } else { plan_add(core, &s, a)? };
             let ids: Vec<EffectId> = planned.into_iter().map(|new| apply_add(&mut s, new)).collect();
@@ -884,29 +898,180 @@ fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEff
         })
         .collect())
 }
-const BAND_FIELDS: &[&str] = &["fromPct", "toPct", "color", "level"];
+const BAND_FIELDS: &[&str] = &["fromPct", "toPct", "color", "level", "featherPct", "featherLights", "exclusive"];
 /// Wipe parameters that hold a still horizontal band from `from` to `to` percent of the targets' height, counted from the
 /// bottom: Vertical, Movement mode, a flat MovementCurve and a pulse as wide as the band. A band lights the rows above
 /// `from` up to `to`, plus the lowest light when `from` is 0. The whole height needs two Wipes, its lower and upper half:
 /// one Wipe's pulse is at most the height, one row short of reaching both the lowest and the highest light.
-fn band_params(from: f64, to: f64, color: &str, level: f64) -> Vec<Value> {
-    if from <= 0.0 && to >= 100.0 {
-        return [(0.0, 50.0), (50.0, 100.0)].into_iter().flat_map(|(f, t)| band_params(f, t, color, level)).collect();
+pub(super) fn band_params(from: f64, to: f64, color: &str, level: f64) -> Vec<Value> {
+    feathered_band_params(from, to, 0.0, color, level)
+}
+/// band_params with soft edges (B76): each edge inside the targets fades over `feather` percent of the height, centred
+/// on the edge, so the band is full from `from + feather/2` to `to - feather/2` and dark below `from - feather/2` and
+/// above `to + feather/2`; two feathered bands that meet cross-fade. An edge at 0 or 100 has no fade, so the ends of
+/// the prop stay lit (#63). The fade is the Wipe's level Curve across its pulse.
+pub(super) fn feathered_band_params(from: f64, to: f64, feather: f64, color: &str, level: f64) -> Vec<Value> {
+    band_wipes(from, to, if from <= 0.0 { 0.0 } else { feather }, if to >= 100.0 { 0.0 } else { feather }, color, level)
+}
+fn band_wipes(from: f64, to: f64, below: f64, above: f64, color: &str, level: f64) -> Vec<Value> {
+    let reach_low = if from <= 0.0 { 0.0 } else { from - below / 2.0 };
+    let reach_high = if to >= 100.0 { 100.0 } else { to + above / 2.0 };
+    if reach_high - reach_low >= 100.0 {
+        // Wider than one pulse can reach: two Wipes, split in the middle with no fade at the seam.
+        let mid = (from + to) / 2.0;
+        return [band_wipes(from, mid, below, 0.0, color, level), band_wipes(mid, to, 0.0, above, color, level)].concat();
     }
     // A band touching an end stretches its pulse to the whole height past that end, where there are no lights, so
     // rounding the edge to a preview row can't leave the lowest light or the top row dark.
-    let (from, to) = if from <= 0.0 { (to - 100.0, to) } else if to >= 100.0 { (from, 100.0 + from) } else { (from, to) };
+    let (low, high) = if from <= 0.0 {
+        (reach_high - 100.0, reach_high)
+    } else if to >= 100.0 {
+        (reach_low, reach_low + 100.0)
+    } else {
+        (reach_low, reach_high)
+    };
+    let width = high - low;
     // Movement mode spreads the curve over the height plus one band width, and lights the band below that point.
-    let position = 100.0 * to / (100.0 + (to - from));
+    let position = 100.0 * high / (100.0 + width);
+    // The pulse's level Curve runs from its bottom (0) to its top (100).
+    let x = |height: f64| (100.0 * (height - low) / width).clamp(0.0, 100.0);
+    let mut curve = Vec::new();
+    if below > 0.0 {
+        curve.extend([(x(from - below / 2.0), 0.0), (x(from + below / 2.0), level)]);
+    } else {
+        curve.push((0.0, level));
+    }
+    if above > 0.0 {
+        curve.extend([(x(to - above / 2.0), level), (x(to + above / 2.0), 0.0)]);
+    } else {
+        curve.push((100.0, level));
+    }
+    curve.dedup_by(|b, a| (a.0 - b.0).abs() < 1e-9 && (a.1 - b.1).abs() < 1e-9);
     vec![json!({
         "Direction": "Vertical",
         "WipeMovement": "Movement",
         "TargetNodeHandling": "Group",
         "MovementCurve": [[0, position], [100, position]],
-        "PulsePercent": to - from,
+        "PulsePercent": width,
         "ColorGradient": [color],
-        "Curve": [[0, level], [100, level]],
+        "Curve": curve.iter().map(|(x, y)| json!([x, y])).collect::<Vec<_>>(),
     })]
+}
+/// The leaves of `target` a band from `from` to `to` lights, as Wipe places them: lights with a Location whose X is above
+/// 0, measured on their own height (y grows downward). Rows above `from` up to `to`, and the lowest row when `from` is 0.
+fn band_leaves(tree: &vixen_core::ElementTree, target: Uuid, from: f64, to: f64) -> Vec<vixen_core::element::NodeId> {
+    let Some(node) = tree.find(&target) else { return Vec::new() };
+    let located = located_leaves(tree, node);
+    let (Some(min), Some(max)) = (located.iter().map(|l| l.1).min(), located.iter().map(|l| l.1).max()) else { return Vec::new() };
+    located
+        .into_iter()
+        .filter(|(_, y)| {
+            let h = if max == min { 0.0 } else { f64::from(max - y) / f64::from(max - min) * 100.0 };
+            (h > from + 1e-6 || (from <= 1e-6 && h <= 1e-6)) && h <= to + 1e-6
+        })
+        .map(|l| l.0)
+        .collect()
+}
+fn located_leaves(tree: &vixen_core::ElementTree, node: vixen_core::element::NodeId) -> Vec<(vixen_core::element::NodeId, i32)> {
+    use vixen_core::element::{property_ids, PropertyData};
+    let mut seen = std::collections::HashSet::new();
+    tree.leaves(node)
+        .into_iter()
+        .filter_map(|leaf| match tree.property(leaf, &property_ids::LOCATION).map(|p| &p.data) {
+            Some(PropertyData::Location { x, y, .. }) if *x > 0 && seen.insert(leaf) => Some((leaf, *y)),
+            _ => None,
+        })
+        .collect()
+}
+/// The height range (from, to) an existing still band Wipe lights at half its level or more, as band_wipes wrote it;
+/// None for any other effect.
+fn band_range(e: &crate::sequence::EffectEntry) -> Option<(f64, f64)> {
+    if e.descriptor.map(|d| d.name) != Some("Wipe") {
+        return None;
+    }
+    wipe_band_range(&e.node.params)
+}
+fn wipe_band_range(p: &vixen_effects::framework::Params) -> Option<(f64, f64)> {
+    use vixen_effects::framework::ParamValue as P;
+    let named = |n: &str, want: &str| matches!(p.get(n), P::Enum(v) if v == want);
+    if !named("Direction", "Vertical") || !named("WipeMovement", "Movement") {
+        return None;
+    }
+    let (P::Curve(movement), P::Curve(curve)) = (p.get("MovementCurve"), p.get("Curve")) else { return None };
+    let position = movement.points.first()?.1;
+    if movement.points.iter().any(|q| (q.1 - position).abs() > 1e-9) {
+        return None;
+    }
+    let width = match p.get("PulsePercent") {
+        P::Double(w) | P::Percentage(w) => *w,
+        P::Int(w) => f64::from(*w),
+        _ => return None,
+    };
+    let high = position * (100.0 + width) / 100.0;
+    let peak = (0..=200).map(|i| curve.get_value(f64::from(i) / 2.0)).fold(0.0, f64::max);
+    let lit: Vec<f64> = (0..=200).map(|i| f64::from(i) / 2.0).filter(|x| peak > 0.0 && curve.get_value(*x) >= peak / 2.0 - 1e-9).collect();
+    let (first, last) = (*lit.first()?, *lit.last()?);
+    let low = high - width;
+    Some((low + first * width / 100.0, low + last * width / 100.0))
+}
+/// effect_band exclusive:true: before the band goes in, every existing effect that lights any of the band's lights during
+/// its time is cut out of that time: shortened, split around it (the later part a copy), or removed when it lies wholly
+/// inside. Returns the undo actions, in the order they were applied, and how many effects were cut.
+fn cut_for_band(core: &AppCore, s: &mut SequenceSession, planned: &[NewEffect], from: f64, to: f64) -> (Vec<UndoAction>, usize) {
+    let Some(first) = planned.first() else { return (Vec::new(), 0) };
+    let (start, end) = (first.start, first.start + first.duration);
+    let tree = core.system.read().tree.clone();
+    let lit: std::collections::HashSet<_> = planned.iter().flat_map(|n| band_leaves(&tree, n.target, from, to)).collect();
+    let mut cuts = Vec::new();
+    for e in s.effects() {
+        let (s0, e0) = (e.node.start, e.node.start + e.node.time_span);
+        if s0 >= end || e0 <= start {
+            continue;
+        }
+        let range = band_range(e);
+        let hits = e.node.targets.iter().any(|(id, _)| match range {
+            Some((f, t)) => band_leaves(&tree, *id, f, t).iter().any(|l| lit.contains(l)),
+            None => tree.find(id).is_some_and(|n| tree.leaves(n).iter().any(|l| lit.contains(l))),
+        });
+        if hits {
+            cuts.push((e.id, s0, e0, e.node.targets.first().cloned()));
+        }
+    }
+    let mut actions = Vec::new();
+    let (mut times, mut old_times, mut copies, mut removed) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for (id, s0, e0, target) in &cuts {
+        if *s0 >= start && *e0 <= end {
+            removed.push(*id);
+            continue;
+        }
+        if *s0 < start && *e0 > end {
+            if let Some((target, name)) = target {
+                let node = s.effect(*id).unwrap().node.clone();
+                let layer = s.layer_of(*id);
+                if let Some(copy) = s.add_copy(node, *target, name, end, *e0 - end) {
+                    if let Some(layer) = layer {
+                        s.set_layer(&[copy], layer);
+                    }
+                    copies.push(copy);
+                }
+            }
+        }
+        let (new_start, new_end) = if *s0 < start { (*s0, start) } else { (end, *e0) };
+        old_times.push((*id, *s0, *e0 - *s0));
+        times.push((*id, new_start, new_end - new_start));
+    }
+    if !copies.is_empty() {
+        actions.push(UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids: copies });
+    }
+    if !times.is_empty() {
+        s.set_times(&times);
+        actions.push(UndoAction::TimesChanged { kind: MoveKind::Moved, times: old_times });
+    }
+    if !removed.is_empty() {
+        let effects = s.remove_effects(&removed);
+        actions.push(UndoAction::EffectsRemoved { kind: AddRemoveKind::AddedOrRemoved, effects });
+    }
+    (actions, cuts.len())
 }
 /// effect_band and the batch band op: a native Wipe set up as a still band, so the show stays readable everywhere.
 fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEffect>, String> {
@@ -920,13 +1085,49 @@ fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEf
     let level = pct("level", Some(100.0))?;
     let color = a.get("color").map_or(Some("#ffffff"), Value::as_str).ok_or("color must be #RRGGBB")?;
     let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").ok_or("Wipe effect not available")?;
+    if a.get("exclusive").is_some_and(|v| !v.is_boolean()) {
+        return Err("exclusive must be true or false".into());
+    }
+    let lights = match (a.get("featherPct"), a.get("featherLights")) {
+        (Some(_), Some(_)) => return Err("Give featherPct or featherLights, not both".into()),
+        (None, Some(n)) => Some(n.as_u64().filter(|n| (1..=1000).contains(n)).ok_or("featherLights must be a whole number of rows, 1..1000")?),
+        _ => None,
+    };
+    let feather_pct = pct("featherPct", Some(0.0))?;
     let mut add = a.as_object().cloned().unwrap_or_default();
     add.retain(|k, _| !BAND_FIELDS.contains(&k.as_str()) && k != "op");
     add.insert("typeId".into(), json!(wipe.type_id.to_string()));
     let mut planned = Vec::new();
-    for params in band_params(from, to, color, level) {
-        add.insert("params".into(), params);
-        planned.extend(plan_add(core, s, &Value::Object(add.clone()))?);
+    // featherLights is rows of each target's own lights, so every target gets its own fade; featherPct is shared.
+    let per_target: Vec<Option<(Uuid, String)>> = if lights.is_some() { targets(core, a)?.into_iter().map(Some).collect() } else { vec![None] };
+    for target in per_target {
+        let feather = match (lights, &target) {
+            (Some(n), Some((id, name))) => {
+                let system = core.system.read();
+                let node = system.tree.find(id).ok_or(format!("Target {id} not found"))?;
+                let mut rows: Vec<i32> = located_leaves(&system.tree, node).into_iter().map(|l| l.1).collect();
+                rows.sort_unstable();
+                rows.dedup();
+                if rows.len() < 2 {
+                    return Err(format!("featherLights counts rows of lights, and {name} has fewer than two rows with Vixen's Location property; use featherPct or give it locations with element_location"));
+                }
+                n as f64 * 100.0 / (rows.len() - 1) as f64
+            }
+            _ => feather_pct,
+        };
+        if feather > to - from + 1e-9 {
+            return Err(format!("The feather ({feather:.1}% of the height) must be at most the band's width (toPct - fromPct, {:.1})", to - from));
+        }
+        if let Some((id, _)) = &target {
+            for k in ["targetIds", "targetSlice"] {
+                add.remove(k);
+            }
+            add.insert("targetId".into(), json!(id.to_string()));
+        }
+        for params in feathered_band_params(from, to, feather, color, level) {
+            add.insert("params".into(), params);
+            planned.extend(plan_add(core, s, &Value::Object(add.clone()))?);
+        }
     }
     Ok(planned)
 }
@@ -987,7 +1188,7 @@ fn op_schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
     let percent = json!({"type":"number","minimum":0,"maximum":100});
-    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","band","delete","timing","params"]},"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0},"fromPct":percent,"toPct":percent,"color":string,"level":percent},"required":["op"],"additionalProperties":false})
+    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","band","delete","timing","params"]},"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0},"fromPct":percent,"toPct":percent,"color":string,"level":percent,"featherPct":percent,"featherLights":{"type":"integer","minimum":1,"maximum":1000}},"required":["op"],"additionalProperties":false})
 }
 fn target_ids_schema() -> Value {
     json!({"type":"array","items":{"type":"string","minLength":1,"maxLength":256},"minItems":1,"maxItems":TARGET_LIMIT})
@@ -1026,7 +1227,7 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
             let kind = op["op"].as_str().unwrap();
             let allowed: &[&str] = match kind {
                 "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "params", "layerId"],
-                "band" => &["op", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level"],
+                "band" => &["op", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level", "featherPct", "featherLights"],
                 "delete" => &["op", "effectId"],
                 "timing" => &["op", "effectId", "startMs", "durationMs"],
                 _ => &["op", "effectId", "params"],
@@ -1348,8 +1549,8 @@ pub fn tools() -> Vec<Value> {
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp, plus what its window's title bar and toolbar show: title, subtitle (the song, or No audio), song, songMissing, rendering and renderingPercent (rendered of all effects).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs, millisecond times and label (the words VoiceOver reads for the effect on the timeline).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
-        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Returns effectId and effectIds.",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
-        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,layerId?} (as effect_band), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards).",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
+        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Soft edges: featherPct (percent of the height) or featherLights (rows of each target's own lights) fades each edge inside the prop over that much, centred on the edge, so the band is full from fromPct+feather/2 to toPct-feather/2 and dark beyond fromPct-feather/2 and toPct+feather/2; two feathered bands that meet cross-fade, and an edge at 0 or 100 never fades, so the prop's ends stay lit. The feather is at most the band's width. exclusive:true makes the band own its lights for its time: every existing effect that lights any of the band's lights during it is cut out of that time (shortened, split around the band with the later part a copy, or deleted when wholly inside); effects on other lights, including bands on other rows of the same prop, are left alone. The cut and the band are one undo step, and cut reports how many effects were cut. Example: {\"fromPct\":40,\"toPct\":60,\"featherPct\":10,\"exclusive\":true}. Returns effectId and effectIds (and cut with exclusive).",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"featherPct":{"type":"number","minimum":0,"maximum":100,"description":"Edge fade in percent of the targets' height, centred on each inner edge","examples":[10,20]},"featherLights":{"type":"integer","minimum":1,"maximum":1000,"description":"Edge fade in rows of each target's own lights (instead of featherPct)","examples":[2,3]},"exclusive":{"type":"boolean","description":"Cut older effects on the band's lights out of its time","examples":[true]},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
+        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,featherPct?|featherLights?,layerId?} (as effect_band; exclusive is effect_band only), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards).",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"confirm":boolean}),vec!["sequenceId"],false),
         ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
         ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),
@@ -2040,6 +2241,94 @@ mod tests {
                 assert_eq!(lit_at(990.0), rows, "{pixels}px {from}-{to}: the band holds still");
             }
         }
+    }
+
+    /// B76: a feathered band ramps its inner edges over the feather, centred on each edge, keeps the ends of the prop at
+    /// full level (#63), holds still, and reads back as the band it was asked for (what exclusive cuts compare).
+    #[test]
+    fn feathered_band_fades_its_inner_edges_and_keeps_the_ends_lit() {
+        use vixen_core::element::{property_ids, PropertyData, PropertyInstance};
+        use vixen_core::intent::StateValue;
+        let wipe = vixen_effect_registry::all().iter().find(|d| d.name == "Wipe").unwrap();
+        let mut tree = vixen_core::ElementTree::new();
+        let group = vixen_effects::testing::grid(&mut tree, "T", 4, 51);
+        let mut located = Vec::new();
+        for (s, string) in tree.node(group).children.clone().into_iter().enumerate() {
+            for (p, leaf) in tree.node(string).children.clone().into_iter().enumerate() {
+                let (x, y) = (10 + s as i32 * 4, 20 + p as i32 * 2);
+                tree.node_mut(leaf).properties.push(PropertyInstance { type_id: property_ids::LOCATION, instance_id: Uuid::new_v4(), data: PropertyData::Location { x, y, z: 0 } });
+                // Height in percent: pixel 0 at the top, 50 rows of 2 units.
+                located.push((tree.node(leaf).element_id.unwrap(), 100.0 - p as f64 * 2.0));
+            }
+        }
+        // (from, to, feather, expected level at a height): linear fades centred on inner edges, none at 0 and 100.
+        let ramp = |h: f64, edge: f64, f: f64, rising: bool| {
+            let t = ((h - (edge - f / 2.0)) / f).clamp(0.0, 1.0);
+            if rising { t } else { 1.0 - t }
+        };
+        let cases: [(f64, f64, f64, usize); 5] = [(30.0, 70.0, 20.0, 1), (0.0, 50.0, 20.0, 1), (50.0, 100.0, 20.0, 1), (5.0, 95.0, 40.0, 2), (20.0, 40.0, 20.0, 1)];
+        for (from, to, f, wipes) in cases {
+            let bands = feathered_band_params(from, to, f, "#ff0000", 100.0);
+            assert_eq!(bands.len(), wipes, "{from}-{to} feather {f}");
+            let outs: Vec<_> = bands
+                .iter()
+                .map(|band| {
+                    let values = parameter_values(wipe, band).unwrap();
+                    vixen_effects::testing::render_with(wipe, &tree, &[group], 1000, |p| {
+                        for (name, value) in values {
+                            p.set(name, value);
+                        }
+                    })
+                })
+                .collect();
+            let level_at = |element: &Uuid, ms: f64| -> f64 {
+                let t = TimeSpan::from_ms(ms);
+                outs.iter()
+                    .flat_map(|out| out.nodes_for(element).into_iter().flatten())
+                    .filter(|n| n.contains(t))
+                    .map(|n| match n.intent.state_at(t - n.start) {
+                        StateValue::Lighting(v) => v.intensity,
+                        _ => 0.0,
+                    })
+                    .fold(0.0, f64::max)
+            };
+            for (element, h) in &located {
+                let low = if from <= 0.0 { 1.0 } else { ramp(*h, from, f, true) };
+                let high = if to >= 100.0 { 1.0 } else { ramp(*h, to, f, false) };
+                let want = low.min(high);
+                let got = level_at(element, 500.0);
+                // One row of rounding where Wipe places the pulse: 2% of the height is 0.1 of a 20% fade.
+                assert!((got - want).abs() <= 0.12, "{from}-{to} feather {f}: height {h} lit {got:.2}, want {want:.2}");
+                assert!((level_at(element, 30.0) - got).abs() < 1e-9 && (level_at(element, 970.0) - got).abs() < 1e-9, "{from}-{to}: holds still at {h}");
+            }
+            if from <= 0.0 {
+                assert!(level_at(&located.iter().find(|l| l.1 == 0.0).unwrap().0, 500.0) > 0.99, "{from}-{to}: the lowest light stays lit");
+            }
+            if to >= 100.0 {
+                assert!(level_at(&located.iter().find(|l| l.1 == 100.0).unwrap().0, 500.0) > 0.99, "{from}-{to}: the highest light stays lit");
+            }
+            // Read back from the Wipe parameters, each Wipe of a band covers part of it and together they cover it all.
+            let ranges: Vec<(f64, f64)> = bands
+                .iter()
+                .map(|band| {
+                    let mut p = wipe.new_params();
+                    for (name, value) in parameter_values(wipe, band).unwrap() {
+                        p.set(name, value);
+                    }
+                    wipe_band_range(&p).unwrap()
+                })
+                .collect();
+            let (lo, hi) = (ranges.iter().map(|r| r.0).fold(f64::MAX, f64::min), ranges.iter().map(|r| r.1).fold(f64::MIN, f64::max));
+            assert!((lo.max(0.0) - from).abs() < 0.6 && (hi.min(100.0) - to).abs() < 0.6, "{from}-{to}: read back {ranges:?}");
+        }
+        // Without a feather the read-back is the band itself, and other effects aren't bands.
+        let mut p = wipe.new_params();
+        for (name, value) in parameter_values(wipe, &band_params(40.0, 60.0, "#ffffff", 100.0)[0]).unwrap() {
+            p.set(name, value);
+        }
+        let (lo, hi) = wipe_band_range(&p).unwrap();
+        assert!((lo - 40.0).abs() < 1e-6 && (hi - 60.0).abs() < 1e-6, "{lo}-{hi}");
+        assert_eq!(wipe_band_range(&wipe.new_params()), None);
     }
 
     /// A 16-bit mono WAV of decaying sine bursts: 60 Hz kicks and 6 kHz hats.
