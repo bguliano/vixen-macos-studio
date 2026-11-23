@@ -149,23 +149,45 @@ final class SetupModel {
     // STUDIO-BEGIN setup-live: the show window's Display pane edits live, so its working copy opens and closes without a system configuration session
     /// The display revision the live working copy matches. Publishing refuses once the display has moved past it.
     @ObservationIgnored var studioBaseRevision: UInt64 = 0
+    /// Bumps on every live open and close, so a working copy still being made when the pane closed (or reopened) is dropped.
+    @ObservationIgnored private var studioLiveGeneration = 0
+    /// A working copy is being made for the pane.
+    @ObservationIgnored private(set) var studioOpening = false
     /// Opens a working copy for the live pane. Unlike `windowOpened`, the app stays usable: edits publish one at a time.
     func studioOpenLive() {
         guard session == nil, !isClosing, let core = app.core else { return }
         openedAt = CACurrentMediaTime()
         openCount += 1
         resetForNewWindow()
+        studioLiveGeneration += 1
+        let generation = studioLiveGeneration
+        studioOpening = true
         Task {
             // The revision is read first, so a publication racing the open makes the copy look stale rather than current.
             let (revision, opened) = await offMain { (core.displayRevision(), core.openDisplaySetup()) }
+            // Leaving the section closes while a last publish's reopen is still on its way: the close wins, or the copy would
+            // outlive the pane and come back with trees that never loaded (B71).
+            guard generation == studioLiveGeneration else {
+                Self.releaseOffMain(opened)
+                return
+            }
+            studioOpening = false
             studioBaseRevision = revision
             session = opened
             await loadTrees()
         }
     }
 
+    /// Fetches both trees again into whatever is on screen, for a pane whose lists came up empty.
+    func studioReloadTrees() async {
+        guard session != nil else { return }
+        await loadTrees()
+    }
+
     /// Lets the live working copy go. Nothing is discarded: every edit was already published.
     func studioCloseLive() {
+        studioLiveGeneration += 1
+        studioOpening = false
         guard let session else { return }
         Self.releaseOffMain(session)
         self.session = nil

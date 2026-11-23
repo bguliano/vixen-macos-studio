@@ -617,7 +617,7 @@
  },
  "block:setup-live": {
   "file": "app/Sources/VixenSetup/Window/SetupModel.swift",
-  "hash": "2fa672e1057edf3e"
+  "hash": "ee95e39ea3b2f19e"
  },
  "block:setup-pane": {
   "file": "app/Sources/VixenSetup/SetupScene.swift",

@@ -57,6 +57,7 @@ struct StudioDisplaySetupPane: View {
         .task {
             while !Task.isCancelled {
                 await live.tick(model: model, app: app)
+                await live.checkTrees(model: model)
                 try? await Task.sleep(for: .milliseconds(500))
             }
         }
@@ -64,7 +65,12 @@ struct StudioDisplaySetupPane: View {
 
     private var statusBar: some View {
         HStack(spacing: StudioMetrics.spacingS) {
-            if let notice = live.notice {
+            if live.treesMissing {
+                Label("The display's lists didn't load. Your show is unchanged.", systemImage: "exclamationmark.triangle.fill")
+                    .symbolRenderingMode(.multicolor)
+                    .lineLimit(2)
+                Button("Reload") { live.reloadLists(model: model) }
+            } else if let notice = live.notice {
                 Label(notice, systemImage: "exclamationmark.triangle.fill")
                     .symbolRenderingMode(.multicolor)
                     .lineLimit(2)
@@ -92,7 +98,7 @@ struct StudioDisplaySetupPane: View {
     }
 
     private func openIfReady() {
-        guard live.paneVisible, model.session == nil, !model.isClosing, app.core != nil else { return }
+        guard live.paneVisible, model.session == nil, !model.studioOpening, !model.isClosing, app.core != nil else { return }
         live.reset()
         model.studioOpenLive()
     }
@@ -137,6 +143,9 @@ final class StudioDisplayLive {
     private(set) var redoLabel: String?
     private(set) var working = false
     private(set) var saveText = "Edits apply as you make them"
+    /// The working copy has elements or controllers the pane's lists still don't show after a reload: say so, with Reload.
+    private(set) var treesMissing = false
+    @ObservationIgnored private var emptyChecks = 0
     /// The commissioning test running now (`StudioTestMenu.swift`), read every tick.
     private(set) var commission: StudioCommissionStatus?
     @ObservationIgnored var paneVisible = false
@@ -144,6 +153,8 @@ final class StudioDisplayLive {
     @ObservationIgnored var testBlock: String?
     /// Scripts can't run a test while muted; `displayTestCommission` stands in for one to show the banner.
     @ObservationIgnored var testCommission: StudioCommissionStatus?
+    /// `displayTestTreesMissing` makes the lists count as empty against a full working copy, to show the reload and the notice.
+    @ObservationIgnored var testTreesMissing = false
     @ObservationIgnored private var history = ""
     /// The step a setup sheet open now will publish as, once it closes.
     @ObservationIgnored private var heldSheet: String?
@@ -160,6 +171,46 @@ final class StudioDisplayLive {
     func reset() {
         notice = nil
         blocked = nil
+        treesMissing = false
+        emptyChecks = 0
+    }
+
+    /// Every tick: an empty list must mean an empty display. A list showing nothing while the working copy has rows gets
+    /// its rows fetched again, and if that doesn't fill it, the pane says so instead of looking like a lost show (B71).
+    func checkTrees(model: SetupModel) async {
+        guard let session = model.session, !model.studioOpening else {
+            emptyChecks = 0
+            return
+        }
+        let elementsShown = model.elementTree.rowCount
+        let controllersShown = model.controllerTree.rowCount
+        var missing = false
+        if testTreesMissing {
+            missing = true
+        } else if elementsShown == 0 || controllersShown == 0 {
+            let (elements, controllers) = await offMain { (session.elementRows(parent: nil).count, session.controllerRows().count) }
+            guard model.session === session else { return }
+            missing = (model.elementTree.rowCount == 0 && elements > 0) || (model.controllerTree.rowCount == 0 && controllers > 0)
+        }
+        guard missing else {
+            emptyChecks = 0
+            treesMissing = false
+            return
+        }
+        // A tree just opened can take a tick to fill; the second empty look reloads, a fourth gives up and says so.
+        emptyChecks += 1
+        if emptyChecks == 2 {
+            await model.studioReloadTrees()
+        } else if emptyChecks >= 4 {
+            treesMissing = true
+        }
+    }
+
+    /// The Reload button: a fresh working copy from the display as it stands, which loads both lists again.
+    func reloadLists(model: SetupModel) {
+        treesMissing = false
+        emptyChecks = 0
+        reload(model: model)
     }
 
     func forgetHistory() {
@@ -529,6 +580,23 @@ extension SetupModel {
             UITestHarness.customActions["displayPaneState"] = { _ in
                 let live = StudioDisplayLive.shared
                 return (true, "session=\(model.session != nil) busy=\(app.isBusy) blocked=\(live.blocked ?? "no") undo=\(live.undoLabel ?? "-") redo=\(live.redoLabel ?? "-") save=\(live.saveText) notice=\(live.notice ?? "-") base=\(model.studioBaseRevision)")
+            }
+            // What the Display section's two trees hold, for checking they never come up empty under a live working copy.
+            UITestHarness.customActions["displayTreesState"] = { _ in
+                (true, "session=\(model.session != nil) open=\(model.openCount) elements=\(model.elementTree.rowCount) controllers=\(model.controllerTree.rowCount) missing=\(StudioDisplayLive.shared.treesMissing)")
+            }
+            // Leaving the section while a reopen is on its way, as a last publish that finds the display moved does: the close
+            // must win, so coming back opens a fresh working copy with both trees filled.
+            UITestHarness.customActions["displayCloseDuringOpen"] = { _ in
+                model.studioCloseLive()
+                model.studioOpenLive()
+                model.studioCloseLive()
+                try? await Task.sleep(for: .seconds(1.5))
+                return (model.session == nil, "session=\(model.session != nil)")
+            }
+            UITestHarness.customActions["displayTestTreesMissing"] = { step in
+                StudioDisplayLive.shared.testTreesMissing = step.text == "on"
+                return (true, "treesMissing=\(StudioDisplayLive.shared.treesMissing)")
             }
             UITestHarness.customActions["displayTestBlock"] = { step in
                 StudioDisplayLive.shared.testBlock = step.text
