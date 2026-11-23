@@ -49,6 +49,11 @@ impl Group {
     pub fn lights(&self) -> usize {
         self.lights.len()
     }
+
+    /// The group's lights, as indices into the renderer's linked lights.
+    pub fn indices(&self) -> &[usize] {
+        &self.lights
+    }
 }
 
 /// Evaluates the schedule at each of `times` and fills every group's series. A group with no lights is never lit.

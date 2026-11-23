@@ -422,6 +422,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "sequence_activity" {
         return activity(core, &shared, a);
     }
+    if name == "render_analyze" {
+        return render_analyze(core, &shared, a);
+    }
     if name == "sequence_onset_marks" {
         return mark_effects::onset_marks(core, &shared, a, agent);
     }
@@ -1461,6 +1464,125 @@ fn activity(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Value) -> 
     crate::studio_preview::activity(core, shared, &range, thresholds, &elements, a["series"] == true)
 }
 
+/// render_analyze: dark stretches, spazzing, changes off the marks and colours per section, with times to jump to.
+fn render_analyze(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Value) -> Result<Value, String> {
+    use crate::studio_preview::{activity::Thresholds, taste};
+    let number = |k: &str, default: f64, lo: f64, hi: f64| {
+        a.get(k).map_or(Some(default), Value::as_f64).filter(|v| v.is_finite() && (lo..=hi).contains(v)).ok_or(format!("{k} must be a number in {lo}..{hi}"))
+    };
+    let length = shared.lock().length().total_ms();
+    let start = if a.get("startMs").is_some() { ms(a, "startMs")? } else { 0.0 };
+    let end = if a.get("endMs").is_some() { ms(a, "endMs")?.min(length) } else { length };
+    if start >= end {
+        return Err(format!("startMs must be before endMs and inside the sequence (0..{length})"));
+    }
+    let fps = number("fps", 20.0, 5.0, 60.0)?;
+    if (end - start) * fps / 1000.0 > 200_000.0 {
+        return Err("At most 200000 frames: lower fps or shorten the span".into());
+    }
+    let dark = Thresholds {
+        level: number("level", f64::from(Thresholds::DEFAULT.level), 0.0, 1.0)? as f32,
+        min_lit: number("minLit", f64::from(Thresholds::DEFAULT.min_lit), 0.0, 1.0)? as f32,
+        min_ms: number("minMs", Thresholds::DEFAULT.min_ms, 0.0, 600_000.0)?,
+    };
+    let change = taste::Change {
+        level: number("changeLevel", f64::from(taste::Change::DEFAULT.level), 0.01, 1.0)? as f32,
+        color: number("changeColor", f64::from(taste::Change::DEFAULT.color), 0.01, 2.0)? as f32,
+        share: number("changeShare", f64::from(taste::Change::DEFAULT.share), 0.01, 1.0)? as f32,
+    };
+    let ids = |k: &str| -> Result<Vec<Uuid>, String> {
+        a.get(k)
+            .map_or(Some(&[][..]), |v| v.as_array().map(Vec::as_slice))
+            .ok_or(format!("{k} must be a list of element ids"))?
+            .iter()
+            .map(|v| v.as_str().and_then(|v| Uuid::parse_str(v).ok()).ok_or(format!("{k} must be a list of element ids")))
+            .collect()
+    };
+    let elements = ids("elements")?;
+    if elements.len() > 64 {
+        return Err("At most 64 elements".into());
+    }
+    let elements = elements.into_iter().map(|id| element_and_below(core, id).map(|(name, below)| (id, name, below))).collect::<Result<Vec<_>, _>>()?;
+    let scope = match a.get("scope") {
+        None => None,
+        Some(_) => {
+            let id = uuid(a, "scope")?;
+            let (name, below) = element_and_below(core, id).map_err(|e| format!("scope: {e}"))?;
+            Some((id, name, below))
+        }
+    };
+    let mut palette = Vec::new();
+    for value in a.get("palette").map_or(Some(&[][..]), |v| v.as_array().map(Vec::as_slice)).ok_or("palette must be a list of #RRGGBB colours")? {
+        let text = value.as_str().filter(|t| taste::parse_hex(t).is_some()).ok_or("palette must be a list of #RRGGBB colours (not black)")?;
+        palette.push(text.to_string());
+    }
+    if palette.len() > 32 {
+        return Err("At most 32 palette colours".into());
+    }
+    let (marks, sections) = {
+        let s = shared.lock();
+        let marks = match a.get("marks") {
+            None => {
+                let all: Vec<&MarkCollection> = s.marks().iter().filter(|c| !c.marks.is_empty()).collect();
+                (!all.is_empty()).then(|| all)
+            }
+            Some(list) => {
+                let list = list.as_array().ok_or("marks must be a list of mark collection names or ids")?;
+                let mut found = Vec::new();
+                for name in list {
+                    found.push(mark_effects::collection(&s, name.as_str().ok_or("marks must be a list of mark collection names or ids")?, "marks")?);
+                }
+                (!found.is_empty()).then_some(found)
+            }
+        };
+        let marks = marks.map(|collections| {
+            let mut times: Vec<f64> = collections.iter().flat_map(|c| c.marks.iter().map(|m| m.start_time.total_ms())).collect();
+            times.sort_by(f64::total_cmp);
+            (times, collections.iter().map(|c| c.name.clone()).collect::<Vec<_>>())
+        });
+        let mut sections = Vec::new();
+        if let Some(name) = a.get("sections") {
+            if a.get("sectionMs").is_some() {
+                return Err("Give sections or sectionMs, not both".into());
+            }
+            let collection = mark_effects::collection(&s, name.as_str().ok_or("sections must be a mark collection name or id")?, "sections")?;
+            let mut starts: Vec<(f64, String)> = collection.marks.iter().map(|m| (m.start_time.total_ms(), m.text.clone())).filter(|(t, _)| *t > start && *t < end).collect();
+            starts.sort_by(|x, y| x.0.total_cmp(&y.0));
+            starts.insert(0, (start, collection.marks.iter().find(|m| m.start_time.total_ms() == start).map(|m| m.text.clone()).unwrap_or_default()));
+            for (i, (at, text)) in starts.iter().enumerate() {
+                sections.push(taste::Section { start_ms: *at, end_ms: starts.get(i + 1).map_or(end, |n| n.0), name: text.clone() });
+            }
+        } else {
+            let step = number("sectionMs", 10_000.0, 1000.0, 600_000.0)?;
+            let mut at = start;
+            while at < end {
+                sections.push(taste::Section { start_ms: at, end_ms: (at + step).min(end), name: String::new() });
+                at += step;
+            }
+        }
+        if sections.len() > 500 {
+            return Err("At most 500 sections: give a larger sectionMs".into());
+        }
+        (marks, sections)
+    };
+    let input = taste::Input {
+        dark,
+        change,
+        max_per_sec: number("maxChangesPerSec", 6.0, 0.5, 60.0)?,
+        window_ms: number("windowMs", 1000.0, 200.0, 10_000.0)?,
+        marks,
+        tolerance_ms: number("toleranceMs", 50.0, 0.0, 1000.0)?,
+        off_mark_max: number("offMarkMax", 0.25, 0.0, 1.0)?,
+        sections,
+        palette,
+        palette_distance: number("paletteDistance", 0.35, 0.01, 2.0)? as f32,
+        off_palette_max: number("offPaletteMax", 0.15, 0.0, 1.0)?,
+        blue_purple_max: number("bluePurpleMax", 0.5, 0.0, 1.0)?,
+    };
+    let range = crate::studio_preview::Range { preview_id: uuid(a, "previewId")?, start_ms: start, end_ms: end, fps, glow: false };
+    crate::studio_preview::analyze(core, shared, &range, scope, &elements, &input)
+}
+
 /// preview_video's framing, size, renderer and encoding.
 fn video_options(core: &AppCore, a: &Value) -> Result<crate::studio_preview::VideoOptions, String> {
     use crate::studio_preview::{Encoding, Framing, Size, VideoOptions};
@@ -1542,6 +1664,7 @@ pub fn tools() -> Vec<Value> {
         ("preview_frame","Render real preview light geometry at a sequence time to a PNG inspection frame. Omits background/fixture beams. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"timeMs":number,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","timeMs","file","confirm"],false),
         ("preview_video","Render a sequence span as a video of the preview's lights, with the sequence audio for that span as AAC, under profile Export. One call replaces a preview_frame per frame plus ffmpeg. Defaults: whole sequence, 25 fps, audio on, glow off, the app's own GPU preview renderer (antialiased lights and background artwork, as the preview window draws them; renderer cpu gives inspection frames), scale 2 (pixels per preview unit, drawn at that size, not upscaled; less when that would pass the 4096x2304 H.264 limit; or give width and/or height for the largest scale that fits), the whole preview canvas (fit an element id to frame its lights with padding preview units around them, or crop a preview rectangle), H.264 High at quality high in .mp4 or .mov (standard, high or max; or bitrateKbps). codec prores writes a ProRes 4444 .mov master. At most 4096 px a side. Up to 15 minutes. Also reports dark: the stretches of at least 1 s where under 5% of the preview's lights are at 10% or brighter (sequence_activity measures other thresholds and single props). Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"integer","minimum":1,"maximum":60},"withAudio":boolean,"glow":boolean,"renderer":{"type":"string","enum":["gpu","cpu"]},"scale":{"type":"number","minimum":0.1,"maximum":4},"width":{"type":"integer","minimum":16,"maximum":4096},"height":{"type":"integer","minimum":16,"maximum":4096},"fit":string,"padding":{"type":"number","minimum":0,"maximum":2000},"crop":{"type":"object","properties":{"x":{"type":"number"},"y":{"type":"number"},"width":{"type":"number","minimum":1},"height":{"type":"number","minimum":1}},"required":["x","y","width","height"],"additionalProperties":false},"codec":{"type":"string","enum":["h264","prores"]},"quality":{"type":"string","enum":["standard","high","max"]},"bitrateKbps":{"type":"integer","minimum":500,"maximum":200000},"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
         ("sequence_activity","Measure dead air without rendering a video: the share of a preview's linked lights lit (at level or brighter, 0 to 1, a light's brightest channel as the preview draws it, so a red tree is lit) at every frame of a span, from the rendered schedule's exact intensities. Returns lit min/mean/max and dark: every stretch of at least minMs where fewer than minLit of the lights are lit (startMs, endMs, durationMs, meanLit, peakLit), plus darkMs in total. elements (element or group ids) adds the same per prop, measured on its lights in this preview; series adds the lit share of every frame. Defaults: whole sequence, 20 fps, level 0.1, minLit 0.05, minMs 1000. preview_video reports the same dark stretches for the whole preview at the defaults.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.5,"maximum":100},"level":{"type":"number","minimum":0,"maximum":1},"minLit":{"type":"number","minimum":0,"maximum":1},"minMs":{"type":"number","minimum":0,"maximum":600000},"elements":{"type":"array","items":string,"maxItems":64},"series":boolean}),vec!["sequenceId","previewId"],true),
+        ("render_analyze",crate::studio_preview::taste::DESCRIPTION,crate::studio_preview::taste::schema(),vec!["sequenceId","previewId"],true),
         ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),

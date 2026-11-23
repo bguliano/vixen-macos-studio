@@ -28,3 +28,11 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
 - For soft-edged zones on a tree or matrix, use `effect_band` with `featherPct` (or `featherLights`, rows of lights)
   instead of tuning a parked Wipe by hand; add `exclusive:true` and the band cuts whatever was lighting its rows for its
   time (other rows and other props keep their effects), so stacked zones never overlap. One undo step.
+
+## Checking
+
+- Before showing anyone a build, run `render_analyze` on the sequence (`scope` your main prop, `marks` your beat
+  collection, `palette` your colours). It reads the rendered schedule, so it takes seconds, and flags what viewers reject:
+  dark stretches (a dark intro), spazzing (more than 6 whole-prop changes a second), changes on no mark, and sections that
+  lean blue/purple or leave the palette. Fix what it flags, starting from `jumpTo`, then run it again until `ok` is true;
+  watch a `preview_video` of the flagged times only when the report isn't enough. It changes nothing.

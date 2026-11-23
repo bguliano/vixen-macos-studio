@@ -23,6 +23,9 @@ pub mod geometry;
 #[path = "studio_activity.rs"]
 pub mod activity;
 
+#[path = "studio_taste.rs"]
+pub mod taste;
+
 const OMITTED: [&str; 3] = ["background artwork", "fixture beams", "GPU antialiasing"];
 const GPU_OMITTED: [&str; 1] = ["fixture beams"];
 
@@ -277,6 +280,16 @@ impl Renderer {
             self.states.get(l.index).map_or(0.0, |state| {
                 f32::from(crate::preview::light_color(state, l.discrete).to_le_bytes()[3]) / 255.0
             })
+        }));
+    }
+
+    /// Each linked light's colour at `time_ms` as the preview draws it: little-endian `[r, g, b, level]`, the colour at
+    /// full brightness and its level, 0 when off.
+    pub fn colors(&mut self, time_ms: f64, out: &mut Vec<u32>) {
+        self.schedule.evaluate(TimeSpan::from_ms(time_ms), &mut self.scratch, &mut self.states);
+        out.clear();
+        out.extend(self.lights.iter().map(|l| {
+            self.states.get(l.index).map_or(0, |state| crate::preview::light_color(state, l.discrete))
         }));
     }
 
@@ -674,6 +687,37 @@ pub fn activity(
         out["elements"] = json!(groups[1..].iter().map(|g| activity::group_json(g, &times, range.end_ms, thresholds, series)).collect::<Vec<_>>());
     }
     out["source"] = json!("rendered schedule intensities of the preview's linked lights (brightest channel), not a decoded video");
+    Ok(out)
+}
+
+/// render_analyze: dark stretches, change rate ("spazzing"), changes off the marks and colours per section, over the
+/// preview (or `scope`'s lights in it) and each of `elements`. The session lock is held only to render effects.
+pub fn analyze(
+    core: &AppCore,
+    shared: &Arc<Mutex<SequenceSession>>,
+    range: &Range,
+    scope: Option<(Uuid, String, HashSet<Uuid>)>,
+    elements: &[(Uuid, String, HashSet<Uuid>)],
+    input: &taste::Input,
+) -> Result<Value, String> {
+    let mut renderer = Renderer::new(core, &mut shared.lock(), range.preview_id, 1.0, false)?;
+    let main = match &scope {
+        Some((id, name, under)) => activity::Group::of(&renderer, *id, name.clone(), under),
+        None => activity::Group::whole(&renderer),
+    };
+    if main.lights() == 0 {
+        return Err("No lights to analyze: the scope has none linked in this preview".into());
+    }
+    let mut groups = vec![main];
+    groups.extend(elements.iter().map(|(id, name, under)| activity::Group::of(&renderer, *id, name.clone(), under)));
+    let times: Vec<f64> = range.times().collect();
+    let mut out = taste::analyze(&mut renderer, &times, range.end_ms, &groups, input);
+    out["previewId"] = json!(range.preview_id.to_string());
+    out["startMs"] = json!(range.start_ms);
+    out["endMs"] = json!(range.end_ms);
+    out["fps"] = json!(range.fps);
+    out["frames"] = json!(times.len());
+    out["source"] = json!("rendered schedule colours of the preview's linked lights, not a decoded video");
     Ok(out)
 }
 
