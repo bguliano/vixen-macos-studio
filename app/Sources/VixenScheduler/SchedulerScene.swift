@@ -42,6 +42,7 @@ public struct SchedulerScene: Scene {
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Export Sequence Package opens it (B83)
 
         Window("Sequence Package Import", id: WindowID.sequencePackageImport) {
             PackageWizardRoot(importing: true).environment(model).studioAppearance() // STUDIO: follow the chosen appearance
@@ -50,6 +51,7 @@ public struct SchedulerScene: Scene {
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Import Sequence Package opens it (B83)
 
         // F14: one wizard at a time.
         Window("Export Wizard", id: WindowID.exportWizard) {
@@ -61,6 +63,7 @@ public struct SchedulerScene: Scene {
         .windowResizability(.contentMinSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Export Wizard opens it (B83)
 
         Window("Shows", id: WindowID.shows) {
             ShowsRoot()
@@ -70,6 +73,7 @@ public struct SchedulerScene: Scene {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Scheduler ▸ Shows is the Schedule pane (B83)
 
         // F49: upstream's title for Scheduler > Schedules.
         Window("Scheduler", id: WindowID.schedules) {
@@ -80,6 +84,7 @@ public struct SchedulerScene: Scene {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Scheduler ▸ Schedules is the Schedule pane (B83)
 
         WindowGroup("Export Sequence", id: WindowID.exportSequence, for: String.self) { $path in
             ExportSequenceWindow(path: path)

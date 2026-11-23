@@ -141,8 +141,9 @@ fn score(e: &Entry, query: &[String], whole: &str) -> Option<i64> {
     if !e.enabled {
         total -= 5;
     }
-    // The Window menu's entries open or bring forward a window; a command of the same name (Tools ▸ Scheduler ▸ Shows,
-    // which shows the Schedule pane) is what's meant, however deep in Tools it is (B69).
+    // The Window menu's entries only bring forward a window that's open (it no longer opens the retired Shows and Scheduler
+    // windows, B83); a command of the same name (Tools ▸ Scheduler ▸ Shows, the Schedule pane) is what's meant, however
+    // deep in Tools it is (B69).
     if e.top() == "Window" {
         total -= 3;
     }

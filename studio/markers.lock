@@ -915,13 +915,29 @@
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "04bbdbb6039c5bf1"
  },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:0f2c2659d04f1dc1": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "0f2c2659d04f1dc1"
+ },
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:62e5227794b5aadd": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "62e5227794b5aadd"
+ },
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:957aa3a369122b22": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
   "hash": "957aa3a369122b22"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:a9da189a115871bf": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "a9da189a115871bf"
+ },
+ "line:app/Sources/VixenAdmin/AdministrationScene.swift:b45d56b6cea3dec3": {
+  "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
+  "hash": "b45d56b6cea3dec3"
  },
  "line:app/Sources/VixenAdmin/AdministrationScene.swift:c7fe51e34fda5910": {
   "file": "app/Sources/VixenAdmin/AdministrationScene.swift",
@@ -1511,13 +1527,33 @@
   "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
   "hash": "06d49f52359b9f6f"
  },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:269dd7ec7ec31c94": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "269dd7ec7ec31c94"
+ },
  "line:app/Sources/VixenScheduler/SchedulerScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
   "hash": "288860d93ff8cd0d"
  },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:3b19914723c1b6fd": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "3b19914723c1b6fd"
+ },
  "line:app/Sources/VixenScheduler/SchedulerScene.swift:69fac878491a5ab2": {
   "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
   "hash": "69fac878491a5ab2"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:8403f38eb07fbe1f": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "8403f38eb07fbe1f"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:a3f4f6518b49cc76": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "a3f4f6518b49cc76"
+ },
+ "line:app/Sources/VixenScheduler/SchedulerScene.swift:a7a3b57c041eed41": {
+  "file": "app/Sources/VixenScheduler/SchedulerScene.swift",
+  "hash": "a7a3b57c041eed41"
  },
  "line:app/Sources/VixenScheduler/SongInventoryWindow.swift:f7a2ab6762d80b54": {
   "file": "app/Sources/VixenScheduler/SongInventoryWindow.swift",
@@ -1722,6 +1758,18 @@
  "line:app/Sources/VixenSetup/SetupScene.swift:288860d93ff8cd0d": {
   "file": "app/Sources/VixenSetup/SetupScene.swift",
   "hash": "288860d93ff8cd0d"
+ },
+ "line:app/Sources/VixenSetup/SetupScene.swift:56cceaeeda81458f": {
+  "file": "app/Sources/VixenSetup/SetupScene.swift",
+  "hash": "56cceaeeda81458f"
+ },
+ "line:app/Sources/VixenSetup/SetupScene.swift:e87f61f00d5a4379": {
+  "file": "app/Sources/VixenSetup/SetupScene.swift",
+  "hash": "e87f61f00d5a4379"
+ },
+ "line:app/Sources/VixenSetup/SetupScene.swift:ef16d9b9b50d2911": {
+  "file": "app/Sources/VixenSetup/SetupScene.swift",
+  "hash": "ef16d9b9b50d2911"
  },
  "line:app/Sources/VixenSetup/Sheets/TemplateSheet.swift:0a35fb9481b7dcc6": {
   "file": "app/Sources/VixenSetup/Sheets/TemplateSheet.swift",

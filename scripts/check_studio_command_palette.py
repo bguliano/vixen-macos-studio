@@ -70,6 +70,11 @@ def check(root: Path) -> None:
         assert has_sequence == (kind == "sequencer"), (kind, "Sequence menu")
         assert any(r["tool"] for r in rows), (kind, "no agent tools named")
 
+    show = {r["path"] for r in palette(root, "show")}
+    assert "Window ▸ Vixen Studio" in show, "Window ▸ Vixen Studio"
+    retired = ["Shows", "Scheduler", "About Vixen Studio", "Export Wizard", "Instrumentation", "Display Setup"]
+    assert not [t for t in retired if f"Window ▸ {t}" in show], "the palette offers a retired Window menu opener (B83)"
+
     seq = {r["path"]: r for r in palette(root, "sequencer")}
     assert seq["Tools ▸ Audio ▸ Beat/Bar Detection"]["tool"] == "sequence_music_marks"
     assert "Associate audio" in seq["Tools ▸ Audio ▸ Beat/Bar Detection"]["reason"]

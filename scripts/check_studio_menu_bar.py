@@ -15,6 +15,7 @@ offscreen no window is ever key, so the sequencer keeps the menu bar. Checks:
 - no top-level menu shows twice or empty, and no menu lists the same title twice;
 - Tools holds the former System, Tools, Scheduler and Plugins commands (Tools ▸ Plugins in the sequencer too), and
   Options... and Shutdown and Exit are the app menu's Settings… and Quit Vixen Studio, with their shortcuts;
+- the show window's Window menu lists Vixen Studio but none of the retired single-window openers (B83);
 - with --before (the menu dumps of an earlier build), every command any window showed is still in some window's menu
   bar, under Tools where it moved, with a shortcut it had.
 """
@@ -41,6 +42,10 @@ EXPECTED_BAR = {
 MOVED = [(("System",), ("Tools",)), (("Scheduler",), ("Tools", "Scheduler")), (("Plugins",), ("Tools", "Plugins"))]
 REPLACED = {("Tools", "Options..."): ("Vixen Studio", "Settings…"),
             ("System", "Shutdown and Exit"): ("Vixen Studio", "Quit Vixen Studio")}
+# Single-window scenes whose Window menu opener is gone (B83): each opens from its own command or is a Studio pane now.
+RETIRED_OPENERS = ["About Vixen Studio", "Installed Modules", "Vixen Release Notes", "Instrumentation", "Display Setup",
+                   "Intelligent Fixture Wizard", "Display Setup Sheets", "Sequence Package Export", "Sequence Package Import",
+                   "Export Wizard", "Shows", "Scheduler"]
 # Lists that follow the show folder or the moment, not the menu bar's design.
 VOLATILE = re.compile(r"\.(tim|log)$|^studio-heartbeat$|^Test |^Write Test State$|^Cmd |^Shift |^[A-Za-z0-9]$")
 
@@ -96,6 +101,14 @@ def check_window(name: str, items, tops) -> list:
         for gone in [("Tools", "Options..."), ("Tools", "Shutdown and Exit")]:
             if gone in paths:
                 problems.append(f"{name}: {' ▸ '.join(gone)} is still there")
+        if ("Window", "Vixen Studio") not in paths:
+            problems.append(f"{name}: no Window ▸ Vixen Studio")
+    if name == "show":
+        # Only the show window is open, so a retired title in the Window menu would be an opener, not the open window's entry.
+        listed = sorted(t for t in RETIRED_OPENERS if ("Window", t) in paths)
+        if listed:
+            problems.append(f"{name}: Window menu still opens {listed}")
+    if name in ("show", "setup", "show-again"):
         if keys.get(("Vixen Studio", "Settings…")) != "," or keys.get(("Vixen Studio", "Quit Vixen Studio")) != "q":
             problems.append(f"{name}: Settings… (⌘,) or Quit Vixen Studio (⌘Q) is missing")
     if name == "sequencer":
@@ -129,6 +142,8 @@ def compare(before: Path, after: Path) -> list:
     old, new = leaves(before), leaves(after)
     problems = []
     for path, keys in sorted(old.items()):
+        if path[0] == "Window" and len(path) == 2 and path[1] in RETIRED_OPENERS:
+            continue  # its opener left the Window menu on purpose (B83); its own command still opens it
         target = new_path(path)
         if target not in new:
             problems.append(f"{' ▸ '.join(path)} is gone (looked for {' ▸ '.join(target)})")

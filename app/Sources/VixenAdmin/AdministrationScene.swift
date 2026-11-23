@@ -50,6 +50,7 @@ public struct AdministrationScene: Scene {
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; the app menu's About Vixen Studio opens it (B83)
         .windowResizability(.contentSize)
 
         Window("Installed Modules", id: WindowID.installedModules) {
@@ -58,6 +59,7 @@ public struct AdministrationScene: Scene {
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ View Installed Modules opens it (B83)
         .windowResizability(.contentSize)
 
         Window("Vixen Release Notes", id: WindowID.releaseNotes) {
@@ -68,6 +70,7 @@ public struct AdministrationScene: Scene {
         .defaultSize(width: 774, height: 571)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Help ▸ Release Notes opens it (B83)
 
         Window("Instrumentation", id: WindowID.instrumentation) {
             InstrumentationView()
@@ -77,5 +80,6 @@ public struct AdministrationScene: Scene {
         .defaultSize(width: 807, height: 437)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Tools ▸ Instrumentation... opens it (B83)
     }
 }

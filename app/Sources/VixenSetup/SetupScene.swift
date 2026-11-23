@@ -32,6 +32,7 @@ public struct SetupScene: Scene {
         .defaultSize(width: 1281, height: 737)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Display Setup is the show window's Display section (B83)
 
         Window("Intelligent Fixture Wizard", id: SetupWindows.fixtureWizard) {
             FixtureWizardWindowContent(setup: setup)
@@ -40,6 +41,7 @@ public struct SetupScene: Scene {
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; Display Setup opens it (B83)
 
         #if DEBUG
         Window("Display Setup Sheets", id: "setup-sheets-test") {
@@ -48,6 +50,7 @@ public struct SetupScene: Scene {
         }
         .defaultLaunchBehavior(.suppressed)
         .restorationBehavior(.disabled)
+        .commandsRemoved() // STUDIO: no Window menu opener; a harness test window (B83)
         #endif
 
         #if canImport(VixenDialogs)
