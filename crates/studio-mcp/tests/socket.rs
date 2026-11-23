@@ -111,3 +111,48 @@ fn an_idle_connection_without_pings_is_still_closed() {
     assert_eq!(server.clients(), 0, "the idle limit still frees the slot");
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn an_oversized_request_through_a_bridge_is_answered_and_the_connection_stays() {
+    let (mut client, mut replies, root, server, _core) = proxied("oversized", std::time::Duration::from_secs(60));
+    let mut read = || -> Value {
+        let mut line = String::new();
+        replies.read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap_or(Value::Null)
+    };
+    writeln!(client, "{}", json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{},"capabilities":{}}})).unwrap();
+    assert!(read()["result"].is_object());
+    // Over 1 MiB: before B74 the session closed the connection without a word, and the bridge's next write failed with a
+    // broken pipe.
+    let pad = "x".repeat(studio_mcp::MAX_MESSAGE + 1);
+    writeln!(client, "{}", json!({"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"studio_status","arguments":{"pad":pad}}})).unwrap();
+    let refused = read();
+    assert_eq!(refused["error"]["code"], -32600, "{refused}");
+    writeln!(client, "{}", json!({"jsonrpc":"2.0","id":3,"method":"tools/list"})).unwrap();
+    let reply = read();
+    assert_eq!(reply["id"], 3, "{reply}");
+    assert_eq!(server.clients(), 1);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn a_client_over_the_limit_is_told_why() {
+    let root = std::env::temp_dir().join(format!("studio-limit-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+    let core = Arc::new(vixen_session::app::AppCore::open(root.clone(), true).unwrap());
+    let server = studio_mcp::socket::start_headless_idle(&core, std::time::Duration::from_secs(30)).unwrap();
+    let held: Vec<_> = (0..studio_mcp::socket::MAX_CLIENTS)
+        .map(|_| studio_mcp::socket::connect(&root).unwrap().unwrap())
+        .collect();
+    let error = studio_mcp::socket::connect(&root).unwrap_err().to_string();
+    assert!(error.contains("already has 8 clients"), "{error}");
+    drop(held);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while server.clients() > 0 && std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    assert!(studio_mcp::socket::connect(&root).unwrap().is_some(), "a freed slot takes the next client");
+    drop(server);
+    let _ = std::fs::remove_dir_all(root);
+}

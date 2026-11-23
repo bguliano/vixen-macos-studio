@@ -31,7 +31,7 @@ Definitions live under mcp.servers; tool-profile/session policy still applies. A
 
 ## Scripts
 
-A script making thousands of calls shares the agents' session instead of fighting them for the profile lock. Every bridge on a profile attaches to whoever serves it: the app when it has the profile open, otherwise the first headless bridge, which serves its session to the rest. Unsaved documents and sequence IDs are the same for all of them.
+A script making thousands of calls shares the agents' session instead of fighting them for the profile lock. Every bridge on a profile attaches to whoever serves it: the app when it has the profile open, otherwise the first headless bridge, which serves its session to the rest. Unsaved documents and sequence IDs are the same for all of them, so Claude Code and any number of scripts (up to eight connections) can work on one live profile at once without a daemon of their own. A bad request (over 1 MiB, an answer over 8 MiB, a tool that fails internally) gets an error reply and never drops the connection. More for agents: [MCP-AGENT-GUIDE.md](MCP-AGENT-GUIDE.md).
 
 One call per process, from any language or shell:
 

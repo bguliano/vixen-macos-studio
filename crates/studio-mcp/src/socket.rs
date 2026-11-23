@@ -20,6 +20,8 @@ use vixen_session::app::AppCore;
 
 /// A connection that sends nothing for this long is closed, freeing one of the eight client slots.
 pub const IDLE_READ: Duration = Duration::from_secs(120);
+/// Connections served at once, across the app or hosting session's own clients, bridges and scripts.
+pub const MAX_CLIENTS: usize = 8;
 /// A proxying bridge pings the session after this long without writing, so an idle MCP client keeps its connection while
 /// the bridge's stdin is open. Well under `IDLE_READ`.
 pub const KEEPALIVE: Duration = Duration::from_secs(30);
@@ -123,8 +125,14 @@ impl SocketServer {
             while !stopping.load(Ordering::Acquire) {
                 match listener.accept() {
                     Ok((stream, _)) => {
-                        if clients.load(Ordering::Acquire) >= 8 {
-                            drop(stream);
+                        if clients.load(Ordering::Acquire) >= MAX_CLIENTS {
+                            // Say why, so the client reports the limit instead of a bare closed connection.
+                            let mut stream = stream;
+                            let _ = stream.set_nonblocking(false);
+                            let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                            let _ = writeln!(stream, "{}", serde_json::json!({"ready":false,"error":format!(
+                                "The profile's MCP session already has {MAX_CLIENTS} clients; close one (an idle connection frees its slot after {} s)",
+                                idle.as_secs())}));
                             continue;
                         }
                         let Some(core) = weak.upgrade() else { break };
@@ -238,8 +246,10 @@ pub fn connect(profile: &Path) -> io::Result<Option<UnixStream>> {
     let mut input = BufReader::new(stream.try_clone()?);
     let mut reply = Vec::new();
     std::io::Read::take(&mut input, 1024).read_until(b'\n', &mut reply)?;
-    if serde_json::from_slice::<serde_json::Value>(&reply)?["ready"] != true {
-        return Err(io::Error::other("MCP server rejected profile"));
+    let reply = serde_json::from_slice::<serde_json::Value>(&reply)
+        .map_err(|_| io::Error::other("MCP server closed the connection before it was ready"))?;
+    if reply["ready"] != true {
+        return Err(io::Error::other(reply["error"].as_str().unwrap_or("MCP server rejected profile").to_string()));
     }
     stream.set_read_timeout(None)?;
     Ok(Some(stream))
@@ -292,8 +302,10 @@ pub fn proxy(
     })();
     drop(stop);
     let _ = pinger.join();
-    socket.shutdown(std::net::Shutdown::Write)?;
+    // A failed forward is the error worth reporting; the shutdown then fails too, with a less useful "not connected".
+    let shutdown = socket.shutdown(std::net::Shutdown::Write);
     forwarded?;
+    shutdown?;
     inbound.join().map_err(|_| io::Error::other("socket reader failed"))?
 }
 fn copy_replies(mut reader: impl BufRead, mut output: impl Write) -> io::Result<()> {

@@ -94,12 +94,17 @@ fn malformed_protocol_and_bounded_frames() {
         serde_json::from_slice::<Value>(&out).unwrap()["error"]["code"],
         -32700
     );
-    assert!(studio_mcp::serve(
-        &mut server,
-        std::io::Cursor::new(vec![b'x'; studio_mcp::MAX_MESSAGE + 1]),
-        &mut out
-    )
-    .is_err());
+    // An oversized line is answered and skipped; the connection carries on with the next one (B74).
+    let mut frames = vec![b'x'; studio_mcp::MAX_MESSAGE + 4096];
+    frames.extend_from_slice(b"\n{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"ping\"}\n");
+    let mut out = Vec::new();
+    studio_mcp::serve(&mut server, std::io::Cursor::new(frames), &mut out).unwrap();
+    let replies: Vec<Value> = out.split(|b| *b == b'\n').filter(|l| !l.is_empty()).map(|l| serde_json::from_slice(l).unwrap()).collect();
+    assert_eq!(replies.len(), 2, "{replies:?}");
+    assert_eq!(replies[0]["error"]["code"], -32600);
+    assert!(replies[0]["error"]["message"].as_str().unwrap().contains("1 MiB"));
+    assert_eq!(replies[1]["id"], 9);
+    assert!(replies[1]["result"].is_object());
 }
 
 #[test]

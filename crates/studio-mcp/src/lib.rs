@@ -541,6 +541,9 @@ fn announced_build(build: &Value) -> Option<Value> {
 fn error(id: Value, code: i32, message: &str) -> Value {
     json!({"jsonrpc":"2.0","id":id,"error":{"code":code,"message":message}})
 }
+/// Serves one client's lines until its input ends. Nothing a request does closes the connection: an oversized request or
+/// response, or a tool that panics, gets an error reply and the next line is served, so one bad call never drops a bridge (and
+/// every MCP client sharing it) mid-session. Only I/O failures, the idle limit and the end of input end it.
 pub fn serve(
     server: &mut Server,
     mut input: impl BufRead,
@@ -553,29 +556,72 @@ pub fn serve(
         if read == 0 {
             return Ok(());
         }
-        if bytes.len() > MAX_MESSAGE {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "MCP message exceeds 1 MiB",
-            ));
-        }
-        let response = match serde_json::from_slice(&bytes) {
-            Ok(v) => server.dispatch(v),
-            Err(_) => Some(error(Value::Null, -32700, "Parse error")),
+        let response = if bytes.len() > MAX_MESSAGE {
+            if bytes.last() != Some(&b'\n') {
+                skip_line(&mut input)?;
+            }
+            Some(error(Value::Null, -32600, "MCP message exceeds 1 MiB; split it, or pass a large batch as opsFile"))
+        } else {
+            match serde_json::from_slice::<Value>(&bytes) {
+                Ok(v) => dispatch_guarded(server, v),
+                Err(_) => Some(error(Value::Null, -32700, "Parse error")),
+            }
         };
         for note in server.notifications() {
             writeln!(output, "{note}")?;
         }
         if let Some(value) = response {
-            let encoded = value.to_string();
+            let mut encoded = value.to_string();
             if encoded.len() > 8 * MAX_MESSAGE {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "Response exceeds 8 MiB; reduce limit",
-                ));
+                encoded = error(value.get("id").cloned().unwrap_or(Value::Null), -32603, "Response exceeds 8 MiB; reduce limit").to_string();
             }
             writeln!(output, "{encoded}")?;
             output.flush()?;
+        }
+    }
+}
+
+/// Discards the rest of an oversized line, without buffering it, up to and including its newline.
+fn skip_line(input: &mut impl BufRead) -> std::io::Result<()> {
+    loop {
+        let buffer = input.fill_buf()?;
+        if buffer.is_empty() {
+            return Ok(());
+        }
+        match buffer.iter().position(|&b| b == b'\n') {
+            Some(end) => {
+                input.consume(end + 1);
+                return Ok(());
+            }
+            None => {
+                let all = buffer.len();
+                input.consume(all);
+            }
+        }
+    }
+}
+
+/// `Server::dispatch`, answering a panic with an internal error instead of ending the connection's thread. The panic is logged
+/// (the crash hook writes it to the profile log); session state uses non-poisoning locks, so the next call works as before.
+fn dispatch_guarded(server: &mut Server, request: Value) -> Option<Value> {
+    let id = request.get("id").cloned();
+    let method = request.get("method").and_then(Value::as_str).unwrap_or("").to_string();
+    let call = match request.pointer("/params/name").and_then(Value::as_str) {
+        Some(tool) => format!("{method} {tool}"),
+        None => method,
+    };
+    guarded(id, &call, || server.dispatch(request))
+}
+
+fn guarded(id: Option<Value>, call: &str, dispatch: impl FnOnce() -> Option<Value>) -> Option<Value> {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(dispatch)) {
+        Ok(response) => response,
+        Err(panic) => {
+            let what = panic.downcast_ref::<&str>().map(|s| s.to_string())
+                .or_else(|| panic.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "unknown panic".to_string());
+            vixen_session::logging::error("Vixen.Studio.MCP", &format!("{call} panicked; the connection stays open"), Some(&what));
+            id.map(|id| error(id, -32603, &format!("Internal error in {call}: {what}. The connection stays open; read the state back before retrying.")))
         }
     }
 }
@@ -585,5 +631,30 @@ impl Drop for Server {
         if let (Some(core), Some(id)) = (&self.core, &self.client_id) {
             core.studio_display.activity("clientDisconnected", id);
         }
+    }
+}
+
+#[cfg(test)]
+mod guard_tests {
+    use super::*;
+
+    #[test]
+    fn a_panicking_call_is_answered_with_an_internal_error() {
+        let reply = guarded(Some(json!(7)), "tools/call x", || panic!("boom")).unwrap();
+        assert_eq!(reply["id"], 7);
+        assert_eq!(reply["error"]["code"], -32603);
+        let message = reply["error"]["message"].as_str().unwrap();
+        assert!(message.contains("tools/call x") && message.contains("boom"), "{message}");
+        assert!(guarded(None, "notifications/x", || panic!("boom")).is_none(), "a notification gets no reply");
+        assert_eq!(guarded(Some(json!(1)), "ping", || Some(json!({"ok":true}))).unwrap(), json!({"ok":true}));
+    }
+
+    #[test]
+    fn skip_line_drops_only_the_rest_of_the_line() {
+        let mut input = std::io::Cursor::new(b"aaaa\nnext\n".to_vec());
+        skip_line(&mut input).unwrap();
+        let mut rest = String::new();
+        input.read_line(&mut rest).unwrap();
+        assert_eq!(rest, "next\n");
     }
 }

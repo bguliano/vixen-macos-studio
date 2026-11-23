@@ -1,0 +1,23 @@
+# Agent guide: working with Vixen Studio over MCP
+
+Short, practical notes for agents that build shows through the `vixen-studio-mcp` bridge. Setup is in
+[MCP-CLIENTS.md](MCP-CLIENTS.md), every tool in [MCP-TOOLS.md](MCP-TOOLS.md), the server's design in [MCP.md](MCP.md).
+
+## Connecting
+
+- **Several clients share one profile; no daemon of your own is needed.** Every bridge on a profile attaches to whoever
+  serves it: the app when the profile is open in it, otherwise the first headless bridge, or a session started with
+  `vixen-studio-mcp --profile PATH --serve`. Claude Code, your scripts (`--persist`, `call`, `studio/python/vixen_studio.py`)
+  and other agents then see the same documents, sequence IDs and undo. Only the process serving the profile holds its lock.
+- To keep one session running for a whole build while clients come and go, start `--serve` yourself (no idle limit), or
+  point clients at `--persist`, which starts a background session that stops after 10 minutes with no clients.
+- Up to eight connections at once. A ninth is refused with a message saying so; a connection idle for 120 seconds frees
+  its slot, but a bridge's own keepalive keeps a quiet MCP client connected for as long as the client runs.
+- Nothing a single request does ends the connection: a request over 1 MiB, a response over 8 MiB or a tool that fails
+  internally gets a JSON-RPC error and the connection carries on. Pass a big batch as `opsFile`; page large lists with
+  `limit`. An internal error is logged to the profile log; read the state back before retrying.
+
+## Building
+
+- Read `display://summary` once at the start of a session for every prop's geometry.
+- Save explicitly (`sequence_save`); unsaved headless documents end with the session.
