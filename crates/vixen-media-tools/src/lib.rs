@@ -11,6 +11,8 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+mod studio_developer_tool; // STUDIO: find the staged tools from the executable, for worktrees sharing the bay's target (B88)
+
 const STDERR_LIMIT: usize = 64 * 1024;
 const CHUNK: usize = 64 * 1024;
 
@@ -41,7 +43,8 @@ fn locate(name: &str, executable: &Path) -> Result<PathBuf, Error> {
     {
         contents.join("Helpers").join(name)
     } else {
-        developer_tool(name)
+        let staged = studio_developer_tool::find(name, executable); // STUDIO: worktrees (B88)
+        staged.unwrap_or_else(|| developer_tool(name)) // STUDIO: worktrees (B88)
     };
     if path.is_file() {
         Ok(path)

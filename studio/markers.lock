@@ -2251,6 +2251,18 @@
   "file": "crates/vixen-io/src/lib.rs",
   "hash": "bfa221f29d586530"
  },
+ "line:crates/vixen-media-tools/src/lib.rs:a5783bbe496cdb62": {
+  "file": "crates/vixen-media-tools/src/lib.rs",
+  "hash": "a5783bbe496cdb62"
+ },
+ "line:crates/vixen-media-tools/src/lib.rs:b2e86647b2455953": {
+  "file": "crates/vixen-media-tools/src/lib.rs",
+  "hash": "b2e86647b2455953"
+ },
+ "line:crates/vixen-media-tools/src/lib.rs:d3338f5ff5b086ee": {
+  "file": "crates/vixen-media-tools/src/lib.rs",
+  "hash": "d3338f5ff5b086ee"
+ },
  "line:crates/vixen-output/src/modules/mod.rs:1527c4091f6fe3d4": {
   "file": "crates/vixen-output/src/modules/mod.rs",
   "hash": "1527c4091f6fe3d4"
