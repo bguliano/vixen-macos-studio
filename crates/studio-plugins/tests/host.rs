@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use studio_plugins::logs::Level;
-use studio_plugins::{HostOptions, PluginHost, State};
+use studio_plugins::{HostOptions, PluginHost, State, API_VERSION};
 
 const FIXTURE: &str = env!("CARGO_BIN_EXE_studio-plugin-fixture");
 
@@ -107,7 +107,7 @@ fn a_plugin_starts_initializes_logs_stores_and_stops_cleanly() {
     assert!(std::fs::read_to_string(sandbox.root().join("logs").join(format!("{id}.log"))).unwrap().contains("hello from fixture"));
 
     let list = host.list();
-    assert_eq!(list["apiVersion"], json!("1.0.0"));
+    assert_eq!(list["apiVersion"], json!(API_VERSION.to_string()));
     assert_eq!(list["plugins"][0]["id"], json!(id));
 
     let stopped = host.stop(id).unwrap();
