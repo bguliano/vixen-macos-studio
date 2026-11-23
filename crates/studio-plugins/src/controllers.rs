@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
-use vixen_output::modules::studio_external::{ExternalConfig, ExternalControllers, ExternalType};
+use vixen_output::modules::studio_external::{ExternalConfig, ExternalControllers, ExternalOutputs, ExternalType};
 use vixen_output::modules::{ConfigMismatch, ControllerMessage, ModuleShared, ModuleStatus};
 use vixen_output::{ControllerConfig, DataPolicy, ModuleIds, OutputCommand, OutputModule};
 use vixen_xml::XElement;
@@ -757,6 +757,7 @@ impl ExternalControllers for PluginControllers {
                     name: t.controller.name.clone(),
                     default_outputs: t.controller.default_outputs.min(u64::from(u32::MAX)) as u32,
                     max_outputs: t.controller.max_outputs.min(i32::MAX as u64) as u32,
+                    outputs_from_config: t.controller.outputs_from_config,
                 })
             })
             .collect()
@@ -792,6 +793,9 @@ impl ExternalControllers for PluginControllers {
             "dataPolicy": found.as_ref().map(|t| t.controller.data_policy.clone()),
             "frameEncoding": found.as_ref().map(|t| Encoding::preferred(&t.controller).name()),
             "maxOutputs": found.as_ref().map(|t| t.controller.max_outputs),
+            // `outputCount: "fromConfig"`: the plugin sets the output count from the settings; the inspector shows it read-only.
+            "outputsFromConfig": found.as_ref().is_some_and(|t| t.controller.outputs_from_config),
+            "actions": found.as_ref().map(|t| t.controller.actions.iter().map(|a| json!({"id": a.id, "title": a.title, "description": a.description})).collect::<Vec<_>>()).unwrap_or_default(),
             "problem": self.problem(config),
             // The plugin's own field errors from its last refused `controller.configure`, for the inspector.
             "configErrors": self.inner().and_then(|inner| crate::host::instance(&inner, &config.ids.instance_id.to_string())).map(|i| lock(&i.config_errors).clone()).unwrap_or_default(),
@@ -819,6 +823,22 @@ impl ExternalControllers for PluginControllers {
         Ok(data)
     }
 
+    fn outputs_for(&self, config: &ExternalConfig, settings: &str) -> Option<Result<ExternalOutputs, String>> {
+        let inner = self.inner()?;
+        let found = find_type(&inner, &config.ids.type_id).filter(|t| t.controller.outputs_from_config)?;
+        Some(outputs_for(&inner, &found, settings))
+    }
+
+    fn run_action(&self, config: &ExternalConfig, settings: &str, action: &str) -> Result<String, String> {
+        let inner = self.inner().ok_or("the plugin host isn't running")?;
+        let found = find_type(&inner, &config.ids.type_id).ok_or("its plugin isn't installed")?;
+        let wanted = found.controller.actions.iter().find(|a| a.id == action).ok_or_else(|| format!("{} has no action {action}", found.controller.name))?;
+        let settings: Value = serde_json::from_str(settings).map_err(|_| "the settings aren't a JSON object".to_string())?;
+        let arguments = json!({"instanceId": config.ids.instance_id.to_string(), "typeId": config.ids.type_id.to_string(), "config": settings});
+        let answer = crate::host::call_tool_raw(&inner, &found.plugin_id, &wanted.tool, arguments)?;
+        action_result(&found.plugin_name, &wanted.title, &settings, &answer).map(|v| v.to_string())
+    }
+
     fn system_saved(&self, profile: &Path, configs: &[ExternalConfig]) {
         let mut needs: HashMap<String, String> = HashMap::new();
         for data in configs.iter().filter_map(|c| PluginData::read(&c.data)) {
@@ -829,6 +849,80 @@ impl ExternalControllers for PluginControllers {
             eprintln!("studio-plugins: couldn't write {}: {why}", crate::profile::FILE);
         }
     }
+}
+
+// ---- Output counts and settings actions -------------------------------------------------------------------------
+
+/// Longest output name taken from a plugin.
+const MAX_OUTPUT_NAME: usize = 80;
+
+/// `controller.outputsFor {typeId, config}` → `{outputCount, outputNames?}`, checked against the type's limit. Names are
+/// used only when there is one per output.
+fn outputs_for(inner: &Arc<Inner>, found: &TypeInfo, settings: &str) -> Result<ExternalOutputs, String> {
+    let settings: Value = serde_json::from_str(settings).map_err(|_| "the settings aren't a JSON object".to_string())?;
+    let process = crate::host::ensure_running(inner, &found.plugin_id).map_err(|why| format!("{} can't work out the outputs: {why}", found.plugin_name))?;
+    let params = json!({"typeId": found.controller.type_id, "config": settings});
+    let answer = process.request("controller.outputsFor", params, crate::host::request_timeout(inner)).map_err(|e| {
+        if e.code == rpc::METHOD_NOT_FOUND {
+            format!("{} doesn't answer controller.outputsFor, which its outputCount \"fromConfig\" needs", found.plugin_name)
+        } else {
+            format!("{} couldn't work out the outputs: {}", found.plugin_name, e.message)
+        }
+    })?;
+    parse_outputs(&found.plugin_name, found.controller.max_outputs, &answer)
+}
+
+fn parse_outputs(plugin: &str, max: u64, answer: &Value) -> Result<ExternalOutputs, String> {
+    let count = answer.get("outputCount").and_then(Value::as_u64).ok_or_else(|| format!("{plugin} answered controller.outputsFor without an outputCount"))?;
+    if count > max.min(u64::from(u32::MAX)) {
+        return Err(format!("these settings need {count} outputs; {plugin} allows at most {max}"));
+    }
+    let names = answer.get("outputNames").and_then(Value::as_array).filter(|names| names.len() as u64 == count).and_then(|names| {
+        names.iter().map(|n| n.as_str().map(|t| t.chars().take(MAX_OUTPUT_NAME).collect::<String>())).collect::<Option<Vec<String>>>()
+    });
+    Ok(ExternalOutputs { count: count as u32, names })
+}
+
+/// RFC 7396: objects merge key by key, `null` removes a key, anything else replaces.
+pub fn merge_patch(target: &Value, patch: &Value) -> Value {
+    let Some(patch) = patch.as_object() else { return patch.clone() };
+    let mut out = target.as_object().cloned().unwrap_or_default();
+    for (key, value) in patch {
+        if value.is_null() {
+            out.remove(key);
+        } else {
+            let merged = merge_patch(out.get(key).unwrap_or(&Value::Null), value);
+            out.insert(key.clone(), merged);
+        }
+    }
+    Value::Object(out)
+}
+
+/// A settings action's tool answer as `{config, message}`: `structuredContent` (or the first text item, when it is a
+/// JSON object) carries `config` (the whole new configuration) or `mergePatch` (RFC 7396 against the current one), and
+/// optionally `message`. A plain text answer is only a message.
+pub fn action_result(plugin: &str, title: &str, current: &Value, answer: &Value) -> Result<Value, String> {
+    let content = answer.get("content").and_then(Value::as_array).cloned().unwrap_or_default();
+    let text = content.iter().find(|c| c["type"] == "text").and_then(|c| c["text"].as_str()).unwrap_or_default().to_string();
+    if answer.get("isError").and_then(Value::as_bool).unwrap_or(false) {
+        return Err(if text.is_empty() { format!("{title} failed in {plugin}") } else { text });
+    }
+    let payload = answer
+        .get("structuredContent")
+        .filter(|v| v.is_object())
+        .cloned()
+        .or_else(|| serde_json::from_str::<Value>(&text).ok().filter(Value::is_object));
+    let Some(payload) = payload else {
+        return Ok(json!({"config": null, "message": (!text.is_empty()).then_some(text)}));
+    };
+    let config = match (payload.get("config"), payload.get("mergePatch")) {
+        (Some(config), _) if config.is_object() => Some(config.clone()),
+        (_, Some(patch)) if patch.is_object() => Some(merge_patch(current, patch)),
+        (None, None) => None,
+        _ => return Err(format!("{plugin} answered {title} with a config or mergePatch that isn't an object")),
+    };
+    let message = payload.get("message").and_then(Value::as_str).map(|m| m.chars().take(2000).collect::<String>());
+    Ok(json!({"config": config, "message": message}))
 }
 
 #[cfg(test)]
@@ -842,6 +936,29 @@ mod tests {
         assert_eq!(Encoding::U8.encode(&commands), json!(vixen_xml::nbfx::base64_encode(&[255, 0, 0, 0])));
         assert_eq!(Encoding::U16.encode(&commands), json!(vixen_xml::nbfx::base64_encode(&[0xff, 0xff, 0, 0, 0x34, 0x12, 0, 0])));
         assert_eq!(Encoding::Json.encode(&commands), json!([255, null, 4660, {"r": 1, "g": 2, "b": 3}]));
+    }
+
+    #[test]
+    fn outputs_answers_are_checked_and_names_need_one_per_output() {
+        let three = parse_outputs("Lamp", 100, &json!({"outputCount": 3, "outputNames": ["A R", "A G", "A B"]})).unwrap();
+        assert_eq!(three, ExternalOutputs { count: 3, names: Some(vec!["A R".into(), "A G".into(), "A B".into()]) });
+        assert_eq!(parse_outputs("Lamp", 100, &json!({"outputCount": 3, "outputNames": ["A"]})).unwrap().names, None);
+        assert!(parse_outputs("Lamp", 100, &json!({"outputCount": 101})).unwrap_err().contains("at most 100"));
+        assert!(parse_outputs("Lamp", 100, &json!({})).is_err());
+    }
+
+    #[test]
+    fn action_answers_give_a_whole_config_a_merge_patch_or_only_a_message() {
+        let current = json!({"devices": [{"id": "a"}], "maxFps": 20});
+        let whole = json!({"content": [{"type": "text", "text": "ok"}], "structuredContent": {"config": {"devices": []}, "message": "None found"}});
+        assert_eq!(action_result("P", "Detect", &current, &whole).unwrap(), json!({"config": {"devices": []}, "message": "None found"}));
+        let patch = json!({"content": [{"type": "text", "text": "{\"mergePatch\": {\"devices\": [{\"id\": \"b\"}], \"maxFps\": null}}"}]});
+        assert_eq!(action_result("P", "Detect", &current, &patch).unwrap()["config"], json!({"devices": [{"id": "b"}]}));
+        let text = json!({"content": [{"type": "text", "text": "Nothing to do"}]});
+        assert_eq!(action_result("P", "Detect", &current, &text).unwrap(), json!({"config": null, "message": "Nothing to do"}));
+        let failed = json!({"content": [{"type": "text", "text": "no network"}], "isError": true});
+        assert_eq!(action_result("P", "Detect", &current, &failed).unwrap_err(), "no network");
+        assert!(action_result("P", "Detect", &current, &json!({"content": [], "structuredContent": {"config": 3}})).is_err());
     }
 
     #[test]

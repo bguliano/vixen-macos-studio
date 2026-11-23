@@ -192,6 +192,7 @@ struct StudioControllersPanel: View {
     @State private var networkController = false
     /// The single selected controller belongs to a plugin, so the plugin inspector edits its settings.
     @State private var pluginController = false
+    @State private var pluginOwnsOutputs = false
 
     var body: some View {
         let panel = model.controllerPanel
@@ -251,6 +252,7 @@ struct StudioControllersPanel: View {
         .task(id: model.controllerPanel) {
             networkController = await model.studioSelectedNetworkController()
             pluginController = await model.studioSelectedPluginController()
+            pluginOwnsOutputs = pluginController ? await model.studioSelectedPluginOwnsOutputs() : false
         }
     }
 
@@ -296,8 +298,11 @@ struct StudioControllersPanel: View {
                             StudioActionButton(title: "Configure…", symbol: "gearshape", enabled: panel.oneController,
                                                help: "Network address, universes and other settings") { Task { await model.configureController() } }
                         }
-                        StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
-                                           help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
+                        // A plugin that sets its own output count changes it with the settings (StudioPluginControllerInspector).
+                        if !(pluginController && pluginOwnsOutputs) {
+                            StudioActionButton(title: "Outputs…", symbol: "number", enabled: panel.oneController,
+                                               help: "Change how many outputs (channels) this controller has") { Task { await model.channelCount() } }
+                        }
                     }
                     StudioActionButton(title: "Rename…", symbol: "pencil", enabled: panel.oneController) { Task { await model.renameController() } }
                     StudioActionButton(title: "Find Elements", symbol: "text.magnifyingglass", enabled: panel.canFindElements,

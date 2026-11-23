@@ -1,4 +1,4 @@
-// vixen-plugin: the Vixen Studio plugin SDK for Node (plugin API 1.0). One ES module, Node 20 or later, no dependencies.
+// vixen-plugin: the Vixen Studio plugin SDK for Node (plugin API 1.1). One ES module, Node 20 or later, no dependencies.
 // Types for TypeScript are in vixen-plugin.d.ts next to it.
 //
 // Copy this file (and the .d.ts) next to your plugin's main file (plugin new and plugin_scaffold do). It speaks the
@@ -22,8 +22,8 @@ import { readFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { join, dirname } from "node:path";
 
-export const VERSION = "1.0.0";
-export const API_VERSION = "1.0.0";
+export const VERSION = "1.1.0";
+export const API_VERSION = "1.1.0";
 export const METHOD_NOT_FOUND = -32601;
 export const INVALID_PARAMS = -32602;
 export const INTERNAL_ERROR = -32603;
@@ -100,6 +100,14 @@ export class Controller {
   outputNames() {
     return undefined;
   }
+  /**
+   * For a type with "outputCount": "fromConfig": the outputs a configuration needs. No instance exists (Studio asks while
+   * Live Output is off too); config is checked, with defaults filled in. Return a number, an array of output names (one
+   * per output) or { outputCount, outputNames }. undefined (the default) means the type doesn't set its own count.
+   */
+  static outputsFor(config) {
+    return undefined;
+  }
   /** state: running, unavailable or error; shown as the controller's health. */
   status(state, message) {
     this.plugin.notify("controller.status", { instanceId: this.instanceId, state, ...(message === undefined ? {} : { message }) });
@@ -138,6 +146,7 @@ export class Plugin {
     this.muted = true;
     this.profile = null;
     this.hostVersion = null;
+    this.capabilities = {};
     this.types = []; // [typeId | null, class]
     this.tools = new Map();
     this.events = new Map();
@@ -348,6 +357,7 @@ export class Plugin {
         this.muted = params.muted ?? true;
         this.profile = params.profile ?? null;
         this.hostVersion = params.hostVersion ?? null;
+        this.capabilities = params.capabilities ?? {};
         this.dataDir = params.pluginDataDir ?? this.dataDir;
         if (this.initializeHandler) await this.initializeHandler(params);
         return { apiVersion: API_VERSION, capabilities: {} };
@@ -364,6 +374,8 @@ export class Plugin {
         return this.callTool(params.name, params.arguments ?? {});
       case "controller.create":
         return this.create(params);
+      case "controller.outputsFor":
+        return this.outputsFor(params);
     }
     if (!method?.startsWith("controller.")) throw new MethodNotFound();
     const instance = this.instances.get(params.instanceId);
@@ -402,13 +414,41 @@ export class Plugin {
     throw new MethodNotFound();
   }
 
-  async create(params) {
-    let cls = this.types.find(([t]) => t === params.typeId)?.[1];
+  /** True when this Studio resizes "outputCount": "fromConfig" controllers itself (plugin API 1.1). Before that, refuse a configuration that needs more outputs than outputCount, as plugins for API 1.0 did. */
+  get hostSetsOutputCount() {
+    return this.capabilities?.controllerOutputs === true;
+  }
+
+  classFor(typeId) {
+    let cls = this.types.find(([t]) => t === typeId)?.[1];
     if (!cls) {
       const untyped = this.types.filter(([t]) => t === null);
       if (untyped.length === 1) cls = untyped[0][1];
     }
     if (!cls) throw new MethodNotFound();
+    return cls;
+  }
+
+  async outputsFor(params) {
+    const cls = this.classFor(params.typeId);
+    let config = params.config && typeof params.config === "object" && !Array.isArray(params.config) ? params.config : {};
+    const schema = (this.manifest?.contributes?.controllers ?? []).find((t) => t.typeId === params.typeId)?.configSchema;
+    if (schema) {
+      config = fillDefaults(schema, config);
+      const errors = validate(schema, config);
+      if (errors.length) throw new ConfigError(errors);
+    }
+    const answer = await cls.outputsFor(config);
+    if (answer === undefined || answer === null) throw new MethodNotFound();
+    if (typeof answer === "number") return { outputCount: Math.trunc(answer) };
+    if (Array.isArray(answer)) return { outputCount: answer.length, outputNames: answer.map(String) };
+    const result = { outputCount: Math.trunc(Number(answer.outputCount)) };
+    if (answer.outputNames !== undefined) result.outputNames = answer.outputNames.map(String);
+    return result;
+  }
+
+  async create(params) {
+    const cls = this.classFor(params.typeId);
     const instance = new cls(this, params.instanceId, params.typeId, Number(params.outputCount ?? 0));
     instance.config = await this.configure(instance, params.config);
     this.instances.set(instance.instanceId, instance);

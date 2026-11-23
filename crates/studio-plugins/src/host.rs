@@ -617,12 +617,7 @@ impl PluginHost {
     /// MCP-style answer `{content, isError}`; `Err` is a failure to reach it.
     pub fn call_tool(&self, mcp_name: &str, arguments: Value) -> Result<Value, String> {
         let tool = self.contributed_tools().into_iter().find(|t| t.mcp_name == mcp_name).ok_or_else(|| format!("no plugin tool {mcp_name}"))?;
-        if self.state(&tool.plugin_id) != Some(State::Running) {
-            start(&self.inner, &tool.plugin_id, true)?;
-        }
-        let answer = self
-            .request(&tool.plugin_id, "tool.call", json!({"name": tool.name, "arguments": arguments}), Some(crate::tools::CALL_TIMEOUT))
-            .map_err(|e| format!("{}: {}", tool.plugin_id, e.message))?;
+        let answer = call_tool_raw(&self.inner, &tool.plugin_id, &tool.name, arguments)?;
         crate::tools::check_answer(&tool.plugin_id, answer)
     }
 
@@ -714,6 +709,24 @@ pub(crate) fn start_for_controller(inner: &Arc<Inner>, id: &str) -> bool {
         });
     }
     wanted
+}
+
+/// The plugin's process, starting the plugin (and waiting for `initialize`) when it isn't running.
+pub(crate) fn ensure_running(inner: &Arc<Inner>, id: &str) -> Result<Arc<PluginProcess>, String> {
+    if let Some(process) = running_process(inner, id) {
+        return Ok(process);
+    }
+    start(inner, id, true)?;
+    running_process(inner, id).ok_or_else(|| format!("{id} didn't start"))
+}
+
+/// `tool.call` of one of a plugin's own tools, starting the plugin first when it isn't running. The answer as the plugin
+/// sent it (`{content, isError, structuredContent?}`); see [`crate::tools::check_answer`].
+pub(crate) fn call_tool_raw(inner: &Arc<Inner>, plugin_id: &str, tool: &str, arguments: Value) -> Result<Value, String> {
+    let process = ensure_running(inner, plugin_id)?;
+    process
+        .request("tool.call", json!({"name": tool, "arguments": arguments}), crate::tools::CALL_TIMEOUT)
+        .map_err(|e| format!("{plugin_id}: {}", e.message))
 }
 
 pub(crate) fn request_timeout(inner: &Inner) -> Duration {

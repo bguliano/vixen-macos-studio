@@ -21,7 +21,7 @@ const TOOLS: &[(&str, &str)] = &[
     ("phoneme_mapping_list", "List the profile's user phoneme dictionary (the words the Lyric Converter's Text Conversion Failure sheet or phoneme_mapping_set mapped): each word, upper case as the dictionary keys it, and its mouth shapes in order (an empty list: the word is skipped). phoneme_mapping_set and phoneme_mapping_remove edit it, one undo step each."),
     ("preview_props", "List native prop IDs and property metadata for every preview. Use returned revision for edits."),
     ("preview_list", "List configured preview IDs, names and whether each is on (shown whenever Live Output is on)."),
-    ("controller_types", "Available controller types with stable UUIDs."),
+    ("controller_types", "Available controller types with stable UUIDs. outputsFromConfig: a plugin type that sets its own output count from its settings (controller_configure resizes it; outputs is refused)."),
     ("display_elements", "List element nodes with stable GUIDs and child GUIDs; paginated."),
     ("controller_list", "List configured controllers and output counts. Does not start output."),
     ("sequence_list", "List sequence filenames in the selected profile."),
@@ -181,6 +181,7 @@ impl Server {
                 tools.extend(studio_plugins::mcp::tools());
                 tools.push(send_test_frame_tool());
                 tools.push(required_tool());
+                tools.push(controller_action_tool());
                 let plugin_tools = self.plugin_tools();
                 tools.extend(plugin_tools.iter().cloned());
                 self.listed_plugin_tools = Some(plugin_tools);
@@ -273,7 +274,7 @@ impl Server {
     /// `tools/call` for the plugin developer tools, `plugin_send_test_frame` and plugin-contributed tools; `None` for
     /// any other tool.
     fn call_plugin_tool(&mut self, name: &str, p: &Value) -> Option<Value> {
-        let known = studio_plugins::mcp::is_tool(name) || name == "plugin_send_test_frame" || name == "plugin_required" || name.starts_with(studio_plugins::tools::PREFIX);
+        let known = studio_plugins::mcp::is_tool(name) || matches!(name, "plugin_send_test_frame" | "plugin_required" | "controller_action") || name.starts_with(studio_plugins::tools::PREFIX);
         if !known {
             return None;
         }
@@ -286,6 +287,7 @@ impl Server {
             Ok(host) if name.starts_with(studio_plugins::tools::PREFIX) => host.call_tool(name, args),
             Ok(host) if name == "plugin_required" => host.requirements(&self.root).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
             Ok(_) if name == "plugin_send_test_frame" => self.send_test_frame(&args).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
+            Ok(_) if name == "controller_action" => self.controller_action(&args).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false})),
             Ok(host) => {
                 let context = studio_plugins::mcp::Context { live_output_allowed: self.core.as_ref().is_some_and(|c| vixen_session::studio_live::allowed(c)) };
                 studio_plugins::mcp::execute(host, name, &args, &context).map(|v| json!({"content":[{"type":"text","text":v.to_string()}],"isError":false}))
@@ -297,6 +299,43 @@ impl Server {
             c.studio_display.activity(if failed { "commandFailed" } else { "commandFinished" }, name);
         }
         Some(answer)
+    }
+    /// `controller_action`: runs a plugin controller's settings action (its tool answers new settings), then applies them
+    /// with `controller_configure`, so they're checked the same way and are one undo step.
+    fn controller_action(&mut self, args: &Value) -> Result<Value, String> {
+        let object = args.as_object().ok_or("arguments must be an object")?;
+        if let Some(key) = object.keys().find(|k| !matches!(k.as_str(), "id" | "action" | "removePatchedOutputs")) {
+            return Err(format!("Unknown argument {key}"));
+        }
+        let id = args["id"].as_str().ok_or("id is required")?;
+        let action = args["action"].as_str().ok_or("action is required")?;
+        let setup = match &self.core {
+            Some(core) => SetupSession::open(core),
+            None => SetupSession::from_system(self.setup.system.clone(), &Default::default(), false),
+        };
+        let controller = setup.controllers.iter().find(|c| c.alive && c.id.to_string() == id).ok_or("No such controller")?;
+        let Some(vixen_output::ControllerConfig::External(config)) = &controller.config else {
+            return Err(format!("{} is not a plugin controller", controller.name));
+        };
+        let settings = vixen_output::modules::studio_external::describe(config)
+            .and_then(|d| serde_json::from_str::<Value>(&d).ok())
+            .map(|d| d["config"].clone())
+            .filter(Value::is_object)
+            .ok_or("The controller's saved settings can't be read")?;
+        let answer: Value = serde_json::from_str(&vixen_output::modules::studio_external::run_action(config, &settings.to_string(), action)?).map_err(|e| e.to_string())?;
+        let message = answer["message"].clone();
+        let Some(new) = answer.get("config").filter(|c| c.is_object()) else {
+            return Ok(json!({"applied":false,"message":message}));
+        };
+        if *new == settings {
+            return Ok(json!({"applied":false,"unchanged":true,"message":message}));
+        }
+        let mut configure = json!({"id":id,"config":new});
+        if let Some(remove) = args.get("removePatchedOutputs") {
+            configure["removePatchedOutputs"] = remove.clone();
+        }
+        let result = self.call("controller_configure", &configure)?;
+        Ok(json!({"applied":true,"message":message,"result":result}))
     }
     /// A commissioning test pattern on one plugin controller: `output_test_pattern` with its gating, after checking the
     /// controller belongs to a plugin.
@@ -432,7 +471,7 @@ impl Server {
             "phoneme_mapping_list" => return Ok(vixen_session::studio_phoneme_mappings::describe(&self.root.join("user_dictionary"))),
             "preview_props" => {let mut props=Vec::new();for entry in vixen_session::preview::preview_entries(&s.system){if let Ok(data)=vixen_session::preview::load_preview_data(&s.system.module_store,&entry){let design=vixen_session::render_support::design::DesignSession::new(data,Some(Arc::new(s.system.tree.clone())));for item in &design.data().display_items{props.push(json!({"previewId":entry.id.to_string(),"propId":item.id.0,"name":item.shape.name(),"kind":item.shape.type_name(),"properties":design.shape_properties(item.id).iter().map(|p|json!({"id":p.id,"name":p.name,"kind":format!("{:?}",p.kind),"value":format!("{:?}",p.value),"readOnly":p.read_only})).collect::<Vec<_>>()}));}}}props},
             "preview_list" => vixen_session::preview::preview_entries(&s.system).iter().map(|p|{let links=vixen_session::preview::load_preview_data(&s.system.module_store,p).ok().map(|data|vixen_session::render_support::Scene::build(&data,Some(&s.system.tree)).nodes().iter().take(500).map(|id|id.to_string()).collect::<Vec<_>>()).unwrap_or_default();json!({"id":p.id.to_string(),"name":p.name,"enabled":!s.system.disabled_devices.contains(&p.id),"linkedNodeIds":links})}).collect(),
-            "controller_types" => vixen_session::setup::controllers::controller_types().iter().map(|(id,name)|json!({"id":id.to_string(),"name":name})).collect(),
+            "controller_types" => vixen_session::setup::controllers::controller_types().iter().map(|(id,name)|json!({"id":id.to_string(),"name":name,"outputsFromConfig":vixen_output::modules::studio_external::outputs_from_config(id)})).collect(),
             "controller_list" => s.controllers.iter().filter(|c|c.alive).map(|c|json!({"id":c.id.to_string(),"name":c.name,"type":c.type_name(),"typeId":c.type_id.to_string(),"outputs":c.outputs.len(),"configuration":vixen_session::studio_diagnostics::controller_configuration(c),"running":self.core.as_ref().and_then(|core|core.playback.running_controllers()).is_some_and(|ids|ids.contains(&c.id))})).collect(),
             "sequence_list" | "media_list" => {
                 let folder=self.root.join(if name=="sequence_list" {"Sequence"} else {"Media"});
@@ -455,6 +494,10 @@ impl Server {
 /// What the show window's missing-plugin banner reads.
 fn required_tool() -> Value {
     json!({"name":"plugin_required","description":"The plugins this show's controllers need (its SystemData/StudioPlugins.json, rewritten on every save) and whether each is ready: id, versionRange, installedVersion, state, satisfied and, when not, message (\"Needs plugin … — not installed\"). The show window shows a banner while any isn't satisfied.","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+}
+
+fn controller_action_tool() -> Value {
+    json!({"name":"controller_action","description":"Run one of a plugin controller's settings actions (controller_network plugin.actions, e.g. detect: Detect Lights), as the controller inspector's button does: the plugin's tool works out new settings (it may scan the network), then they're applied like controller_configure {config} (checked against the configSchema; a plugin that sets its own output count resizes the controller), one undo step. applied:false when the action changed nothing; message is what the plugin said. New settings that would drop patched outputs are refused unless removePatchedOutputs is true.","inputSchema":{"type":"object","properties":{"id":{"type":"string","description":"Controller id."},"action":{"type":"string","description":"Action id from controller_network plugin.actions."},"removePatchedOutputs":{"type":"boolean"}},"required":["id","action"],"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":false,"openWorldHint":true}})
 }
 
 fn send_test_frame_tool() -> Value {

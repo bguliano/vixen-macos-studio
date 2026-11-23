@@ -413,6 +413,64 @@ fn a_profile_creates_configures_saves_and_commissions_a_plugin_controller() {
     drop(core);
 }
 
+#[test]
+fn a_plugin_that_sets_its_own_output_count_resizes_names_and_guards_patched_outputs() {
+    let _turn = turn();
+    let sandbox = Sandbox::new("owned-outputs");
+    let host = sandbox.host();
+    let dir = sandbox.plugin("lamp", "2.4.0", &[], &["u8"]);
+    // The fields go at the configSchema root (x-outputCount, x-actions), where a Studio without them ignores them.
+    let mut manifest: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("vixen-plugin.json")).unwrap()).unwrap();
+    let schema = &mut manifest["contributes"]["controllers"][0]["configSchema"];
+    schema["properties"]["lamps"] = json!({"type": "array", "default": [], "items": {"type": "object", "properties": {"name": {"type": "string"}}, "additionalProperties": false}});
+    schema["x-outputCount"] = json!("fromConfig");
+    schema["x-actions"] = json!([{"id": "detect", "title": "Detect Lamps", "tool": "detect"}]);
+    manifest["contributes"]["tools"] = json!([{"name": "detect", "description": "Find lamps.", "readOnly": true}]);
+    std::fs::write(dir.join("vixen-plugin.json"), manifest.to_string()).unwrap();
+    host.link_dev(&dir).unwrap();
+    register(&host);
+    assert!(studio_external::outputs_from_config(&type_id()));
+    let root = sandbox.base.join("Profile");
+    let core = vixen_session::app::AppCore::open(root.clone(), false).unwrap();
+    let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, false).map(|r| r["result"].clone());
+    let outputs = |id: &str| {
+        let setup = vixen_session::setup::SetupSession::open(&core);
+        let c = setup.controllers.iter().find(|c| c.alive && c.id.to_string() == id).unwrap();
+        c.outputs.iter().map(|o| o.name.clone()).collect::<Vec<_>>()
+    };
+
+    let controller = run("controller_create", json!({"name": "Lamps", "typeId": TYPE_ID, "outputs": 3})).unwrap()["id"].as_str().unwrap().to_string();
+    let lamps = |names: &[&str]| json!({"host": "10.0.0.7", "port": 4048, "lamps": names.iter().map(|n| json!({"name": n})).collect::<Vec<_>>()});
+    let five = run("controller_configure", json!({"id": controller, "config": lamps(&["A", "B", "C", "D", "E"])})).unwrap();
+    assert_eq!(five["controller"]["outputs"], 15);
+    assert_eq!(five["controller"]["plugin"]["outputsFromConfig"], true);
+    assert_eq!(five["controller"]["plugin"]["actions"], json!([{"id": "detect", "title": "Detect Lamps", "description": null}]));
+    assert_eq!(outputs(&controller)[..4], ["A R", "A G", "A B", "B R"]);
+    assert!(run("controller_configure", json!({"id": controller, "outputs": 20})).unwrap_err().contains("sets its output count from its settings"));
+
+    // Patch five RGB elements to the 15 outputs; removing a lamp would drop patched outputs, so it's refused until allowed.
+    let tree = run("element_template", json!({"kind": "megatree", "name": "Bulbs", "count": 5, "pixels": 1, "color": "rgb"})).unwrap();
+    run("patch_elements", json!({"elementId": tree["id"], "controllerId": controller})).unwrap();
+    let refused = run("controller_configure", json!({"id": controller, "config": lamps(&["A", "B", "C", "D"])})).unwrap_err();
+    assert!(refused.starts_with(vixen_session::studio_controller_network::REMOVES_PATCHED) && refused.contains("outputs 13–15 of 15"), "{refused}");
+    assert_eq!(outputs(&controller).len(), 15);
+    let four = run("controller_configure", json!({"id": controller, "config": lamps(&["A", "B", "C", "D"]), "removePatchedOutputs": true})).unwrap();
+    assert_eq!(four["controller"]["outputs"], 12);
+    // One undo step brings back the settings, the outputs and their patches.
+    run("display_undo", json!({})).unwrap();
+    assert_eq!(outputs(&controller).len(), 15);
+    assert_eq!(outputs(&controller)[14], "E B");
+    let overview = overview(&core);
+    assert_eq!(overview["controllers"][0]["patchedOutputs"], 15);
+
+    // A settings action: the plugin's tool answers a merge patch, applied through the same check and resize.
+    let ControllerConfig::External(config) = vixen_session::setup::SetupSession::open(&core).controllers.iter().find(|c| c.alive).unwrap().config.clone().unwrap() else { panic!() };
+    let answer: Value = serde_json::from_str(&studio_external::run_action(&config, &lamps(&["A"]).to_string(), "detect").unwrap()).unwrap();
+    assert_eq!(answer, json!({"config": lamps(&["Ceiling", "Porch"]), "message": "Found 2 lamps"}));
+    assert!(studio_external::run_action(&config, "{}", "nope").unwrap_err().contains("no action nope"));
+    drop(core);
+}
+
 fn overview(core: &vixen_session::app::AppCore) -> Value {
     let setup = vixen_session::setup::SetupSession::from_system(core.system.read().clone(), &Default::default(), core.playback.hardware_allowed());
     vixen_session::studio_controller_network::overview(&setup, Some(core))

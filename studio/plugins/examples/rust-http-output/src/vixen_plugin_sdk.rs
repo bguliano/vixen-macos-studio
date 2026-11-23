@@ -1,4 +1,4 @@
-//! vixen-plugin-sdk: the Vixen Studio plugin SDK for Rust (plugin API 1.0). One file, `serde_json` only.
+//! vixen-plugin-sdk: the Vixen Studio plugin SDK for Rust (plugin API 1.1). One file, `serde_json` only.
 //!
 //! Use it as a crate (`vixen-plugin-sdk`, a path or git dependency on `crates/studio-plugin-sdk`) or copy this file
 //! into your plugin as `src/vixen_plugin_sdk.rs` and write `mod vixen_plugin_sdk;` (what `plugin new` and
@@ -36,8 +36,8 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-pub const SDK_VERSION: &str = "1.0.0";
-pub const API_VERSION: &str = "1.0.0";
+pub const SDK_VERSION: &str = "1.1.0";
+pub const API_VERSION: &str = "1.1.0";
 pub const METHOD_NOT_FOUND: i64 = -32601;
 pub const INVALID_PARAMS: i64 = -32602;
 pub const INTERNAL_ERROR: i64 = -32603;
@@ -200,6 +200,7 @@ struct HostState {
     muted: bool,
     data_dir: Option<String>,
     profile: Value,
+    capabilities: Value,
 }
 
 /// The connection to Studio. Clone it freely; every method works from any thread.
@@ -210,7 +211,7 @@ pub struct Host {
 
 impl Host {
     fn new() -> Host {
-        let state = HostState { muted: true, data_dir: std::env::var("VIXEN_PLUGIN_DATA_DIR").ok(), profile: Value::Null };
+        let state = HostState { muted: true, data_dir: std::env::var("VIXEN_PLUGIN_DATA_DIR").ok(), profile: Value::Null, capabilities: Value::Null };
         Host {
             shared: Arc::new(Shared {
                 out: Mutex::new(std::io::stdout()),
@@ -344,10 +345,24 @@ impl Host {
     pub fn profile(&self) -> Value {
         self.shared.state.lock().unwrap_or_else(|p| p.into_inner()).profile.clone()
     }
+
+    /// True when this Studio resizes `"outputCount": "fromConfig"` controllers itself (plugin API 1.1). Before that,
+    /// refuse a configuration that needs more outputs than `output_count`, as plugins for API 1.0 did.
+    pub fn sets_output_count(&self) -> bool {
+        self.shared.state.lock().unwrap_or_else(|p| p.into_inner()).capabilities["controllerOutputs"] == json!(true)
+    }
+}
+
+/// What a `"outputCount": "fromConfig"` type's configuration needs: the count, and optionally one name per output.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Outputs {
+    pub count: usize,
+    pub names: Option<Vec<String>>,
 }
 
 type Factory = Box<dyn Fn(&Instance) -> Box<dyn Controller>>;
 type ToolFn = Box<dyn FnMut(&Host, &Value) -> Result<Value, String>>;
+type OutputsFn = Box<dyn Fn(&Value) -> Outputs>;
 type EventFn = Box<dyn FnMut(&Host, &Value)>;
 type ShutdownFn = Box<dyn FnMut(&Host)>;
 
@@ -366,6 +381,7 @@ pub struct Plugin {
     host: Host,
     manifest: Value,
     types: Vec<(Option<String>, Factory)>,
+    outputs: Vec<(Option<String>, OutputsFn)>,
     tools: HashMap<String, ToolFn>,
     events: HashMap<String, EventFn>,
     on_initialize: Option<EventFn>,
@@ -388,7 +404,7 @@ impl Plugin {
     }
 
     pub fn with_manifest(manifest: Value) -> Plugin {
-        Plugin { host: Host::new(), manifest, types: Vec::new(), tools: HashMap::new(), events: HashMap::new(), on_initialize: None, on_shutdown: None, slots: HashMap::new(), finished: false }
+        Plugin { host: Host::new(), manifest, types: Vec::new(), outputs: Vec::new(), tools: HashMap::new(), events: HashMap::new(), on_initialize: None, on_shutdown: None, slots: HashMap::new(), finished: false }
     }
 
     pub fn host(&self) -> Host {
@@ -398,14 +414,26 @@ impl Plugin {
     /// Serves the controller type `type_id` (its typeId or name; `None` when the manifest declares one type) with
     /// controllers made by `factory`.
     pub fn controller(mut self, type_id: Option<&str>, factory: impl Fn(&Instance) -> Box<dyn Controller> + 'static) -> Plugin {
+        let resolved = self.resolve_type(type_id);
+        self.types.push((resolved, Box::new(factory)));
+        self
+    }
+
+    /// For a type with `"outputCount": "fromConfig"`: the outputs a configuration needs (`controller.outputsFor`). No
+    /// instance exists (Studio asks while Live Output is off too); the configuration is checked, with defaults filled in.
+    pub fn outputs_for(mut self, type_id: Option<&str>, f: impl Fn(&Value) -> Outputs + 'static) -> Plugin {
+        let resolved = self.resolve_type(type_id);
+        self.outputs.push((resolved, Box::new(f)));
+        self
+    }
+
+    fn resolve_type(&self, type_id: Option<&str>) -> Option<String> {
         let types = self.manifest["contributes"]["controllers"].as_array().cloned().unwrap_or_default();
-        let resolved = match type_id {
+        match type_id {
             None if types.len() == 1 => types[0]["typeId"].as_str().map(str::to_string),
             None => None,
             Some(wanted) => Some(types.iter().find(|t| t["typeId"] == wanted || t["name"] == wanted).and_then(|t| t["typeId"].as_str()).unwrap_or(wanted).to_string()),
-        };
-        self.types.push((resolved, Box::new(factory)));
-        self
+        }
     }
 
     /// An agent tool. `Ok(Value::String)` is text; `Ok({"content": […]})` is sent as it is; anything else as JSON text;
@@ -494,6 +522,7 @@ impl Plugin {
                     let mut state = self.host.shared.state.lock().unwrap_or_else(|p| p.into_inner());
                     state.muted = params["muted"].as_bool().unwrap_or(true);
                     state.profile = params["profile"].clone();
+                    state.capabilities = params["capabilities"].clone();
                     if let Some(dir) = params["pluginDataDir"].as_str() {
                         state.data_dir = Some(dir.to_string());
                     }
@@ -521,6 +550,7 @@ impl Plugin {
             }
             "tool.call" => return Ok(self.call_tool(params["name"].as_str().unwrap_or(""), &params["arguments"])),
             "controller.create" => return self.create(params),
+            "controller.outputsFor" => return self.answer_outputs(params).ok_or_else(not_found)?,
             _ if !method.starts_with("controller.") => return Err(not_found()),
             _ => {}
         }
@@ -573,6 +603,32 @@ impl Plugin {
 
     fn schema_for(&self, type_id: &str) -> Option<Value> {
         self.manifest["contributes"]["controllers"].as_array()?.iter().find(|t| t["typeId"] == type_id).map(|t| t["configSchema"].clone())
+    }
+
+    /// `None` when no `outputs_for` serves the type.
+    fn answer_outputs(&self, params: &Value) -> Option<Result<Value, RpcError>> {
+        let type_id = params["typeId"].as_str().unwrap_or("");
+        let f = match self.outputs.iter().find(|(t, _)| t.as_deref() == Some(type_id)) {
+            Some((_, f)) => f,
+            None => match self.outputs.iter().filter(|(t, _)| t.is_none()).collect::<Vec<_>>().as_slice() {
+                [(_, only)] => only,
+                _ => return None,
+            },
+        };
+        let mut config = if params["config"].is_object() { params["config"].clone() } else { json!({}) };
+        if let Some(schema) = self.schema_for(type_id).filter(|s| s.is_object()) {
+            config = fill_defaults(&schema, &config);
+            let errors = validate(&schema, &config);
+            if !errors.is_empty() {
+                return Some(Err(config_error(ConfigError { errors })));
+            }
+        }
+        let outputs = f(&config);
+        let mut answer = json!({"outputCount": outputs.count});
+        if let Some(names) = outputs.names {
+            answer["outputNames"] = json!(names);
+        }
+        Some(Ok(answer))
     }
 
     fn create(&mut self, params: &Value) -> Result<Value, RpcError> {

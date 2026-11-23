@@ -274,6 +274,21 @@ fn exercise(plugin: &Arc<PluginProcess>, controller: &ControllerType, options: &
     let label = |step: &str| format!("{step} {}", controller.name);
     let request = |method: &str, params: Value, timeout: Duration| plugin.request(method, params, timeout);
     let config = Some(example(&controller.config_schema)).filter(Value::is_object).unwrap_or_else(|| json!({}));
+    if controller.outputs_from_config {
+        // `outputCount: "fromConfig"`: Studio asks before any instance exists, so ask the same way.
+        report.time(&label("controller.outputsFor"), || {
+            let answer = request("controller.outputsFor", json!({"typeId": controller.type_id, "config": config}), options.request_timeout).map_err(|e| failure(&e))?;
+            let count = answer.get("outputCount").and_then(Value::as_u64).ok_or("answered without an integer outputCount")?;
+            if count > controller.max_outputs {
+                return Err(format!("answered {count} outputs, more than its maxOutputs {}", controller.max_outputs));
+            }
+            match answer.get("outputNames").map(|n| n.as_array().map(Vec::len)) {
+                Some(Some(n)) if n as u64 != count => Ok((Status::Warn, format!("{n} outputNames for {count} outputs; Studio uses them only with one per output"), ())),
+                Some(None) => Ok((Status::Warn, "outputNames isn't an array of strings".into(), ())),
+                _ => Ok((Status::Pass, format!("{count} outputs for the example configuration"), ())),
+            }
+        });
+    }
     let created = report.time(&label("controller.create"), || {
         let params = json!({"instanceId": instance, "typeId": controller.type_id, "config": config, "outputCount": controller.default_outputs});
         let answer = request("controller.create", params, options.request_timeout).map_err(|e| failure(&e))?;

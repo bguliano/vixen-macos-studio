@@ -51,12 +51,14 @@ pub fn set_agents_may_manage(allowed: bool) {
 }
 
 /// The plugin API this host implements. Additive changes bump the minor version, breaking ones the major.
-pub const API_VERSION: semver::Version = semver::Version::new(1, 0, 0);
+pub const API_VERSION: semver::Version = semver::Version::new(1, 1, 0);
 pub const HOST_VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-studio");
 
-/// What `initialize` tells plugins this host can do; later stages turn the rest on.
+/// What `initialize` tells plugins this host can do; later stages turn the rest on. `controllerOutputs` (API 1.1): the
+/// host asks `controller.outputsFor` for `outputCount: "fromConfig"` types and resizes the controller to the answer, and
+/// runs settings actions.
 pub fn host_capabilities() -> Value {
-    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true})
+    json!({"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true, "controllerOutputs": true})
 }
 
 /// `~/Library/Application Support/Vixen Studio/Plugins`, or `VIXEN_STUDIO_PLUGINS` when set (an absolute folder: UI tests

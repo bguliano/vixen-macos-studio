@@ -60,7 +60,7 @@ may do and what it adds. The JSON Schema is
 | `id` | string | yes | Lowercase reverse-DNS with at least one dot (`io.github.someone.lamp-output`), 3–128 characters. Never change it: installs, logs, data and shows key on it. |
 | `name` | string | yes | Shown in Settings ▸ Plugins, the Plugins menu and health messages. 1–80 characters. |
 | `version` | string | yes | Semantic version `MAJOR.MINOR.PATCH`, optionally `-pre` and `+build`. See [PACKAGING.md](PACKAGING.md#versions). |
-| `apiVersion` | string | yes | The range of plugin API versions you support, checked against Studio's (1.0.0). Use `^1.0`. |
+| `apiVersion` | string | yes | The range of plugin API versions you support, checked against Studio's (1.1.0). Use `^1.0`, or `^1.1` when you need 1.1's fields (`outputCount`, `actions`) as manifest fields. |
 | `description` | string | no | One or two sentences, up to 500 characters; shown in Settings ▸ Plugins and the install sheet. |
 | `author` | string | no | Up to 120 characters. |
 | `license` | string | no | An SPDX identifier such as `MIT`, up to 64 characters. |
@@ -69,7 +69,7 @@ may do and what it adds. The JSON Schema is
 | `permissions` | object | no | What the plugin may do (below). |
 | `contributes` | object | no | What it adds to Studio (below). |
 
-`apiVersion` ranges: `^1.0` (any 1.x from 1.0), `>=1.0 <2`, `1.0.x`. A range that doesn't contain 1.0.0 makes the
+`apiVersion` ranges: `^1.0` (any 1.x from 1.0), `>=1.0 <2`, `1.0.x`. A range that doesn't contain 1.1.0 makes the
 plugin `incompatible`: it is listed but never launched.
 
 ## `entry`
@@ -117,6 +117,25 @@ in depth.
 | `dataPolicy` | string | no | How Vixen combines values when several effects drive one output: `highestWins8Bit` (default), `discardExcess8Bit`, `average8Bit`, `oneChannelColor`. |
 | `outputNaming` | string | no | A pattern for output names, `{n}` the output number (`Pixel {n}`). Recorded, not applied yet. |
 | `frameEncodings` | array of string | no | The frame encodings it accepts, preferred first: `u8`, `json`, `u16`. Default `["u8"]`. Studio uses the first. |
+| `outputCount` | string | no | Who sets the output count: `user` (default; the inspector's Outputs…) or `fromConfig` (API 1.1: your plugin, from the settings, through `controller.outputsFor`; the count is read-only in the inspector). See [CONTROLLERS.md](CONTROLLERS.md#output-counts-from-the-settings). |
+| `actions` | array of object | no | Settings actions, up to 8 (API 1.1): buttons in the controller inspector, also in its ⋯ menu and `controller_action` for agents. See below. |
+
+A plugin that must also load in Studio before plugin API 1.1, which refuses unknown fields here, puts `outputCount` and
+`actions` at the root of its `configSchema` as `x-outputCount` and `x-actions` instead: every Studio's schema checker
+ignores `x-` keywords, and 1.1 reads them from there when the fields themselves are absent.
+
+## `contributes.controllers[].actions[]`
+
+A settings action, like Detect Lights. Pressing it calls the named tool with `{instanceId, typeId, config}` (the current
+settings); the tool answers new settings (`config` or `mergePatch`, see [PROTOCOL.md](PROTOCOL.md#toolcall)), which
+Studio applies like an edit: checked against `configSchema`, resized for `fromConfig` types, one step on Undo.
+
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `id` | string | yes | `a-z`, then `a-z0-9_`, up to 48 characters; unique in the type. Agents pass it to `controller_action`. |
+| `title` | string | yes | The button's title, 1–40 characters (`Detect Lights`). |
+| `tool` | string | yes | The name of one of this plugin's tools. |
+| `description` | string | no | The button's help text, up to 300 characters. |
 
 ## `contributes.tools[]`
 

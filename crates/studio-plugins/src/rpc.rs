@@ -214,5 +214,6 @@ mod tests {
             assert_eq!(schema["x-pluginToHost"][method]["available"], json!(stage), "{method}");
         }
         assert_eq!(schema["x-hostToPlugin"]["tool.call"]["available"], json!("P3"));
+        assert_eq!(schema["x-hostToPlugin"]["controller.outputsFor"]["available"], json!("1.1"));
     }
 }

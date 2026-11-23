@@ -154,17 +154,49 @@ pub fn info(c: &ControllerEntry) -> Value {
     v
 }
 
+/// How the refusal starts when new settings would drop outputs that are patched; the inspector looks for it to offer
+/// Remove Outputs, which repeats the edit with `removePatchedOutputs: true`.
+pub const REMOVES_PATCHED: &str = "These settings remove ";
+
+/// Output numbers as compact ranges: `13–15, 20`.
+fn ranges(numbers: &[usize]) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < numbers.len() {
+        let mut j = i;
+        while j + 1 < numbers.len() && numbers[j + 1] == numbers[j] + 1 {
+            j += 1;
+        }
+        parts.push(if i == j { numbers[i].to_string() } else { format!("{}–{}", numbers[i], numbers[j]) });
+        i = j + 1;
+    }
+    parts.join(", ")
+}
+
 /// `controller_configure` for a plugin controller: its configuration (checked against the plugin's `configSchema`) and
 /// output count. The running plugin gets the new configuration through `controller.configure` once the edit is applied.
+/// A type with `outputCount: "fromConfig"` sets its own count: the plugin answers `controller.outputsFor` for the new
+/// settings and the controller is resized (and its outputs named) in the same edit, so one Undo step covers both.
+/// Outputs past the new count that are patched are only dropped with `removePatchedOutputs: true`.
 fn configure_plugin(s: &mut SetupSession, slot: usize, a: &Value) -> Result<Value, String> {
-    if let Some(key) = a.as_object().into_iter().flat_map(|o| o.keys()).find(|k| !matches!(k.as_str(), "id" | "config" | "outputs")) {
+    if let Some(key) = a.as_object().into_iter().flat_map(|o| o.keys()).find(|k| !matches!(k.as_str(), "id" | "config" | "outputs" | "removePatchedOutputs")) {
         return Err(format!("{key} doesn't apply to a plugin controller; give config (an object matching the plugin's configSchema) and/or outputs"));
     }
-    let outputs = number(a, "outputs", 1..=u64::from(output_limit(&s.controllers[slot].type_id)))?;
+    let type_id = s.controllers[slot].type_id;
+    let owned = studio_external::outputs_from_config(&type_id);
+    if owned && a.get("outputs").is_some_and(|v| !v.is_null()) {
+        return Err(format!("{} sets its output count from its settings; change config instead", s.controllers[slot].type_name()));
+    }
+    let outputs = number(a, "outputs", 1..=u64::from(output_limit(&type_id)))?;
     let Some(ControllerConfig::External(current)) = s.controllers[slot].config.clone() else { unreachable!("checked by the caller") };
-    let data = match a.get("config") {
+    let config_text = match a.get("config") {
         None | Some(Value::Null) => None,
-        Some(config @ Value::Object(_)) => Some(studio_external::reconfigure(&current, &config.to_string()).map_err(|errors| {
+        Some(config @ Value::Object(_)) => Some(config.to_string()),
+        Some(_) => return Err("config must be an object".into()),
+    };
+    let data = match &config_text {
+        None => None,
+        Some(text) => Some(studio_external::reconfigure(&current, text).map_err(|errors| {
             let list: Vec<String> = serde_json::from_str::<Value>(&errors)
                 .ok()
                 .and_then(|v| v.as_array().cloned())
@@ -174,11 +206,46 @@ fn configure_plugin(s: &mut SetupSession, slot: usize, a: &Value) -> Result<Valu
                 .collect();
             format!("Invalid configuration: {}", list.join("; "))
         })?),
-        Some(_) => return Err("config must be an object".into()),
     };
+    // Ask the plugin before changing anything. A plugin that can't answer (not running, an error) leaves the count as it
+    // is; the settings still apply, and the warning says why the outputs didn't follow.
+    let mut warning = None;
+    let plan = match (&config_text, owned) {
+        (Some(text), true) => match studio_external::outputs_for(&current, text) {
+            Some(Ok(plan)) => Some(plan),
+            Some(Err(why)) => {
+                warning = Some(format!("The output count wasn't changed: {why}"));
+                None
+            }
+            None => None,
+        },
+        _ => None,
+    };
+    if let Some(plan) = &plan {
+        let c = &s.controllers[slot];
+        let dropped: Vec<usize> = c.outputs.iter().enumerate().skip(plan.count as usize).filter(|(_, o)| s.flow.source(o.cid).is_some()).map(|(i, _)| i + 1).collect();
+        if !dropped.is_empty() && a.get("removePatchedOutputs") != Some(&Value::Bool(true)) {
+            let what = if dropped.len() == 1 { "output" } else { "outputs" };
+            return Err(format!(
+                "{REMOVES_PATCHED}{} patched {what} ({what} {} of {}): they need {} outputs. Their patches go with them; pass removePatchedOutputs: true to apply anyway (Undo brings them back).",
+                dropped.len(),
+                ranges(&dropped),
+                c.outputs.len(),
+                plan.count
+            ));
+        }
+    }
     let id = s.controllers[slot].id;
     if let Some(n) = outputs {
         s.set_output_count(id, n as u32);
+    }
+    if let Some(plan) = &plan {
+        s.set_output_count(id, plan.count);
+        if let Some(names) = &plan.names {
+            for (output, name) in s.controllers[slot].outputs.iter_mut().zip(names) {
+                output.name = name.clone();
+            }
+        }
     }
     let c = &mut s.controllers[slot];
     if let Some(data) = data {
@@ -186,7 +253,11 @@ fn configure_plugin(s: &mut SetupSession, slot: usize, a: &Value) -> Result<Valu
     }
     c.config_changed = true;
     s.controllers_changed();
-    Ok(json!({"configured":true,"outputStarted":false,"controller":info(&s.controllers[slot])}))
+    let mut result = json!({"configured":true,"outputStarted":false,"controller":info(&s.controllers[slot])});
+    if let Some(warning) = warning {
+        result["warning"] = json!(warning);
+    }
+    Ok(result)
 }
 
 fn number(a: &Value, key: &str, range: std::ops::RangeInclusive<u64>) -> Result<Option<u64>, String> {

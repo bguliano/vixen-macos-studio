@@ -167,7 +167,7 @@ fn mcp_serves_the_examples_and_sdks() {
         let example = studio_plugins::mcp::read_resource(&host, &format!("plugins://examples/{language}")).unwrap().unwrap();
         assert!(example[0]["text"].as_str().unwrap().contains("## vixen-plugin.json"));
         let sdk = studio_plugins::mcp::read_resource(&host, &format!("plugins://sdk/{language}")).unwrap().unwrap();
-        assert!(sdk[0]["text"].as_str().unwrap().contains("plugin API 1.0"));
+        assert!(sdk[0]["text"].as_str().unwrap().contains("plugin API 1.1"));
     }
     assert!(studio_plugins::mcp::read_resource(&host, "plugins://sdk/cobol").unwrap().is_err());
     drop(host);

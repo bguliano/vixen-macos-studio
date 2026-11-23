@@ -20,13 +20,18 @@ pub(crate) const TOP_REQUIRED: [&str; 5] = ["id", "name", "version", "apiVersion
 pub(crate) const ENTRY_KEYS: [&str; 2] = ["command", "args"];
 pub(crate) const PERMISSION_KEYS: [&str; 4] = ["network", "files", "display", "serial"];
 pub(crate) const CONTRIBUTES_KEYS: [&str; 4] = ["controllers", "tools", "commands", "events"];
-pub(crate) const CONTROLLER_KEYS: [&str; 8] =
-    ["typeId", "name", "configSchema", "defaultOutputs", "maxOutputs", "dataPolicy", "outputNaming", "frameEncodings"];
+pub(crate) const CONTROLLER_KEYS: [&str; 10] = [
+    "typeId", "name", "configSchema", "defaultOutputs", "maxOutputs", "dataPolicy", "outputNaming", "frameEncodings", "outputCount", "actions",
+];
 pub(crate) const CONTROLLER_REQUIRED: [&str; 2] = ["typeId", "name"];
 pub(crate) const TOOL_KEYS: [&str; 4] = ["name", "description", "inputSchema", "readOnly"];
 pub(crate) const TOOL_REQUIRED: [&str; 2] = ["name", "description"];
 pub(crate) const COMMAND_KEYS: [&str; 3] = ["id", "title", "tool"];
 pub(crate) const COMMAND_REQUIRED: [&str; 3] = ["id", "title", "tool"];
+pub(crate) const ACTION_KEYS: [&str; 4] = ["id", "title", "tool", "description"];
+pub(crate) const ACTION_REQUIRED: [&str; 3] = ["id", "title", "tool"];
+/// Who sets a controller's output count: the user (or an agent), or the plugin from the settings (`controller.outputsFor`).
+pub const OUTPUT_COUNTS: [&str; 2] = ["user", "fromConfig"];
 
 pub const MAX_OUTPUTS: u64 = 100_000;
 
@@ -72,6 +77,20 @@ pub struct ControllerType {
     pub data_policy: String,
     pub output_naming: Option<String>,
     pub frame_encodings: Vec<String>,
+    /// `outputCount: "fromConfig"`: the plugin works out the output count (and names) from the settings, and Studio
+    /// resizes the controller with every settings edit.
+    pub outputs_from_config: bool,
+    /// Settings actions the inspector offers (Detect Lights): each runs one of the plugin's tools for a new configuration.
+    pub actions: Vec<Action>,
+}
+
+/// A settings action: the inspector's button and ⋯ menu item, and `controller_action` for agents.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Action {
+    pub id: String,
+    pub title: String,
+    pub tool: String,
+    pub description: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -208,6 +227,13 @@ impl Manifest {
                 let tool = errors.string(item, &at, "tool", 48).unwrap_or_default();
                 commands.push(Command { id, title, tool });
             }
+            for (index, controller) in controllers.iter().enumerate() {
+                for action in &controller.actions {
+                    if !action.tool.is_empty() && !tools.iter().any(|t| t.name == action.tool) {
+                        errors.push(&format!("contributes.controllers[{index}].actions"), &format!("action \"{}\" names unknown tool \"{}\"", action.id, action.tool));
+                    }
+                }
+            }
             for command in &commands {
                 if !command.tool.is_empty() && !tools.iter().any(|t| t.name == command.tool) {
                     errors.push("contributes.commands", &format!("command \"{}\" names unknown tool \"{}\"", command.id, command.tool));
@@ -292,7 +318,50 @@ fn controller(errors: &mut Errors, at: &str, item: &Map<String, Value>) -> Optio
     if frame_encodings.is_empty() {
         frame_encodings.push("u8".into());
     }
-    Some(ControllerType { type_id, name, config_schema, default_outputs, max_outputs, data_policy, output_naming, frame_encodings })
+    // A plugin that must also load in a Studio without these fields (which refuses unknown ones) can put them at the
+    // root of its configSchema as `x-outputCount` and `x-actions`, which every Studio's schema checker ignores.
+    let schema_root = config_schema.as_object().cloned().unwrap_or_default();
+    let output_count = match (item.contains_key("outputCount"), schema_root.contains_key("x-outputCount")) {
+        (true, _) | (false, false) => errors.optional_string(item, at, "outputCount", 16),
+        (false, true) => errors.optional_string(&schema_root, &format!("{at}.configSchema"), "x-outputCount", 16),
+    };
+    let output_count = output_count.unwrap_or_else(|| OUTPUT_COUNTS[0].into());
+    if !OUTPUT_COUNTS.contains(&output_count.as_str()) {
+        errors.push(&format!("{at}.outputCount"), &format!("must be one of {}", OUTPUT_COUNTS.join(", ")));
+    }
+    let (actions_at, actions_in) = if !item.contains_key("actions") && schema_root.contains_key("x-actions") {
+        (format!("{at}.configSchema"), (&schema_root, "x-actions"))
+    } else {
+        (at.to_string(), (item, "actions"))
+    };
+    let mut actions: Vec<Action> = Vec::new();
+    for (index, action) in errors.object_array(actions_in.0, &actions_at, actions_in.1, 8).iter().enumerate() {
+        let at = format!("{actions_at}.{}[{index}]", actions_in.1);
+        errors.keys(&at, action, &ACTION_KEYS, &ACTION_REQUIRED);
+        let id = errors.string(action, &at, "id", 48).unwrap_or_default();
+        if !id.is_empty() && !valid_tool_name(&id) {
+            errors.push(&format!("{at}.id"), "must be lowercase letters, digits and _ starting with a letter");
+        }
+        if actions.iter().any(|a| a.id == id) {
+            errors.push(&format!("{at}.id"), "is used by another action");
+        }
+        let title = errors.string(action, &at, "title", 40).unwrap_or_default();
+        let tool = errors.string(action, &at, "tool", 48).unwrap_or_default();
+        let description = errors.optional_string(action, &at, "description", 300);
+        actions.push(Action { id, title, tool, description });
+    }
+    Some(ControllerType {
+        type_id,
+        name,
+        config_schema,
+        default_outputs,
+        max_outputs,
+        data_policy,
+        output_naming,
+        frame_encodings,
+        outputs_from_config: output_count == "fromConfig",
+        actions,
+    })
 }
 
 pub fn valid_plugin_id(id: &str) -> bool {
@@ -596,7 +665,7 @@ mod tests {
     fn schema_matches_validator() {
         let schema = schema();
         let defs = &schema["$defs"];
-        let pairs: [(&Value, &[&str], &[&str]); 7] = [
+        let pairs: [(&Value, &[&str], &[&str]); 8] = [
             (&schema, &TOP_KEYS, &TOP_REQUIRED),
             (&defs["entry"], &ENTRY_KEYS, &["command"]),
             (&defs["permissions"], &PERMISSION_KEYS, &[]),
@@ -604,6 +673,7 @@ mod tests {
             (&defs["controller"], &CONTROLLER_KEYS, &CONTROLLER_REQUIRED),
             (&defs["tool"], &TOOL_KEYS, &TOOL_REQUIRED),
             (&defs["command"], &COMMAND_KEYS, &COMMAND_REQUIRED),
+            (&defs["action"], &ACTION_KEYS, &ACTION_REQUIRED),
         ];
         for (object, keys, required) in pairs {
             assert_eq!(names(&object["properties"]), sorted(keys), "properties of {object}");
@@ -613,5 +683,6 @@ mod tests {
         assert_eq!(names(&defs["contributes"]["properties"]["events"]["items"]["enum"]), sorted(&EVENTS));
         assert_eq!(names(&defs["controller"]["properties"]["dataPolicy"]["enum"]), sorted(&DATA_POLICIES));
         assert_eq!(names(&defs["controller"]["properties"]["frameEncodings"]["items"]["enum"]), sorted(&FRAME_ENCODINGS));
+        assert_eq!(names(&defs["controller"]["properties"]["outputCount"]["enum"]), sorted(&OUTPUT_COUNTS));
     }
 }

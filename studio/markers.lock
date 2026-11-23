@@ -437,7 +437,7 @@
  },
  "block:plugin-sdk-lock-entry": {
   "file": "Cargo.lock",
-  "hash": "056ee2e6e8adc7c0"
+  "hash": "a5e9fddf7588d05c"
  },
  "block:plugins-add-controller": {
   "file": "crates/vixen-session/src/setup/controllers.rs",

@@ -1,4 +1,4 @@
-"""vixen_plugin: the Vixen Studio plugin SDK for Python (plugin API 1.0). One file, standard library only, Python 3.9+.
+"""vixen_plugin: the Vixen Studio plugin SDK for Python (plugin API 1.1). One file, standard library only, Python 3.9+.
 
 Copy this file next to your plugin's main file (plugin new and plugin_scaffold do). It speaks the plugin protocol for
 you: JSON-RPC 2.0 over stdin/stdout, one message per line, frame decoding, logging, errors and configuration checks.
@@ -34,8 +34,8 @@ import sys
 import threading
 import traceback
 
-__version__ = "1.0.0"
-API_VERSION = "1.0.0"
+__version__ = "1.1.0"
+API_VERSION = "1.1.0"
 
 PARSE_ERROR = -32700
 METHOD_NOT_FOUND = -32601
@@ -131,6 +131,13 @@ class Controller:
         """Optional names for the outputs (list of strings), sent with create's answer."""
         return None
 
+    @classmethod
+    def outputs_for(cls, config):
+        """For a type with "outputCount": "fromConfig": the outputs a configuration needs. No instance exists (Studio
+        asks while Live Output is off too); config is checked, with defaults filled in. Return an int, a list of output
+        names (one per output), or (count, names). None (the default) means the type doesn't set its own count."""
+        return None
+
     # Reports to Studio.
     def status(self, state, message=None):
         """state: running, unavailable or error; shown as the controller's health."""
@@ -165,6 +172,7 @@ class Plugin:
         self.muted = True
         self.profile = None
         self.host_version = None
+        self.capabilities = {}
         self._types = []  # (type_id or None, class)
         self._tools = {}
         self._events = {}
@@ -394,6 +402,7 @@ class Plugin:
             self.muted = bool(params.get("muted", True))
             self.profile = params.get("profile")
             self.host_version = params.get("hostVersion")
+            self.capabilities = params.get("capabilities") or {}
             self.data_dir = params.get("pluginDataDir") or self.data_dir
             if self._on_initialize:
                 self._on_initialize(params)
@@ -413,6 +422,8 @@ class Plugin:
             return self._call_tool(params.get("name"), params.get("arguments") or {})
         if method == "controller.create":
             return self._create(params)
+        if method == "controller.outputsFor":
+            return self._outputs_for(params)
         if not method.startswith("controller."):
             raise _MethodNotFound()
         instance = self._instances.get(params.get("instanceId"))
@@ -447,14 +458,49 @@ class Plugin:
             return {}
         raise _MethodNotFound()
 
-    def _create(self, params):
-        type_id = params.get("typeId")
+    @property
+    def host_sets_output_count(self):
+        """True when this Studio resizes "outputCount": "fromConfig" controllers itself (plugin API 1.1). Before that,
+        refuse a configuration that needs more outputs than output_count, as plugins for API 1.0 did."""
+        return self.capabilities.get("controllerOutputs") is True
+
+    def _class_for(self, type_id):
         cls = next((c for t, c in self._types if t == type_id), None)
         if cls is None:
             untyped = [c for t, c in self._types if t is None]
             cls = untyped[0] if len(untyped) == 1 else None
         if cls is None:
             raise _MethodNotFound()
+        return cls
+
+    def _outputs_for(self, params):
+        type_id = params.get("typeId")
+        cls = self._class_for(type_id)
+        config = params.get("config") if isinstance(params.get("config"), dict) else {}
+        schema = self._schema(type_id)
+        if schema:
+            config = fill_defaults(schema, config)
+            errors = validate(schema, config)
+            if errors:
+                raise ConfigError(errors)
+        answer = cls.outputs_for(config)
+        if answer is None:
+            raise _MethodNotFound()
+        if isinstance(answer, tuple):
+            count, names = answer
+        elif isinstance(answer, int):
+            count, names = answer, None
+        else:
+            names = [str(n) for n in answer]
+            count = len(names)
+        result = {"outputCount": int(count)}
+        if names is not None:
+            result["outputNames"] = [str(n) for n in names]
+        return result
+
+    def _create(self, params):
+        type_id = params.get("typeId")
+        cls = self._class_for(type_id)
         instance = cls(self, params["instanceId"], type_id, int(params.get("outputCount", 0)))
         instance.config = self._configure(instance, params.get("config"))
         self._instances[instance.instance_id] = instance

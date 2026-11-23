@@ -1,4 +1,4 @@
-// Types for vixen-plugin.mjs, the Vixen Studio plugin SDK for Node (plugin API 1.0).
+// Types for vixen-plugin.mjs, the Vixen Studio plugin SDK for Node (plugin API 1.1).
 
 export const VERSION: string;
 export const API_VERSION: string;
@@ -90,6 +90,8 @@ export class Controller {
   frame(frame: Frame): Awaitable<void>;
   destroy(): Awaitable<void>;
   outputNames(): string[] | undefined;
+  /** "outputCount": "fromConfig" types: the outputs a (checked) configuration needs; see the .mjs. */
+  static outputsFor(config: Config): Awaitable<number | string[] | { outputCount: number; outputNames?: string[] } | undefined>;
   status(state: "running" | "unavailable" | "error", message?: string): void;
   /** Adds what was sent since the last call; the SDK sends the running totals. */
   stats(counters?: { packetsSent?: number; bytesSent?: number; errors?: number }): void;
@@ -105,6 +107,10 @@ export class Plugin {
   muted: boolean;
   profile: { name: string; id: string } | null;
   hostVersion: string | null;
+  /** initialize's capabilities from Studio. */
+  capabilities: Record<string, unknown>;
+  /** True when Studio resizes "outputCount": "fromConfig" controllers itself (plugin API 1.1). */
+  readonly hostSetsOutputCount: boolean;
   controller<C extends ControllerClass>(cls: C, options?: { typeId?: string }): C;
   tool(name: string, fn: (args: Record<string, Json>) => Awaitable<string | ToolContent | Json>): void;
   event(name: string, fn: (data: Json) => Awaitable<void>): void;

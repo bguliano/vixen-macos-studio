@@ -448,6 +448,13 @@ Lifecycle guarantees (the host's job, all tested):
   errors from `controller.configure` shown inline. Edits are live with Undo (UI_GUIDE: no OK/Cancel windows), one undo
   step per edit, through the same Rust command layer the MCP uses (`controller_configure` gains a `config` object for
   plugin types).
+- Output counts from the settings (API 1.1, backlog B61): a type with `outputCount: "fromConfig"` owns its count.
+  `controller_configure` asks the plugin `controller.outputsFor {typeId, config}` (starting it if needed, no instance)
+  and resizes the controller and names its outputs in the same edit, so one Undo step covers settings, outputs and
+  patches; dropping patched outputs needs `removePatchedOutputs` (the inspector's Remove Outputs). The count shows
+  read-only. Settings actions (`actions`: Detect Lights) run a plugin tool on the current settings; its `config` or
+  `mergePatch` applies as an edit (`controller_action` for agents). A plugin that must also load on API 1.0 puts both
+  at the configSchema root as `x-outputCount` / `x-actions` and checks `capabilities.controllerOutputs`.
 
 ## Agent tools, commands and events
 

@@ -93,8 +93,9 @@ Install plugins from people you trust. Details: [PERMISSIONS.md](PERMISSIONS.md)
 
 ## Versions
 
-The plugin API is **1.0.0**. Minor versions only add; anything breaking would be 2.0 with a migration guide. Declare
-`"apiVersion": "^1.0"` in your manifest. Your plugin's own `version` follows semantic versioning, and shows record the
+The plugin API is **1.1.0** (1.1 added controllers that set their own output count and settings actions; see
+[CONTROLLERS.md](CONTROLLERS.md#output-counts-from-the-settings)). Minor versions only add; anything breaking would be
+2.0 with a migration guide. Declare `"apiVersion": "^1.0"` in your manifest. Your plugin's own `version` follows semantic versioning, and shows record the
 `^major.minor` they were set up with ([PACKAGING.md](PACKAGING.md#versions)).
 
 The design behind all this, stage by stage, is in [`studio/PLUGINS-DESIGN.md`](../../studio/PLUGINS-DESIGN.md).

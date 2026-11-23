@@ -82,10 +82,53 @@ When several effects drive the same output at once, the engine combines them wit
 | `average8Bit` | 8-bit levels, averaged. | Smooth blends on dimmers. |
 | `oneChannelColor` | Whole colours on one output. Pair it with the `json` encoding. | Devices addressed by colour rather than by channel. |
 
+## Output counts from the settings
+
+When your settings decide how many outputs the controller needs (a table of lights, 3 outputs each), declare
+`"outputCount": "fromConfig"` and let the plugin own the count (plugin API 1.1):
+
+- After every settings edit (typing in the inspector, Paste Settings, `controller_configure`, a settings action) Studio
+  asks `controller.outputsFor {typeId, config}` and resizes the controller to `outputCount` **in the same Undo step**
+  as the edit. Patches on the outputs that remain stay where they are.
+- New settings that would drop outputs that are patched aren't applied straight away: the inspector says which outputs
+  would go and offers **Remove Outputs**; agents get a refusal naming them and pass `removePatchedOutputs: true`.
+- `outputNames` in the answer, one per output, name the outputs (`Ceiling R`, `Ceiling G`, `Ceiling B`), so patching
+  and the Controllers section read like the device.
+- The inspector shows the count read-only, saying your plugin sets it, instead of the Outputs… button; agents see
+  `outputsFromConfig: true` in `controller_types` and `controller_network`, and `controller_configure` refuses `outputs`.
+- Answer from `config` alone: no instance need exist (Live Output may be off), and Studio waits for you (5 s at most).
+  When you can't answer, the settings still apply and the count stays as it was, with a warning.
+- A new controller starts with `defaultOutputs` until its settings are first edited.
+
+The SDKs answer `controller.outputsFor` for you: implement `outputs_for(cls, config)` as a class method (Python),
+`static outputsFor(config)` (Node) or register `Plugin::outputs_for` (Rust), returning a count, a list of names, or
+both.
+
+**Studio before plugin API 1.1** doesn't know these fields and refuses manifests with unknown ones. To keep one package
+working there, put them at the root of `configSchema` as `x-outputCount` and `x-actions` (every Studio's checker ignores
+`x-` keywords), and check `capabilities.controllerOutputs` from `initialize` (the SDKs: `plugin.host_sets_output_count`,
+`plugin.hostSetsOutputCount`, `host.sets_output_count()`): without it, keep refusing settings that need more outputs
+than `outputCount`, naming the count the user should set.
+
+## Settings actions
+
+`actions` adds buttons to the controller inspector (also in its ⋯ menu), like **Detect Lights**. Each names one of your
+tools. Pressing it calls the tool with `{instanceId, typeId, config}`, the controller's current settings; answer the new
+settings as `structuredContent` (or a JSON object as text; an SDK tool returning a dict does this):
+
+- `{"config": {...}}`: the whole new configuration, or `{"mergePatch": {...}}`: an RFC 7396 merge patch against the
+  current one (`null` removes a key; arrays are replaced whole).
+- `"message"`: optional text the inspector shows under the button (`Found 5 lights; 2 already in the table`).
+- Neither `config` nor `mergePatch`: nothing changes, and the message is shown.
+
+Studio applies the answer like an edit: checked against `configSchema`, resized for `fromConfig` types, one step on
+Undo. Agents run the same with `controller_action {id, action}`. The tool may take up to 30 s (a network scan); the
+inspector shows progress meanwhile.
+
 ## Output naming
 
-`outputNaming` (`"Pixel {n}"`) and `outputNames` answers from `controller.create` / `controller.setOutputCount` are
-recorded but not applied to output names in this version.
+`outputNaming` (`"Pixel {n}"`) and the `outputNames` answers from `controller.create` / `controller.setOutputCount` are
+recorded but not applied. Names from `controller.outputsFor` are applied (see above).
 
 ## Lifecycle and timing
 
@@ -93,7 +136,8 @@ For each controller of your type in the show (see [PROTOCOL.md](PROTOCOL.md#life
 
 1. Live Output turns on: `controller.create {instanceId, typeId, config, outputCount}` → `controller.start` (you have
    15 s to connect) → frames.
-2. Edits while running: `controller.configure`, `controller.setOutputCount`.
+2. Edits while running: `controller.configure`, `controller.setOutputCount`. A `fromConfig` type also gets
+   `controller.outputsFor` before each settings edit, running or not.
 3. Live Output turns off or the controller is removed: `controller.stop` → `controller.destroy`.
 
 Report how it's going with `controller.status`: `running`, `unavailable` (can't reach the device; keep trying) or
@@ -120,8 +164,9 @@ does. The SDKs' `triplets(values, order)` helper groups outputs into `(r, g, b)`
 
 ## Recipes
 
-**One RGB device per three outputs.** Set `defaultOutputs` to 3 per device (`maxOutputs` to 3 × the most devices you
-support), list the devices in a table setting, and send device *k* outputs `3k, 3k+1, 3k+2`:
+**One RGB device per three outputs.** Declare `"outputCount": "fromConfig"` (`maxOutputs` 3 × the most devices you
+support), list the devices in a table setting, answer `controller.outputsFor` with 3 outputs per row named after the
+device, and send device *k* outputs `3k, 3k+1, 3k+2`:
 
 ```json recipe configSchema
 {
@@ -146,7 +191,17 @@ support), list the devices in a table setting, and send device *k* outputs `3k, 
 }
 ```
 
-In `configure`, refuse a device list whose length × 3 is more than `outputCount`, naming the field (`/devices`).
+```python
+@plugin.controller()
+class Lights(vp.Controller):
+    @classmethod
+    def outputs_for(cls, config):
+        return [f"{d.get('name') or d['address']} {c}" for d in config["devices"] for c in "RGB"]
+```
+
+In `configure`, on a Studio without `controllerOutputs` (`not plugin.host_sets_output_count`), refuse a device list
+whose length × 3 is more than `outputCount`, naming the field (`/devices`) and the count to set. With it, Studio has
+already resized the controller.
 
 **A pixel string over UDP.** `udp-pixel-output` sends each frame as raw bytes in one datagram, reordered per its
 colour-order setting and capped at `maxFps`.

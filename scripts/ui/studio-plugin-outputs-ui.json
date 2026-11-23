@@ -1,0 +1,364 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 7
+  },
+  {
+   "action": "menu",
+   "path": [
+    "Vixen Studio",
+    "Settings\u2026"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.settings",
+   "path": [
+    "tab",
+    "plugins"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 1
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "link",
+    "@WORK@/dev/lamp"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2.5
+  },
+  {
+   "action": "hook",
+   "name": "studio.plugins",
+   "path": [
+    "list"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.settings",
+   "path": [
+    "tab",
+    "general"
+   ]
+  },
+  {
+   "action": "closeWindow"
+  },
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 3.5
+  },
+  {
+   "action": "studioSection",
+   "name": "controllers"
+  },
+  {
+   "action": "wait",
+   "seconds": 4
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "controllerType",
+    "Lamp"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "addController"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "Bulbs"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.8
+  },
+  {
+   "action": "hook",
+   "name": "setup.sheetAnswer",
+   "path": [
+    "3"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 3
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "size",
+    "1280",
+    "800",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 0.6
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Bulbs"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "01-before",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "paste",
+    "{\"host\": \"10.0.0.30\", \"lamps\": [{\"name\": \"Ceiling\"}, {\"name\": \"Porch\"}, {\"name\": \"Desk\"}, {\"name\": \"Hall\"}, {\"name\": \"Lamp\"}]}"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "02-fifteen",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "dump",
+   "name": "02-fifteen"
+  },
+  {
+   "action": "hook",
+   "name": "setup.selectElements",
+   "path": [
+    "Bulb 1",
+    "Bulb 2",
+    "Bulb 3",
+    "Bulb 4",
+    "Bulb 5"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.controllerSelection",
+   "path": []
+  },
+  {
+   "action": "hook",
+   "name": "setup.stats",
+   "path": []
+  },
+  {
+   "action": "hook",
+   "name": "setup.command",
+   "path": [
+    "patch"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.alert",
+   "path": [
+    "OK"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "setup.stats",
+   "path": []
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Bulbs"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "paste",
+    "{\"host\": \"10.0.0.30\", \"lamps\": [{\"name\": \"Ceiling\"}, {\"name\": \"Porch\"}, {\"name\": \"Desk\"}, {\"name\": \"Hall\"}]}"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "03-remove-warning",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "keepSettings"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "paste",
+    "{\"host\": \"10.0.0.30\", \"lamps\": [{\"name\": \"Ceiling\"}, {\"name\": \"Porch\"}, {\"name\": \"Desk\"}, {\"name\": \"Hall\"}]}"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "removeOutputs"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "04-twelve",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "displayUndo"
+  },
+  {
+   "action": "wait",
+   "seconds": 1.5
+  },
+  {
+   "action": "studioControllersSelect",
+   "name": "Bulbs"
+  },
+  {
+   "action": "wait",
+   "seconds": 2
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "state"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "setup.stats",
+   "path": []
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "action",
+    "detect"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "05-detect-warning",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "hook",
+   "name": "studio.pluginForm",
+   "path": [
+    "removeOutputs"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "06-detected",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "wait",
+   "seconds": 5
+  },
+  {
+   "action": "quit"
+  }
+ ]
+}

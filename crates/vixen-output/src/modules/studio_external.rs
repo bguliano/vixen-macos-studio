@@ -47,6 +47,16 @@ pub struct ExternalType {
     pub name: String,
     pub default_outputs: u32,
     pub max_outputs: u32,
+    /// The plugin sets the output count from the settings (`outputCount: "fromConfig"`), not the user.
+    pub outputs_from_config: bool,
+}
+
+/// What a plugin answers for a configuration of an `outputCount: "fromConfig"` type: how many outputs it needs, and their
+/// names when it gives them (exactly one per output).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExternalOutputs {
+    pub count: u32,
+    pub names: Option<Vec<String>>,
 }
 
 /// What Studio's plugin host implements.
@@ -72,6 +82,16 @@ pub trait ExternalControllers: Send + Sync {
     /// New data with the configuration replaced by `settings` (JSON text), or the field errors as JSON text
     /// (`[{field, message}]`) when it doesn't fit the type's schema.
     fn reconfigure(&self, config: &ExternalConfig, settings: &str) -> Result<XElement, String>;
+    /// For a type whose plugin sets the output count: the outputs `settings` (JSON text) need, asked of the plugin
+    /// (starting it if needed). `None` when the user sets the count.
+    fn outputs_for(&self, _config: &ExternalConfig, _settings: &str) -> Option<Result<ExternalOutputs, String>> {
+        None
+    }
+    /// Runs one of the type's settings actions on `settings` (JSON text): `{"config": <new settings or null>,
+    /// "message": <text or null>}` as JSON text. Nothing is applied; the caller applies the configuration as an edit.
+    fn run_action(&self, _config: &ExternalConfig, _settings: &str, action: &str) -> Result<String, String> {
+        Err(format!("this controller has no action {action}"))
+    }
 }
 
 static PROVIDER: RwLock<Option<Arc<dyn ExternalControllers>>> = RwLock::new(None);
@@ -154,6 +174,21 @@ pub fn describe(config: &ExternalConfig) -> Option<String> {
 /// [`ExternalControllers::reconfigure`].
 pub fn reconfigure(config: &ExternalConfig, settings: &str) -> Result<XElement, String> {
     provider().ok_or_else(|| "[{\"field\":\"/\",\"message\":\"no plugin host is running\"}]".to_string())?.reconfigure(config, settings)
+}
+
+/// [`ExternalControllers::outputs_for`], `None` without a provider.
+pub fn outputs_for(config: &ExternalConfig, settings: &str) -> Option<Result<ExternalOutputs, String>> {
+    provider()?.outputs_for(config, settings)
+}
+
+/// Whether an installed type's plugin sets its output count from the settings.
+pub fn outputs_from_config(type_id: &Uuid) -> bool {
+    provider().is_some_and(|p| p.types().iter().any(|t| t.type_id == *type_id && t.outputs_from_config))
+}
+
+/// [`ExternalControllers::run_action`].
+pub fn run_action(config: &ExternalConfig, settings: &str, action: &str) -> Result<String, String> {
+    provider().ok_or_else(|| "no plugin host is running".to_string())?.run_action(config, settings, action)
 }
 
 fn intern(name: String) -> &'static str {

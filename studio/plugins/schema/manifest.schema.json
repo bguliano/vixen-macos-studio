@@ -80,7 +80,26 @@
         "maxOutputs": { "type": "integer", "minimum": 1, "maximum": 100000, "default": 100000 },
         "dataPolicy": { "enum": ["highestWins8Bit", "discardExcess8Bit", "average8Bit", "oneChannelColor"], "default": "highestWins8Bit" },
         "outputNaming": { "type": "string", "minLength": 1, "maxLength": 80 },
-        "frameEncodings": { "type": "array", "maxItems": 3, "items": { "enum": ["u8", "json", "u16"] }, "default": ["u8"] }
+        "frameEncodings": { "type": "array", "maxItems": 3, "items": { "enum": ["u8", "json", "u16"] }, "default": ["u8"] },
+        "outputCount": {
+          "description": "user: the user sets the output count. fromConfig: Studio asks the plugin (controller.outputsFor) after every settings edit and resizes the controller to match. Plugins that must also load in Studio before plugin API 1.1 put it at the configSchema root as x-outputCount instead.",
+          "enum": ["user", "fromConfig"], "default": "user"
+        },
+        "actions": {
+          "description": "Settings actions in the controller inspector (a button and the ⋯ menu): each runs one of this plugin's tools, which answers a new configuration. Before plugin API 1.1, put them at the configSchema root as x-actions instead.",
+          "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/action" }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "tool"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,47}$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "tool": { "description": "The name of one of this plugin's tools. It gets {instanceId, typeId, config} and answers {config} or {mergePatch}, with an optional message.", "type": "string" },
+        "description": { "type": "string", "minLength": 1, "maxLength": 300 }
       }
     },
     "tool": {

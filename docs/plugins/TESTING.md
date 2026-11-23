@@ -22,12 +22,13 @@ It exits 1 when a check fails. The checks, in order:
 
 | Check | Passes when |
 |---|---|
-| `manifest` | `vixen-plugin.json` is valid and its `apiVersion` range contains 1.0.0. |
+| `manifest` | `vixen-plugin.json` is valid and its `apiVersion` range contains 1.1.0. |
 | `configSchema <type>` | Each controller type's `configSchema` describes an object and its defaults satisfy it. |
 | `entry.command` | The command resolves (in the folder, or on the plugin's `PATH`). |
 | `launch` | The process starts in a throwaway data folder. |
 | `initialize` | It answers in time with a matching major version (muted unless `--live`). |
-| `tools` | Lists your tools. They are **not called**: a tool can act on the world. |
+| `tools` | Lists your tools. They are **not called**: a tool can act on the world. Settings actions name tools, so they aren't run either. |
+| `controller.outputsFor` | Only for `outputCount: "fromConfig"` types: answers an `outputCount` within `maxOutputs` for the example configuration, before any instance exists (a warning when `outputNames` isn't one per output). |
 | `controller.create` | Per type: accepts a valid configuration made from the schema (defaults, else the smallest value each keyword allows); its normalised config still satisfies the schema. |
 | `controller.configure` | Accepts the valid configuration again. |
 | `controller.configure (invalid)` | Refuses an invalid one (an undeclared field when `additionalProperties` is false, else a typed field given the wrong type) with `-32004` and `data.errors`. Anything else is a warning, since Studio checks the schema first. |
@@ -101,7 +102,7 @@ The SDKs are single files with no dependencies, so a plugin's logic is easy to u
 methods directly with a `Frame`, or by piping JSON-RPC lines into the program:
 
 ```sh
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"apiVersion":"1.0.0","hostVersion":"test","pluginDataDir":"/tmp/x","muted":true,"capabilities":{}}}' | python3 main.py
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"apiVersion":"1.1.0","hostVersion":"test","pluginDataDir":"/tmp/x","muted":true,"capabilities":{}}}' | python3 main.py
 ```
 
 The examples' tests in Studio's repository (`crates/studio-plugins/tests/examples.rs`) run each example through the

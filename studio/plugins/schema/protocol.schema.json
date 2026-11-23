@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/bguliano/vixen-macos-studio/studio/plugins/schema/protocol.schema.json",
-  "title": "Vixen Studio plugin protocol, API 1.0",
-  "description": "JSON-RPC 2.0 over the plugin's stdin/stdout, one UTF-8 message per line, at most 1 MiB per line. Logs go to stderr, never stdout. 'available' names the host stage that implements a method; methods listed for a later stage are part of API 1.0 but the host answers -32601 until it ships them. Requests time out after 5 s ('start' 15 s).",
-  "x-apiVersion": "1.0.0",
+  "title": "Vixen Studio plugin protocol, API 1.1",
+  "description": "JSON-RPC 2.0 over the plugin's stdin/stdout, one UTF-8 message per line, at most 1 MiB per line. Logs go to stderr, never stdout. 'available' names the host stage that implements a method; methods listed for a later stage are part of the API but the host answers -32601 until it ships them. Requests time out after 5 s ('start' 15 s).",
+  "x-apiVersion": "1.1.0",
   "x-framing": { "encoding": "utf-8", "delimiter": "\n", "maxLineBytes": 1048576 },
   "x-errors": {
     "-32700": "Parse error", "-32600": "Invalid request", "-32601": "Method not found", "-32602": "Invalid params",
@@ -44,6 +44,10 @@
     "controller.setOutputCount": { "kind": "request", "available": "P2",
       "params": { "type": "object", "required": ["instanceId", "outputCount"], "properties": { "instanceId": { "type": "string" }, "outputCount": { "type": "integer" } } },
       "result": { "type": "object", "properties": { "outputNames": { "type": "array", "items": { "type": "string" } } } } },
+    "controller.outputsFor": { "kind": "request", "available": "1.1",
+      "description": "Only for controller types with outputCount \"fromConfig\". The outputs a configuration needs, asked after every settings edit (also while Live Output is off, so no instance need exist); Studio resizes the controller to outputCount in the same undo step and names the outputs from outputNames when there is one per output. Answer quickly and without I/O; -32004 refuses the configuration like controller.configure.",
+      "params": { "type": "object", "required": ["typeId", "config"], "properties": { "typeId": { "type": "string" }, "config": { "type": "object" } } },
+      "result": { "type": "object", "required": ["outputCount"], "properties": { "outputCount": { "type": "integer", "minimum": 0 }, "outputNames": { "type": "array", "items": { "type": "string", "maxLength": 80 } } } } },
     "controller.start": { "kind": "request", "available": "P2", "timeoutMs": 15000, "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
     "controller.stop": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
     "controller.pause": { "kind": "request", "available": "P2", "params": { "$ref": "#/$defs/instance" }, "result": { "type": "object" } },
@@ -59,7 +63,7 @@
     "tool.call": { "kind": "request", "available": "P3", "timeoutMs": 30000,
       "description": "An MCP client called one of the plugin's tools (listed as plugin__<short-id>__<name>). Answer MCP-style content; isError true reports a failure the agent should read.",
       "params": { "type": "object", "required": ["name"], "properties": { "name": { "type": "string" }, "arguments": { "type": "object" } } },
-      "result": { "type": "object", "required": ["content"], "properties": { "content": { "type": "array" }, "isError": { "type": "boolean" } } } }
+      "result": { "type": "object", "required": ["content"], "properties": { "content": { "type": "array" }, "isError": { "type": "boolean" }, "structuredContent": { "type": "object", "description": "For a settings action's tool (manifest actions): {config} (the whole new configuration) or {mergePatch} (RFC 7396 against the current one), and optionally {message}. A JSON object as the first text item works the same." } } } }
   },
   "x-pluginToHost": {
     "log": { "kind": "notification or request", "available": "P1",

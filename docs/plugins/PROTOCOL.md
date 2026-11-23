@@ -1,4 +1,4 @@
-# Plugin protocol reference (API 1.0)
+# Plugin protocol reference (API 1.1)
 
 Every message between Vixen Studio and a plugin, with its parameters, result and errors. The machine-readable
 version is [`studio/plugins/schema/protocol.schema.json`](../../studio/plugins/schema/protocol.schema.json) (MCP
@@ -17,8 +17,10 @@ SDKs ([Python, TypeScript, Rust](README.md#sdks)) handle all of it.
   line in the plugin's log at level `info`.
 - Requests carry an `id` (a number or a string) and get exactly one answer; notifications have no `id` and get none.
 - Both sides may send requests at any time after `initialize` has been answered.
-- The host API version is **1.0.0**. Your manifest's `apiVersion` range must contain it, and `initialize`'s answer must
-  name the same major version.
+- The host API version is **1.1.0**. Your manifest's `apiVersion` range must contain it, and `initialize`'s answer must
+  name the same major version. 1.1 added `controller.outputsFor`, settings actions (`structuredContent` in a
+  `tool.call` answer) and the `controllerOutputs` capability; a plugin that also runs on 1.0 keeps `"apiVersion": "^1.0"`
+  and checks `capabilities.controllerOutputs`.
 
 ```json example request
 {"jsonrpc": "2.0", "id": 1, "method": "controller.start", "params": {"instanceId": "5d1c0f8e-2b4a-4c61-9e0f-7a3b2c1d0e9f"}}
@@ -71,7 +73,9 @@ Studio answers `-32003` to `storage.get`/`storage.set` from a plugin without `"f
    [PERMISSIONS.md](PERMISSIONS.md#what-the-process-gets)) and sends `initialize`.
 2. Controller instances: when a controller of the plugin's type starts (Live Output on and not muted), Studio sends
    `controller.create`, then `controller.start`, then `controller.frame` notifications. Edits while it runs arrive as
-   `controller.configure` and `controller.setOutputCount`. When it stops: `controller.stop`, then `controller.destroy`.
+   `controller.configure` and `controller.setOutputCount`. For a type with `outputCount: "fromConfig"`, every settings
+   edit is preceded by `controller.outputsFor` (whether or not the controller runs), and the controller is resized to
+   its answer before the new settings reach the instance. When it stops: `controller.stop`, then `controller.destroy`.
    The conformance harness also creates, configures and destroys instances without starting them, so accept that.
 3. One process serves every instance of every type the plugin declares, told apart by `instanceId`.
 4. `shutdown`: answer `{}` once you have cleaned up. Studio then closes stdin and kills the process group after 3 s.
@@ -88,12 +92,13 @@ Host → plugin · request · timeout 5000 ms
 
 The first message. Answer with the API version you speak; Studio stops a plugin whose major version differs, as
 `incompatible`, without restarting it. `capabilities` tells you what this Studio offers (today `log`, `storage`,
-`events: ["liveOutput.changed"]`, `controllers`, `frameEncodings`, `tools`, `display`). `profile` is `null` when no show is open
+`events: ["liveOutput.changed"]`, `controllers`, `frameEncodings`, `tools`, `display`, and from 1.1 `controllerOutputs`:
+it asks `controller.outputsFor` and resizes controllers itself). `profile` is `null` when no show is open
 (the harness, the CLI).
 
 | Param | Type | Required | Meaning |
 |---|---|---|---|
-| `apiVersion` | string | yes | The host's plugin API version, e.g. 1.0.0. |
+| `apiVersion` | string | yes | The host's plugin API version, e.g. 1.1.0. |
 | `hostVersion` | string | yes | Studio's version, ending in `-studio`. |
 | `pluginDataDir` | string | yes | A folder only this plugin uses (state.json lives here). |
 | `profile` | object \| null | no | The open show: `{name, id}`. |
@@ -106,11 +111,11 @@ The first message. Answer with the API version you speak; Studio stops a plugin 
 | `capabilities` | object | no | Anything you want Studio to know; shown by `plugin_info`. |
 
 ```json initialize params
-{"apiVersion": "1.0.0", "hostVersion": "3.13.4-studio", "pluginDataDir": "/Users/me/Library/Application Support/Vixen Studio/Plugins/data/com.example.lamp", "profile": {"name": "Vixen 3", "id": "0c6f3f0e-7f83-4f39-a2a5-0d2f1b6a4e90"}, "muted": true, "capabilities": {"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true}}
+{"apiVersion": "1.1.0", "hostVersion": "3.13.4-studio", "pluginDataDir": "/Users/me/Library/Application Support/Vixen Studio/Plugins/data/com.example.lamp", "profile": {"name": "Vixen 3", "id": "0c6f3f0e-7f83-4f39-a2a5-0d2f1b6a4e90"}, "muted": true, "capabilities": {"log": true, "storage": true, "events": ["liveOutput.changed"], "controllers": true, "frameEncodings": ["u8", "json", "u16"], "tools": true, "display": true, "controllerOutputs": true}}
 ```
 
 ```json initialize result
-{"apiVersion": "1.0.0", "capabilities": {}}
+{"apiVersion": "1.1.0", "capabilities": {}}
 ```
 
 ### `shutdown`
@@ -207,10 +212,40 @@ The controller's output count changed. Later frames have the new length.
 
 | Result | Type | Required | Meaning |
 |---|---|---|---|
-| `outputNames` | array of string | no | Names for the outputs (not applied yet). |
+| `outputNames` | array of string | no | Names for the outputs (not applied; a type that names its outputs answers them from `controller.outputsFor`). |
 
 ```json controller.setOutputCount params
 {"instanceId": "5d1c0f8e-2b4a-4c61-9e0f-7a3b2c1d0e9f", "outputCount": 12}
+```
+
+### `controller.outputsFor`
+
+Host → plugin · request · timeout 5000 ms
+
+Only for a type with `outputCount: "fromConfig"` (API 1.1). The outputs a configuration needs: Studio asks after every
+settings edit (inspector, paste, `controller_configure`, a settings action), also while Live Output is off, so no
+instance need exist; answer from `config` alone, quickly and without I/O. Studio resizes the controller to
+`outputCount` in the same undo step as the edit, keeps patches on the outputs that remain, and names the outputs from
+`outputNames` when there is one per output. Refuse a configuration with `-32004` as in `controller.configure`. Studio
+doesn't drop patched outputs without the user's go-ahead, and leaves the count as it was when you can't answer. The
+SDKs: `outputs_for` (Python, a class method), `static outputsFor` (Node), `Plugin::outputs_for` (Rust).
+
+| Param | Type | Required | Meaning |
+|---|---|---|---|
+| `typeId` | string | yes | The controller type. |
+| `config` | object | yes | The new configuration, checked against your `configSchema`. |
+
+| Result | Type | Required | Meaning |
+|---|---|---|---|
+| `outputCount` | integer | yes | How many outputs it needs (0 to `maxOutputs`). |
+| `outputNames` | array of string | no | One name per output (`Ceiling R`, `Ceiling G`, …), up to 80 characters each. |
+
+```json controller.outputsFor params
+{"typeId": "893dbf09-f520-430a-8b62-80226447a42a", "config": {"devices": [{"name": "Ceiling", "deviceId": "1A:2B:3C:4D:5E:6F:70:81", "mode": "color", "segments": 1}]}}
+```
+
+```json controller.outputsFor result
+{"outputCount": 3, "outputNames": ["Ceiling R", "Ceiling G", "Ceiling B"]}
 ```
 
 ### `controller.start`
@@ -301,7 +336,8 @@ New channel values for a started instance, at the show's frame rate (Vixen runs 
 Host → plugin · request · timeout 30000 ms
 
 An MCP client called one of your tools (listed as `plugin__<short-id>__<name>`, see
-[TOOLS_AND_EVENTS.md](TOOLS_AND_EVENTS.md)). Answer MCP-style content. `isError: true` reports a failure the agent
+[TOOLS_AND_EVENTS.md](TOOLS_AND_EVENTS.md)), or the user ran a settings action that names it (then `arguments` is
+`{instanceId, typeId, config}` with the controller's current settings). Answer MCP-style content. `isError: true` reports a failure the agent
 should read; a JSON-RPC error answer reaches the agent as an error too.
 
 | Param | Type | Required | Meaning |
@@ -313,6 +349,7 @@ should read; a JSON-RPC error answer reaches the agent as an error too.
 |---|---|---|---|
 | `content` | array | yes | MCP content items, usually `{"type": "text", "text": …}`. |
 | `isError` | boolean | no | True when the call failed. |
+| `structuredContent` | object | no | For a settings action's tool (manifest `actions`): `{"config": …}` (the whole new configuration) or `{"mergePatch": …}` (RFC 7396 against the current one), and optionally `{"message": …}`. A JSON object as the first text item works the same, so an SDK's plain dict return is enough. |
 
 ```json tool.call params
 {"name": "discover", "arguments": {"timeoutMs": 1000}}

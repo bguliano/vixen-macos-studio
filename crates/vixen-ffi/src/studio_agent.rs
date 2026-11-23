@@ -280,6 +280,27 @@ impl DisplaySetupSession {
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }
+    /// Runs a plugin controller's settings action (Detect Lights) on its current settings and returns the plugin's answer
+    /// as JSON {config, message}; nothing is applied. The caller applies `config` with
+    /// `studio_configure_controller_network`, so it's checked like any edit and is one step on Undo. Blocks while the
+    /// plugin works (up to 30 s); the working copy isn't locked meanwhile.
+    pub fn studio_controller_action(&self, id: String, action: String) -> Result<String, FfiError> {
+        let id = uuid::Uuid::parse_str(&id).map_err(|_| FfiError::new("id must be a controller UUID"))?;
+        let config = {
+            let working = self.inner.read();
+            let slot = working.slot_of(id).ok_or_else(|| FfiError::new("Controller not found"))?;
+            match &working.controllers[slot as usize].config {
+                Some(vixen_output::ControllerConfig::External(config)) => config.clone(),
+                _ => return Err(FfiError::new("Not a plugin controller")),
+            }
+        };
+        let settings = vixen_output::modules::studio_external::describe(&config)
+            .and_then(|d| serde_json::from_str::<serde_json::Value>(&d).ok())
+            .map(|d| d["config"].clone())
+            .filter(serde_json::Value::is_object)
+            .ok_or_else(|| FfiError::new("The controller's saved settings can't be read"))?;
+        vixen_output::modules::studio_external::run_action(&config, &settings.to_string(), &action).map_err(FfiError::new)
+    }
     /// The Patch submenu for one element row of this working copy, as JSON (`studio_patch::menu`): where it's patched as
     /// universe:channel ranges, whether it can be reversed, what it can swap with and where it can move. Nil when the row is gone.
     pub fn studio_patch_menu(&self, row: String) -> Option<String> {

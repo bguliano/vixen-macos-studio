@@ -7,7 +7,9 @@ import VixenKit
 /// form (`studio_plugins::ui::form` in Rust decides the fields), checked as it's typed, with the plugin's own refusals
 /// shown under the field they name. Each finished edit is `controller_configure {id, config}`, the command agents call,
 /// on the working copy, so it publishes as one step on the display's Undo. It never grows past its column: a table too
-/// wide for it becomes one card per row.
+/// wide for it becomes one card per row. A plugin that sets its own output count (`outputCount: "fromConfig"`) has the
+/// controller resized in the same edit; the count shows read-only, and an edit that would drop patched outputs waits
+/// for Remove Outputs. The plugin's settings actions (Detect Lights) are buttons under the header.
 struct StudioPluginControllerInspector: View {
     let model: SetupModel
 
@@ -20,6 +22,11 @@ struct StudioPluginControllerInspector: View {
     @State private var failure: String?
     /// Table rows added and not yet edited or left (`/devices/2`): their missing required values aren't errors yet.
     @State private var freshRows: Set<String> = []
+    /// Settings that would drop patched outputs, waiting for Remove Outputs: the configuration and what it removes.
+    @State private var pendingRemoval: (config: String, message: String)?
+    /// The settings action running now, and what the last one said.
+    @State private var runningAction: String?
+    @State private var actionMessage: String?
     /// Display's columns stay alive, invisible, under the Controllers section; the harness then edits the section's copy.
     @Environment(\.studioCoveredBySection) private var covered
     @State private var coveredNow = StudioPluginFormHarness.Covered()
@@ -61,6 +68,13 @@ struct StudioPluginControllerInspector: View {
                 Menu {
                     Button("Copy Settings") { copySettings() }
                     Button("Paste Settings") { pasteSettings() }
+                    if let actions = plugin.actions, !actions.isEmpty {
+                        Divider()
+                        ForEach(actions, id: \.id) { action in
+                            Button(action.title) { runAction(action) }
+                                .disabled(runningAction != nil || plugin.problem != nil)
+                        }
+                    }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
@@ -69,6 +83,59 @@ struct StudioPluginControllerInspector: View {
                 .fixedSize()
                 .help("Copy this controller's settings as JSON, or paste settings from another show or a plugin's docs")
                 .accessibilityLabel("Settings actions")
+            }
+        }
+        if plugin.outputsFromConfig == true {
+            Label("\(info.outputs) \(info.outputs == 1 ? "output" : "outputs"), set by \(plugin.pluginName ?? "the plugin") from these settings", systemImage: "number")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .help("This plugin works out how many outputs the controller needs from its settings and names them; change the settings to change the outputs")
+                .accessibilityIdentifier("studio.pluginController.outputs")
+        }
+        if let actions = plugin.actions, !actions.isEmpty {
+            HStack(spacing: StudioMetrics.spacingXS) {
+                ForEach(actions, id: \.id) { action in
+                    Button {
+                        runAction(action)
+                    } label: {
+                        Text(action.title).lineLimit(1)
+                    }
+                    .controlSize(.small)
+                    .disabled(runningAction != nil || plugin.problem != nil)
+                    .help(action.description ?? action.title)
+                    .accessibilityIdentifier("studio.pluginController.action.\(action.id)")
+                }
+                if runningAction != nil {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if let actionMessage {
+                Text(actionMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+        }
+        if let pending = pendingRemoval {
+            VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
+                Label(pending.message, systemImage: "exclamationmark.triangle.fill")
+                    .symbolRenderingMode(.multicolor)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: StudioMetrics.spacingXS) {
+                    Button("Remove Outputs") {
+                        pendingRemoval = nil
+                        apply(pending.config, to: info.id, removePatched: true)
+                    }
+                    .accessibilityIdentifier("studio.pluginController.removeOutputs")
+                    Button("Keep Current Settings") {
+                        pendingRemoval = nil
+                        Task { await refresh(reset: true) }
+                    }
+                }
+                .controlSize(.small)
             }
         }
         if let problem = plugin.problem {
@@ -443,19 +510,60 @@ struct StudioPluginControllerInspector: View {
         set("", value)
     }
 
-    private func apply(_ config: String, to id: String) {
+    /// `removePatched` repeats an edit the user agreed may drop patched outputs (Remove Outputs).
+    private func apply(_ config: String, to id: String, removePatched: Bool = false) {
         guard let session = model.session else { return }
-        let arguments = "{\"id\":\(JSONValue.string(id).jsonText),\"config\":\(config)}"
+        let arguments = "{\"id\":\(JSONValue.string(id).jsonText),\"config\":\(config)\(removePatched ? ",\"removePatchedOutputs\":true" : "")}"
         Task {
             let result = await offMain { Result { try session.studioConfigureControllerNetwork(argumentsJson: arguments) } }
             switch result {
-            case .success:
-                failure = nil
+            case .success(let json):
+                pendingRemoval = nil
+                // The plugin couldn't work out the outputs: the settings applied and the count stayed.
+                failure = (JSONValue(jsonText: json)?["/warning"]).flatMap { $0.string }
                 model.controllersChanged()
+                await refresh(reset: true)
             case .failure(let error):
-                failure = error.userMessage
+                // `studio_controller_network::REMOVES_PATCHED`: the edit waits for Remove Outputs, still on screen.
+                if error.userMessage.hasPrefix("These settings remove ") {
+                    // The agents' hint names an argument; the inspector has the button instead.
+                    let message = error.userMessage.replacingOccurrences(of: "; pass removePatchedOutputs: true to apply anyway (Undo brings them back).", with: ". Undo brings them back.")
+                    pendingRemoval = (config, message)
+                    failure = nil
+                } else {
+                    failure = error.userMessage
+                    await refresh(reset: true)
+                }
             }
-            await refresh(reset: true)
+        }
+    }
+
+    /// Runs a settings action: the plugin's tool works out new settings (it may scan the network), which then apply like
+    /// an edit, one step on Undo.
+    private func runAction(_ action: PluginAction) {
+        guard let session = model.session, let info, runningAction == nil else { return }
+        runningAction = action.id
+        actionMessage = nil
+        failure = nil
+        let id = info.id
+        Task {
+            let result = await offMain { Result { try session.studioControllerAction(id: id, action: action.id) } }
+            runningAction = nil
+            switch result {
+            case .success(let json):
+                let answer = JSONValue(jsonText: json)
+                actionMessage = answer?["/message"]?.string
+                if let config = answer?["/config"], case .object = config, config != (self.info?.plugin.config ?? .object([:])) {
+                    draft = config
+                    draftErrors = [:]
+                    freshRows = []
+                    apply(config.jsonText, to: id)
+                } else if actionMessage == nil {
+                    actionMessage = "\(action.title): nothing to change."
+                }
+            case .failure(let error):
+                failure = "\(action.title): \(error.userMessage)"
+            }
         }
     }
 
@@ -482,11 +590,12 @@ struct StudioPluginControllerInspector: View {
             form = (try? JSONDecoder().decode(FormDescription.self, from: Data(text.utf8)))?.fields ?? []
         }
         // Edits that don't check out stay on screen until the controller changes some other way (Undo, an agent).
-        if switched || reset || (configChanged && draftErrors.isEmpty) {
+        if (switched || reset || (configChanged && draftErrors.isEmpty)) && pendingRemoval == nil {
             draft = next.plugin.config ?? .object([:])
             if switched || configChanged { draftErrors = [:] }
-            if switched { failure = nil; freshRows = [] }
+            if switched { failure = nil; freshRows = []; actionMessage = nil }
         }
+        if switched { pendingRemoval = nil }
     }
 
     // MARK: Harness
@@ -494,8 +603,9 @@ struct StudioPluginControllerInspector: View {
     /// `{ "action": "hook", "name": "studio.pluginForm", "path": [...] }`: `commit <pointer> <text>` hands a field's text
     /// over as Return would (a table cell too: `/devices/0/mac`), `toggle <pointer>` flips a switch, `addRow <pointer>`
     /// presses a table's Add Row, `leave <pointer>` moves focus out of a cell, `copy` and `paste <json>` run Copy and
-    /// Paste Settings, `state` answers the configuration shown and its problems (`errors`, every one; `shown`, those on
-    /// screen).
+    /// Paste Settings, `action <id>` presses a settings action, `removeOutputs` / `keepSettings` answer the patched-outputs
+    /// warning, `state` answers the configuration shown and its problems (`errors`, every one; `shown`, those on
+    /// screen), plus `outputs`, `pending` (the warning) and `message` (the last action's).
     private func installHarnessHook(_ token: UUID) {
         guard UITestHarness.isActive else { return }
         StudioPluginFormHarness.install()
@@ -533,13 +643,24 @@ struct StudioPluginControllerInspector: View {
                 return "copied=\(copied)"
             case "paste":
                 pasteSettings(args.dropFirst().joined(separator: " "))
+            case "action":
+                guard args.count >= 2, let action = info?.plugin.actions?.first(where: { $0.id == args[1] }) else { return "FAIL no action \(args.dropFirst().first ?? "")" }
+                runAction(action)
+                for _ in 0..<300 where runningAction != nil { try? await Task.sleep(for: .milliseconds(100)) }
+            case "removeOutputs":
+                guard let pending = pendingRemoval, let id = info?.id else { return "FAIL nothing pending" }
+                pendingRemoval = nil
+                apply(pending.config, to: id, removePatched: true)
+            case "keepSettings":
+                pendingRemoval = nil
+                await refresh(reset: true)
             case "state": break
             default: return "FAIL unknown \(args.first ?? "")"
             }
             try? await Task.sleep(for: .milliseconds(1_500))
             let problems = draftErrors.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "; ")
             let shown = draftErrors.keys.sorted().filter { !errors(at: $0).isEmpty }.joined(separator: ",")
-            return "config=\(info?.plugin.config?.jsonText ?? "nil") draft=\(draft.jsonText) errors=[\(problems)] shown=[\(shown)] failure=\(failure ?? "")"
+            return "config=\(info?.plugin.config?.jsonText ?? "nil") draft=\(draft.jsonText) errors=[\(problems)] shown=[\(shown)] failure=\(failure ?? "") outputs=\(info?.outputs ?? -1) pending=\(pendingRemoval?.message ?? "") message=\(actionMessage ?? "")"
         }
     }
 
@@ -577,6 +698,14 @@ struct StudioPluginControllerInspector: View {
         let frameEncoding: String?
         let problem: String?
         let configErrors: [FieldError]?
+        let outputsFromConfig: Bool?
+        let actions: [PluginAction]?
+    }
+
+    struct PluginAction: Decodable, Equatable {
+        let id: String
+        let title: String
+        let description: String?
     }
 
     struct FieldError: Decodable, Equatable, Hashable {
@@ -740,6 +869,7 @@ enum JSONValue: Codable, Hashable, Sendable {
     }
 
     var bool: Bool? { if case .bool(let b) = self { b } else { nil } }
+    var string: String? { if case .string(let t) = self { t } else { nil } }
     var array: [JSONValue]? { if case .array(let a) = self { a } else { nil } }
 
     private static func tokens(_ pointer: String) -> [String] {
@@ -812,6 +942,18 @@ extension SetupModel {
             guard let id = session.firstControllerInfo(rows: rows)?.id, let json = session.studioControllerNetwork(id: id),
                   let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any] else { return false }
             return object["plugin"] is [String: Any]
+        }
+    }
+
+    /// Whether the selected plugin controller's plugin sets its output count from the settings (no Outputs… button).
+    func studioSelectedPluginOwnsOutputs() async -> Bool {
+        guard let session else { return false }
+        let rows = controllerSelection
+        return await offMain {
+            guard let id = session.firstControllerInfo(rows: rows)?.id, let json = session.studioControllerNetwork(id: id),
+                  let object = try? JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any],
+                  let plugin = object["plugin"] as? [String: Any] else { return false }
+            return plugin["outputsFromConfig"] as? Bool == true
         }
     }
 }
