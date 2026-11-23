@@ -110,6 +110,8 @@ A crash or force-quit leaves the endpoint behind. `socket::recover_stale` remove
 
 The app runs this when `bind` reports `AddrInUse`. The bridge runs it when its connection is refused: it first creates the lock, which fails if any lock file exists, stale or not, then recovers, releases the lock and serves headless. So a bridge never clears a crashed app's lock; relaunching the app does that and recovers the socket.
 
+Endpoints of other profiles are swept too, because a killed session on a deleted temporary profile (UI checks, tests) leaves a socket nobody binds again. Each time a server starts, `socket::sweep_orphans` removes every other `mcp-*.sock` in the directory that passes rules 2 to 4 and is at least a minute old (`ORPHAN_AGE`, so a server between `bind` and `listen` keeps its endpoint), and logs one line with the count. It needs no lock, since it only removes sockets nothing listens on, and leaves the profile `.lock` alone; a crashed app's profile is still reclaimed by relaunching the app.
+
 Verified: unit tests for each rule (`cargo test -p studio-mcp --lib stale_tests`); on a show copy, force-killing the app left the socket and lock, a bridge then failed closed, relaunching logged one removal and served the live session, and with no app and no lock the bridge recovered the endpoint and served headless.
 
 See MCP-CLIENTS.md for setup and MCP-INTEGRATION.md for verification/marked-file handoff. Use tools/list for exact schemas.

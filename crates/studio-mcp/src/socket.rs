@@ -115,6 +115,7 @@ impl SocketServer {
         };
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
         let inode = fs::metadata(&path)?.ino();
+        sweep_orphans(dir, &path, ORPHAN_AGE);
         listener.set_nonblocking(true)?;
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = stop.clone();
@@ -225,6 +226,48 @@ pub fn recover_stale(path: &Path, lock_held: bool) -> io::Result<bool> {
         &format!("Removed stale MCP socket {} (no listener; profile lock held)", path.display()),
     );
     Ok(true)
+}
+
+/// A leftover endpoint at least this old with no listener is an orphan (`sweep_orphans`). Far longer than a server takes
+/// between binding its socket and listening on it.
+pub const ORPHAN_AGE: Duration = Duration::from_secs(60);
+
+/// Removes endpoints of other profiles left by sessions that never ran their destructors: a force-quit or killed app or
+/// bridge, or a crash. Their profiles are often deleted temporary ones (UI checks, tests), whose path nobody binds again, so
+/// `recover_stale` never gets to them. Each `mcp-*.sock` beside `keep` is removed only if it passes `secure`, is at least
+/// `min_age` old, refuses `connect` (no listener), and is still the same file just before unlinking. Anything else is left
+/// alone; errors are ignored, since the caller's own endpoint is already serving. Returns how many were removed.
+pub fn sweep_orphans(dir: &Path, keep: &Path, min_age: Duration) -> usize {
+    let Ok(entries) = fs::read_dir(dir) else { return 0 };
+    let mut removed = 0;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if path == keep || !name.starts_with("mcp-") || !name.ends_with(".sock") || secure(&path, true).is_err() {
+            continue;
+        }
+        let Ok(seen) = fs::symlink_metadata(&path) else { continue };
+        if !seen.modified().is_ok_and(|m| m.elapsed().is_ok_and(|age| age >= min_age)) {
+            continue;
+        }
+        match UnixStream::connect(&path) {
+            Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {}
+            _ => continue, // a live server, or an answer we can't read as "nobody"
+        }
+        if fs::symlink_metadata(&path).is_ok_and(|now| now.dev() == seen.dev() && now.ino() == seen.ino())
+            && fs::remove_file(&path).is_ok()
+        {
+            removed += 1;
+        }
+    }
+    if removed > 0 {
+        vixen_session::logging::info(
+            "Vixen.Studio.MCP",
+            &format!("Removed {removed} orphaned MCP socket(s) of other profiles (no listener)"),
+        );
+    }
+    removed
 }
 
 pub fn connect(profile: &Path) -> io::Result<Option<UnixStream>> {
@@ -383,6 +426,36 @@ mod stale_tests {
         fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
         assert!(recover_stale(&file, true).is_err());
         assert!(file.exists());
+        let _ = fs::remove_dir_all(d);
+    }
+
+    #[test]
+    fn sweep_removes_only_old_refused_endpoints_of_other_profiles() {
+        let d = dir("sweep");
+        let own = d.join("mcp-0000000000000001.sock");
+        let _own = UnixListener::bind(&own).unwrap();
+        fs::set_permissions(&own, fs::Permissions::from_mode(0o600)).unwrap();
+        let dead = d.join("mcp-0000000000000002.sock");
+        leftover(&dead, 0o600);
+        let live = d.join("mcp-0000000000000003.sock");
+        let _live = UnixListener::bind(&live).unwrap();
+        fs::set_permissions(&live, fs::Permissions::from_mode(0o600)).unwrap();
+        let open = d.join("mcp-0000000000000004.sock");
+        leftover(&open, 0o644);
+        let other = d.join("control.sock");
+        leftover(&other, 0o600);
+        let file = d.join("mcp-0000000000000005.sock");
+        fs::write(&file, b"").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        // Just created, so younger than the orphan age: a server between bind and listen looks like this.
+        assert_eq!(sweep_orphans(&d, &own, ORPHAN_AGE), 0);
+        assert!(dead.exists());
+        assert_eq!(sweep_orphans(&d, &own, Duration::ZERO), 1);
+        assert!(!dead.exists(), "an old endpoint with no listener is an orphan");
+        assert!(own.exists() && live.exists(), "the caller's own and live endpoints stay");
+        assert!(open.exists() && other.exists() && file.exists(), "insecure, foreign and non-socket files stay");
+        drop(_own);
+        assert_eq!(sweep_orphans(&d, &own, Duration::ZERO), 0, "never the caller's own endpoint");
         let _ = fs::remove_dir_all(d);
     }
 
