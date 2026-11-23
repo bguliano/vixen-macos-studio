@@ -86,7 +86,11 @@ enum SetupTestHooks {
             return model.properties.map(\.typeName).joined(separator: ",")
         }
 
+        // The list loads in the background after a selection, and arriving clears the property selection, so wait for it.
         hooks["setup.selectProperty"] = { names in
+            for _ in 0..<500 where model.propertiesLoading || !names.allSatisfy({ name in model.properties.contains { $0.typeName == name } }) {
+                try? await Task.sleep(for: .milliseconds(10))
+            }
             model.propertySelection = Set(model.properties.filter { names.contains($0.typeName) }.map(\.typeId))
             return "\(model.propertySelection.count)"
         }

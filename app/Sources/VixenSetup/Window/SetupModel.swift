@@ -87,6 +87,7 @@ final class SetupModel {
     @ObservationIgnored private var statsToken = 0
     @ObservationIgnored private var controllerToken = 0
     @ObservationIgnored private var propertiesToken = 0
+    @ObservationIgnored private var propertiesLoadedToken = 0
     @ObservationIgnored private var menuToken = 0
     @ObservationIgnored private(set) var menuCache: (state: SetupTreeMenuState, tags: [SetupTagMenuItem], selection: [String], revision: Int)?
     @ObservationIgnored private var editRevision = 0
@@ -459,6 +460,9 @@ final class SetupModel {
         SetupPatchOptions(allPoints: usesAllPoints, allOutputs: usesAllOutputs, reverseElements: reversesElements, reverseOutputs: reversesOutputs)
     }
 
+    /// Whether the primary row's properties are still on their way back from the background.
+    var propertiesLoading: Bool { propertiesLoadedToken != propertiesToken }
+
     /// F16: the primary row's properties.
     private func refreshProperties() {
         guard let session else { return }
@@ -467,6 +471,7 @@ final class SetupModel {
         guard let primary = primaryElement else {
             properties = []
             propertySelection = []
+            propertiesLoadedToken = token
             return
         }
         Task {
@@ -474,6 +479,7 @@ final class SetupModel {
             guard token == propertiesToken else { return }
             properties = rows
             propertySelection = []
+            propertiesLoadedToken = token
         }
     }
 
