@@ -1,0 +1,19 @@
+<?xml version='1.0' encoding='utf-8'?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+  <channel>
+    <title>Vixen Studio</title>
+    <link>https://github.com/bguliano/vixen-macos-studio/releases</link>
+    <description>Vixen Studio updates (unofficial alphas)</description>
+    <language>en</language>
+    <item>
+      <title>Vixen Studio 3.13.4 alpha 5</title>
+      <pubDate>Mon, 23 Nov 2026 18:44:29 GMT</pubDate>
+      <sparkle:version>8824</sparkle:version>
+      <sparkle:shortVersionString>3.13.4 alpha 5</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:fullReleaseNotesLink>https://github.com/bguliano/vixen-macos-studio/releases/tag/v3.13.4-studio-alpha.5</sparkle:fullReleaseNotesLink>
+      <description>&lt;h3&gt;Changes&lt;/h3&gt;&lt;ul&gt;&lt;li&gt;Backlog B66: derive the host test&amp;#x27;s apiVersion from API_VERSION (182f7e11b)&lt;/li&gt;&lt;li&gt;Backlog B64: drop the diagonal nudge for Single bulbs (4b0fe8b09)&lt;/li&gt;&lt;li&gt;Backlog B62: single bulbs from a plugin controller&amp;#x27;s lights (Govee devices) (67fbd9867)&lt;/li&gt;&lt;li&gt;Backlog B61: plugin controllers set their own output count; settings actions (Detect Lights) (f8bac26e0)&lt;/li&gt;&lt;li&gt;Backlog B63: keep Single lights drawn on the x = y diagonal when the preview opens (402403888)&lt;/li&gt;&lt;li&gt;Backlog B60: single bulbs in one step (smart bulbs, lamps, ceiling lights) (7888d8a2d)&lt;/li&gt;&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/bguliano/vixen-macos-studio/releases/download/v3.13.4-studio-alpha.5/Vixen-Studio-3.13.4-studio-alpha.5.zip" sparkle:edSignature="6QmXO2ck5y0Vfyc9SpeZQnkOHtmYJtbPC81/zPgrd9ibOlvNm9aUFUHrsaiQVrRvGe7eFnVmK9mzvsvYwDRkDA==" length="48237897" type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
