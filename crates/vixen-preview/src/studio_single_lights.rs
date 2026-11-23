@@ -131,13 +131,6 @@ impl DesignSession {
                 y += SINGLE_LIGHT_SPACING;
             }
             let mut shape = Shape::new_single(PreviewPoint::new(x, y), Sel::from_uuid(&tree, light), self.zoom);
-            // Opening a preview removes a shape whose left, right, top and bottom are all one number as "added by mistake"
-            // (`VerifyPreviewShapeLocations`), which a bulb on the diagonal is: keep bulbs off it.
-            let mut nudge = 1;
-            while shape.left() == shape.top() && nudge < 8 {
-                shape = Shape::new_single(PreviewPoint::new(x + nudge, y), Sel::from_uuid(&tree, light), self.zoom);
-                nudge += 1;
-            }
             shape.name = Some(tree.node(tree.find(&light).expect("a target is in the tree")).name.clone());
             shape.set_pixel_size(SINGLE_LIGHT_SIZE);
             shape.end_add_new();
