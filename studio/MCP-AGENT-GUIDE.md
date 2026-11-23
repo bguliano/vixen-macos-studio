@@ -21,3 +21,7 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
 
 - Read `display://summary` once at the start of a session for every prop's geometry.
 - Save explicitly (`sequence_save`); unsaved headless documents end with the session.
+- For a group of effects that fires on every note or beat (a swoosh then a glow, a slam with a ring, stripes that step), use
+  `motif_place` on a mark collection instead of building each hit yourself: pick a built-in (`motif_list`) or save your
+  own recipe with `motif_save`, pass two `targetSets` to alternate left/right, and check it with `dryRun:true` first. It
+  is one undo step.

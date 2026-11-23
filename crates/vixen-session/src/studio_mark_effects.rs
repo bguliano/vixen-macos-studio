@@ -19,7 +19,7 @@ const BEATS: &str = "Music - All";
 /// Onset marks are drawn this long; Vixen's minimum mark duration.
 const ONSET_MARK_MS: f64 = 25.0;
 /// Level parameters levelFromStrength scales, in order of preference.
-const LEVEL_PARAMS: &[&str] = &["LevelCurve", "Curve", "PulseCurve", "IntensityLevel"];
+pub(super) const LEVEL_PARAMS: &[&str] = &["LevelCurve", "Curve", "PulseCurve", "IntensityLevel"];
 /// Colour parameters cycleColors prefers, before any other colour-kind parameter.
 const COLOR_PARAMS: &[&str] = &["ColorGradient", "Color", "Colors"];
 
@@ -186,13 +186,21 @@ pub(super) fn scale_level(value: &ParamValue, factor: f64) -> ParamValue {
     }
 }
 
-struct Hit {
-    time: f64,
-    strength: f64,
+pub(super) struct Hit {
+    pub(super) time: f64,
+    pub(super) strength: f64,
 }
 
-/// effects_on_marks: validates everything, then adds every effect as one undo step and renders once.
-pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> Result<Value, String> {
+/// The marks a mark-driven tool fires on, after range, minStrength, snap and merging, with why the others were dropped.
+pub(super) struct Selection {
+    pub(super) hits: Vec<Hit>,
+    pub(super) end: f64,
+    pub(super) weak: usize,
+    pub(super) merged: usize,
+}
+
+/// Reads markCollection, range, minStrength, snap and gridCollection as effects_on_marks documents them.
+pub(super) fn select_hits(s: &SequenceSession, a: &Value) -> Result<Selection, String> {
     let length = s.length().total_ms();
     let source = collection(s, string(a, "markCollection")?, "markCollection")?;
     let (start, end) = match a.get("range") {
@@ -244,6 +252,13 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
     if hits.is_empty() {
         return Err(format!("No marks to place effects on: {in_range} in range, {weak} below minStrength"));
     }
+    Ok(Selection { hits, end, weak, merged })
+}
+
+/// effects_on_marks: validates everything, then adds every effect as one undo step and renders once.
+pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> Result<Value, String> {
+    let length = s.length().total_ms();
+    let Selection { hits, end, weak, merged } = select_hits(s, a)?;
 
     let template = a["template"].as_object().unwrap();
     let rotate = template.get("rotateTargets") == Some(&Value::Bool(true));
@@ -293,13 +308,7 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
             .iter()
             .enumerate()
             .map(|(i, c)| {
-                let solid = match param.kind {
-                    ParamKind::Color | ParamKind::Rgb => c.clone(),
-                    ParamKind::Gradient | ParamKind::ColorList => json!([c]),
-                    ParamKind::GradientList => json!([[c]]),
-                    _ => json!([{"gradient":[c]}]),
-                };
-                parameter_value(descriptor, param.name, &solid).map(|(_, v)| v).map_err(|e| format!("cycleColors[{i}]: {e}"))
+                parameter_value(descriptor, param.name, &solid_color(param.kind, c)).map(|(_, v)| v).map_err(|e| format!("cycleColors[{i}]: {e}"))
             })
             .collect::<Result<Vec<_>, String>>()?;
         cycles.push((param.name, values));
@@ -368,8 +377,18 @@ pub(super) fn effects_on_marks(core: &AppCore, s: &mut SequenceSession, a: &Valu
     Ok(json!({"effectIds":all,"marksUsed":hits.len() - short,"skipped":skipped,"effects":s.effect_count()}))
 }
 
+/// One #RRGGBB colour as a value of a colour-kind parameter: the colour itself, or a list holding only it.
+pub(super) fn solid_color(kind: ParamKind, color: &Value) -> Value {
+    match kind {
+        ParamKind::Color | ParamKind::Rgb => color.clone(),
+        ParamKind::Gradient | ParamKind::ColorList => json!([color]),
+        ParamKind::GradientList => json!([[color]]),
+        _ => json!([{"gradient":[color]}]),
+    }
+}
+
 /// The parameter cycleColors sets: a preferred colour parameter by name, else the first of a colour kind.
-fn color_param(descriptor: &'static vixen_effects::framework::EffectDescriptor) -> Option<&'static vixen_effects::framework::ParamDesc> {
+pub(super) fn color_param(descriptor: &'static vixen_effects::framework::EffectDescriptor) -> Option<&'static vixen_effects::framework::ParamDesc> {
     let colorish = |p: &&'static vixen_effects::framework::ParamDesc| {
         matches!(p.kind, ParamKind::Color | ParamKind::Rgb | ParamKind::Gradient | ParamKind::ColorList | ParamKind::GradientList | ParamKind::GradientLevels)
     };

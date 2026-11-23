@@ -158,6 +158,23 @@ fn real_music_thirty_second_show_via_stdio_only() {
     call("sequence_undo", json!({"sequenceId":sequence}));
     let status = call("sequence_status", json!({"sequenceId":sequence}));
     assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64, "{status}");
+    // A motif on the same hits: swoosh then glow per hit, previewed by a dry run, placed and undone as one step (B75).
+    let motifs = call("motif_list", json!({}));
+    assert_eq!(motifs["motifs"].as_array().unwrap().iter().filter(|m| m["builtIn"] == true).count(), 8, "{motifs}");
+    let motif = json!({"sequenceId":sequence,"markCollection":low["id"],"minStrength":0.3,"motif":"swoosh_glow","targetSets":[{"targetId":element}],"ramp":[60,100],"maxMs":400});
+    let mut dry = motif.clone();
+    dry["dryRun"] = json!(true);
+    let plan = call("motif_place", dry);
+    let events = plan["events"].as_u64().unwrap();
+    assert!(events > 4 && plan["total"].as_u64().unwrap() == events * 2, "{plan}");
+    assert!(plan["effects"].as_array().unwrap().iter().all(|e| e["durationMs"].as_f64().unwrap() <= 400.0), "{plan}");
+    let placed_motif = call("motif_place", motif);
+    assert_eq!(placed_motif["effectIds"].as_array().unwrap().len() as u64, events * 2, "{placed_motif}");
+    let rendered_motif = call("sequence_render", json!({"sequenceId":sequence}));
+    assert_eq!(rendered_motif["effects"].as_u64().unwrap(), selected.len() as u64 + events * 2);
+    call("sequence_undo", json!({"sequenceId":sequence}));
+    let status = call("sequence_status", json!({"sequenceId":sequence}));
+    assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64, "{status}");
     call(
         "sequence_save",
         json!({"sequenceId":sequence,"file":"MCP-music-test.tim","confirm":true}),

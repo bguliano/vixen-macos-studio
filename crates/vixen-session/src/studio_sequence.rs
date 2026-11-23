@@ -20,6 +20,8 @@ mod onsets;
 mod mark_effects;
 #[path = "studio_step_effects.rs"]
 mod step_effects;
+#[path = "studio_motifs.rs"]
+mod motifs;
 #[path = "studio_library.rs"]
 pub mod library;
 #[path = "studio_window_chrome.rs"]
@@ -334,6 +336,12 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "effect_gallery" {
         return effect_gallery::execute(core, a);
     }
+    match name {
+        "motif_list" => return motifs::list(core),
+        "motif_save" => return motifs::save(core, a),
+        "motif_delete" => return motifs::delete(core, a),
+        _ => {}
+    }
     if name == "sequence_open" || name == "sequence_create" {
         let mut reloaded = false;
         let mut session = if name == "sequence_open" {
@@ -476,6 +484,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "effects_batch" => return effects_batch(core, &mut s, a, agent),
         "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
         "effect_step" => return step_effects::effect_step(core, &mut s, a, agent),
+        "motif_place" => return motifs::place(core, &mut s, a, agent),
         "sequence_clear" => {
             confirm(a)?;
             let ids: Vec<EffectId> = s.effects().map(|e| e.id).collect();
@@ -1351,6 +1360,10 @@ pub fn tools() -> Vec<Value> {
         ("sequence_onset_marks","Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named \"<prefix> - low\", \"- mid\" and \"- high\" (prefix default \"Onsets\"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count.",json!({"sequenceId":string,"media":string,"bands":{"type":"array","items":{"type":"string","enum":["low","mid","high"]},"minItems":1,"maxItems":3},"minStrength":{"type":"number","minimum":0,"maximum":1},"prefix":string}),vec!["sequenceId"],false),
         ("effects_on_marks",mark_effects::DESCRIPTION,mark_effects::schema(),vec!["sequenceId","markCollection","template"],false),
         ("effect_step",step_effects::DESCRIPTION,step_effects::schema(),vec!["sequenceId","mode","segments"],false),
+        ("motif_place",motifs::PLACE_DESCRIPTION,motifs::place_schema(),vec!["sequenceId","markCollection","targetSets"],false),
+        ("motif_list",motifs::LIST_DESCRIPTION,json!({}),vec![],true),
+        ("motif_save",motifs::SAVE_DESCRIPTION,motifs::save_schema(),vec!["name","recipe"],false),
+        ("motif_delete",motifs::DELETE_DESCRIPTION,motifs::delete_schema(),vec!["name","confirm"],false),
         ("effect_gallery",effect_gallery::DESCRIPTION,effect_gallery::schema(),vec!["targetId","variants","file","confirm"],false),
         ("sequence_undo","Undo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
         ("sequence_redo","Redo one shared sequence edit.",json!({"sequenceId":string}),vec!["sequenceId"],false),
@@ -1366,7 +1379,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(marks_from_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {
@@ -1422,6 +1435,109 @@ mod tests {
         assert!(find(&core, window_id).is_ok());
         core.unregister_sequence_session(&window_only);
         assert!(find(&core, window_id).is_err(), "closed in the app, even while its views still hold it");
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn motifs_vary_per_mark_save_by_name_and_undo_in_one_step() {
+        let root = std::env::temp_dir().join(format!("studio-motifs-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let element = |name: &str| {
+            let id = core.studio_display.execute(&core, "element_create", &json!({"name":name}), false).unwrap()["result"]["ids"][0].clone();
+            core.studio_display.execute(&core, "element_color", &json!({"id":id,"mode":"rgb"}), false).unwrap();
+            id
+        };
+        let (a, b) = (element("Left"), element("Right"));
+        // Profiles often link folders elsewhere (the Media folder); saved motifs still work.
+        std::os::unix::fs::symlink(std::env::temp_dir(), root.join("Linked")).unwrap();
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let id = run("sequence_create", json!({"lengthMs":4000}))["sequenceId"].clone();
+        let hits = run("marks_create", json!({"sequenceId":id,"name":"Hits","timesMs":[0,500,1000,1500],"texts":["1","0.5","0.75","1"]}));
+        let hits_id = hits["id"].as_str().map(str::to_string).unwrap_or_else(|| {
+            run("sequence_marks", json!({"sequenceId":id})).as_array().unwrap().iter().find(|c| c["name"] == "Hits").unwrap()["id"].as_str().unwrap().to_string()
+        });
+        let sets = json!([{"targetId":a},{"targetId":b}]);
+        let dry = |motif: &str, extra: Value| {
+            let mut args = json!({"sequenceId":id,"markCollection":"Hits","motif":motif,"targetSets":sets,"dryRun":true});
+            args.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            run("motif_place", args)
+        };
+        let count = || run("sequence_status", json!({"sequenceId":id}))["effects"].as_u64().unwrap();
+
+        // swoosh_glow: a swoosh then a glow per mark, alternating sets and swoosh direction, colours from the palette.
+        let plan = dry("swoosh_glow", json!({"palette":["#ff0000","#0000ff"]}));
+        assert_eq!((plan["events"].as_u64(), plan["total"].as_u64()), (Some(4), Some(8)), "{plan}");
+        let effects = plan["effects"].as_array().unwrap();
+        let swooshes: Vec<&Value> = effects.iter().filter(|e| e["step"] == 0).collect();
+        assert_eq!(swooshes.iter().map(|e| e["target"].as_str().unwrap()).collect::<Vec<_>>(), ["Left", "Right", "Left", "Right"]);
+        assert_eq!(swooshes.iter().map(|e| e["params"]["ReverseDirection"].as_bool().unwrap()).collect::<Vec<_>>(), [false, true, false, true]);
+        assert_eq!(swooshes[1]["params"]["ColorGradient"], json!(["#0000ff"]));
+        assert_eq!((swooshes[0]["startMs"].as_f64(), swooshes[0]["durationMs"].as_f64()), (Some(0.0), Some(175.0)));
+        let glow = effects.iter().find(|e| e["step"] == 1 && e["mark"] == 0).unwrap();
+        assert_eq!((glow["effect"].as_str(), glow["startMs"].as_f64(), glow["durationMs"].as_f64()), (Some("Pulse"), Some(175.0), Some(325.0)));
+        // The last mark holds the median gap; maxMs caps every hold.
+        let last = effects.iter().find(|e| e["step"] == 1 && e["mark"] == 3).unwrap();
+        assert_eq!(last["durationMs"].as_f64(), Some(325.0));
+        let capped = dry("pingpong", json!({"maxMs":200}));
+        assert!(capped["effects"].as_array().unwrap().iter().all(|e| e["durationMs"].as_f64().unwrap() <= 200.0), "{capped}");
+        assert_eq!(count(), 0, "a dry run adds nothing");
+
+        // ramp raises the level from the first mark to the last.
+        let ramped = dry("pingpong", json!({"ramp":[50,100]}));
+        let factors: Vec<f64> = ramped["effects"].as_array().unwrap().iter().map(|e| e["levelFactor"].as_f64().unwrap_or(1.0)).collect();
+        assert_eq!(factors.len(), 4);
+        assert!((factors[0] - 0.5).abs() < 1e-9 && (factors[3] - 1.0).abs() < 1e-9 && factors[1] < factors[2], "{factors:?}");
+        // Bands step per mark; a step shifted before the first mark is skipped.
+        let hop = dry("hop", json!({}));
+        let froms: Vec<f64> = hop["effects"].as_array().unwrap().iter().map(|e| e["params"]["fromPct"].as_f64().unwrap()).collect();
+        assert_eq!(froms, [0.0, 35.0, 70.0, 0.0]);
+        assert_eq!(dry("climb", json!({}))["total"], 7);
+        // march is one Bars across the run, stepping on the motif's own mark collection.
+        let march = dry("march", json!({}));
+        assert_eq!(march["total"], 2, "one per target set: {march}");
+        let bars = &march["effects"][0];
+        assert_eq!((bars["effect"].as_str(), bars["startMs"].as_f64(), bars["durationMs"].as_f64()), (Some("Bars"), Some(0.0), Some(2000.0)));
+        assert_eq!(bars["params"]["MarkCollectionId"], json!(hits_id));
+        assert_eq!(bars["params"]["Colors"], json!([["#ff0000"], ["#ffffff"]]));
+
+        // Placing for real is one undo step.
+        let placed = run("motif_place", json!({"sequenceId":id,"markCollection":"Hits","motif":"slam","targetSets":sets}));
+        assert_eq!(placed["effectIds"].as_array().unwrap().len(), 16, "{placed}");
+        assert_eq!(count(), 16);
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!(count(), 0, "one undo removes the whole motif");
+        for motif in ["train", "stab_run", "climb", "march"] {
+            run("motif_place", json!({"sequenceId":id,"markCollection":"Hits","motif":motif,"targetSets":sets}));
+        }
+        assert!(count() > 0);
+
+        // Agents save their own recipes by name.
+        let recipe = json!({"palette":["#00ff00"],"steps":[{"effect":"set level","length":0.5,"params":{"IntensityLevel":0.4},"stepParams":{"IntensityLevel":0.2},"stepWrap":3},{"effect":"Pulse","set":"all","start":0.5,"length":0.5}]});
+        run("motif_save", json!({"name":"big hit","recipe":recipe}));
+        assert!(fail("motif_save", json!({"name":"big hit","recipe":recipe})).contains("replace:true"));
+        assert!(fail("motif_save", json!({"name":"March","recipe":recipe})).contains("built-in"));
+        assert!(fail("motif_save", json!({"name":"x","recipe":{"steps":[{"effect":"Wipe","params":{"Nope":1}}]}})).contains("Nope"));
+        run("motif_save", json!({"name":"big hit","recipe":recipe,"replace":true}));
+        let listed = run("motif_list", json!({}));
+        let mine = listed["motifs"].as_array().unwrap().iter().find(|m| m["name"] == "big hit").unwrap().clone();
+        assert_eq!((mine["builtIn"].as_bool(), &mine["recipe"]), (Some(false), &recipe));
+        assert_eq!(listed["motifs"].as_array().unwrap().iter().filter(|m| m["builtIn"] == true).count(), 8);
+        let saved = run("motif_place", json!({"sequenceId":id,"markCollection":"Hits","motif":"Big Hit","targetSets":sets,"dryRun":true}));
+        let levels: Vec<f64> = saved["effects"].as_array().unwrap().iter().filter(|e| e["step"] == 0).map(|e| e["params"]["IntensityLevel"].as_f64().unwrap()).collect();
+        assert!(levels.iter().zip([0.4, 0.6, 0.8, 0.4]).all(|(l, w)| (l - w).abs() < 1e-9), "{levels:?}");
+        assert_eq!(saved["total"], 12, "4 stabs plus a Pulse on both sets per mark");
+        assert!(fail("motif_delete", json!({"name":"big hit"})).contains("confirm"));
+        assert!(fail("motif_delete", json!({"name":"climb","confirm":true})).contains("built-in"));
+        run("motif_delete", json!({"name":"big hit","confirm":true}));
+        assert!(fail("motif_place", json!({"sequenceId":id,"markCollection":"Hits","motif":"big hit","targetSets":sets})).contains("Unknown motif"));
+
+        // Inline recipes, checked against the target sets.
+        let inline = json!({"steps":[{"effect":"Pulse","set":2}]});
+        assert!(fail("motif_place", json!({"sequenceId":id,"markCollection":"Hits","recipe":inline,"targetSets":sets})).contains("uses set 2"));
+        assert!(fail("motif_place", json!({"sequenceId":id,"markCollection":"Hits","targetSets":sets})).contains("exactly one of motif or recipe"));
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_dir_all(root);
