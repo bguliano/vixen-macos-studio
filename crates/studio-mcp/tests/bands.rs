@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -28,7 +29,7 @@ impl Drop for ProfileDir {
 /// time (splitting, removing) but leaves other rows and other props alone, all undone in one step.
 #[test]
 fn feathered_and_exclusive_bands_measured_on_preview_frames() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let profile = ProfileDir(target.join(format!("studio-mcp-bands-{}", std::process::id())));
     let root = profile.0.clone();

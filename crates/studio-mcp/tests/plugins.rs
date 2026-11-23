@@ -1,10 +1,11 @@
 //! Plugin developer tools, plugin-contributed tools, plugins:// resources and the build_plugin prompt through the MCP
 //! server, with a private plugin host and a plugin made by plugin_scaffold (python3).
+mod support;
 use serde_json::{json, Value};
 use std::path::Path;
 
 fn profile() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/show-copy")
+    support::target_dir().join("show-copy")
 }
 
 fn call(server: &mut studio_mcp::Server, id: u64, name: &str, arguments: Value) -> (bool, Value) {

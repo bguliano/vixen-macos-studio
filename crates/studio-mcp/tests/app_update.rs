@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -20,7 +21,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 /// updater) say they need the running app; no tool installs an update or changes the automatic-install switch.
 #[test]
 fn app_update_tools_are_listed_and_need_the_app() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let root = target.join(format!("studio-mcp-app-update-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);

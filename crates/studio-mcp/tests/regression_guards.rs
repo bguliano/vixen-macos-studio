@@ -4,6 +4,7 @@
 //! The budgets are several times what a healthy build measures on the Mac mini, so a busy machine doesn't trip them;
 //! the regressions they guard against cost far more than that (e8a531dbc's re-queued renders made 200 edits take 4.2 GB
 //! instead of 455 MB).
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -38,7 +39,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 }
 
 fn sample_show() -> Option<PathBuf> {
-    let show = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/show-copy");
+    let show = support::target_dir().join("show-copy");
     if show.join("SystemData").is_dir() {
         Some(show)
     } else {

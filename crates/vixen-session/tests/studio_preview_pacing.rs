@@ -4,6 +4,8 @@
 //! every update and a gap between frames is the pipeline's, not the music's (the show's own songs change every beat or so).
 //! Runs on `target/show-copy` with a GPU, and is skipped without either.
 
+#[path = "../../studio-mcp/tests/support/mod.rs"]
+mod support;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
@@ -47,7 +49,7 @@ fn percentile(sorted: &[f64], p: f64) -> f64 {
 
 #[test]
 fn playback_reaches_the_preview_at_the_update_interval() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let show = target.join("show-copy");
     if !show.join("SystemData").is_dir() {
         eprintln!("skipped: no target/show-copy");

@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -20,7 +21,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 /// needs the running app instead of returning an empty list that would look like "no such command".
 #[test]
 fn command_palette_is_listed_and_needs_the_app() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let root = target.join(format!("studio-mcp-command-palette-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);

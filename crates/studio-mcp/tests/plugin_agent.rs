@@ -10,6 +10,7 @@
 //! the plugin only ever sends to the loopback listener.
 //!
 //! The user's three steps (the two Settings switches and Live Output) are done here the way the app does them.
+mod support;
 use serde_json::{json, Value};
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
@@ -17,7 +18,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 fn show_copy() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/show-copy")
+    support::target_dir().join("show-copy")
 }
 
 fn copy_dir(from: &Path, to: &Path) {

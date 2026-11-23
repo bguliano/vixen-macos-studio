@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -20,7 +21,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 /// reported angles agree with where each string's base actually sits on the preview's base ellipse.
 #[test]
 fn megatree_geometry_matches_the_drawn_preview() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let root = target.join(format!("studio-mcp-geometry-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);

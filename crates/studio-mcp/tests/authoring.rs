@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -25,7 +26,7 @@ impl Drop for ProfileDir {
 }
 #[test]
 fn real_music_thirty_second_show_via_stdio_only() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let profile = ProfileDir(target.join(format!("studio-mcp-e2e-{}", std::process::id())));
     let root = profile.0.clone();

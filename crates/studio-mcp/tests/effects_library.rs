@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     io::{BufRead, BufReader, Write},
@@ -63,7 +64,7 @@ fn session(root: &Path, settings: &Path, calls: &[Value]) -> Vec<(bool, Value)> 
 /// relaunch) reads them back, and bad arguments change nothing.
 #[test]
 fn effects_library_pins_favorites_that_survive_a_new_session() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let root = target.join(format!("studio-mcp-effects-library-{}", std::process::id()));
     let settings = root.with_extension("settings");

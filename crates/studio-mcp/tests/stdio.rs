@@ -1,8 +1,9 @@
+mod support;
 use serde_json::{json, Value};
 use std::io::Write;
 use std::process::{Command, Stdio};
 fn profile() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/show-copy")
+    support::target_dir().join("show-copy")
 }
 #[test]
 fn real_show_stdio_round_trip_and_safety() {

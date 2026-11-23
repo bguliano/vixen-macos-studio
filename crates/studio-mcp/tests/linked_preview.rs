@@ -1,3 +1,4 @@
+mod support;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -22,7 +23,7 @@ fn copy_dir(src: &Path, dst: &Path) {
 /// steps from each light to a neighbour in the preview, never jumping across the tree. One undo removes both.
 #[test]
 fn a_new_megatree_appears_linked_in_the_chosen_preview() {
-    let target = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
+    let target = support::target_dir();
     let source = target.join("show-copy");
     let root = target.join(format!("studio-mcp-linked-preview-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
