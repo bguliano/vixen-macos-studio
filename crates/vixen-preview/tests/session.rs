@@ -1706,6 +1706,17 @@ fn opening_removes_sizeless_shapes_and_brings_strays_home() {
 }
 
 #[test]
+fn opening_keeps_a_single_light_on_the_diagonal() {
+    let mut d = PreviewData::new();
+    let single = d.add_shape(Shape::new_single(p(50, 50), None, 1.0));
+    let mut s = DesignSession::new(d, None);
+    s.set_background_size(800, 600);
+    let (_, report) = s.setup_open();
+    assert!(report.removed.is_empty(), "a Single light always has one point, so x == y is not a mistake");
+    assert_eq!(left_top(&s, single), (50, 50));
+}
+
+#[test]
 fn opening_drops_links_to_elements_that_are_gone() {
     let (tree, group) = tree_with_leaves();
     let leaf = tree.node(group).children[0];

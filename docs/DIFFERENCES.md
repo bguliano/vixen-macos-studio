@@ -145,6 +145,12 @@ From `docs/parity/display-setup.md`, where each has its reason.
 | A filter whose line was deleted | | Stays on the canvas until the next element change or resize, so it can be connected again |
 | OK after a filter was moved off a filter that later lost its own source | Deletes the moved filter too, though it is still connected, because the old parent's child list is never updated | Deletes only filters that have no source, and what hangs off them now |
 
+## Preview setup
+
+| Where | Upstream | This port | Why | How to reverse |
+|---|---|---|---|---|
+| Opening the preview (`verify_preview_shape_locations` in `crates/vixen-preview/src/session.rs`) | `VerifyPreviewShapeLocations` removes any shape whose left, right, top and bottom are one number as "added by mistake". A Single light's bounds are always its one point, so every Single drawn where x equals y is deleted on the next open | Keeps Single lights; other shapes collapsed to one diagonal point are still removed | Upstream silently deletes a light the user placed. A Single off the preview is still brought home by the next check | Drop the `ShapeKind::Single` exclusion from the no-size check |
+
 ## Administration
 
 The window-by-window decisions (Q1 to Q23) are in `docs/parity/administration.md` under "Quirk decisions", each with its reason. These came out of the review and aren't in that list.

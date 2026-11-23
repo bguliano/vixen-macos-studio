@@ -2731,7 +2731,9 @@ impl DesignSession {
             }
             let (l, t, r, b) = (s.left(), s.top(), s.right(), s.bottom());
             //if items don't have any size then they were probably added by mistake.
-            if t == b && l == r && t == l {
+            // Deliberate difference: upstream also removes a Single light here whenever its x equals its y, since a
+            // Single's bounds are always one point. The port keeps Singles (docs/DIFFERENCES.md).
+            if t == b && l == r && t == l && !matches!(s.kind(), ShapeKind::Single) {
                 to_remove.push(id);
                 continue;
             }
