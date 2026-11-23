@@ -52,11 +52,20 @@ pub struct ExternalType {
 }
 
 /// What a plugin answers for a configuration of an `outputCount: "fromConfig"` type: how many outputs it needs, and their
-/// names when it gives them (exactly one per output).
+/// names when it gives them (exactly one per output), and the lights they drive when it lists them (B62).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExternalOutputs {
     pub count: u32,
     pub names: Option<Vec<String>>,
+    /// The plugin's lights (devices) in output order, each on the next `outputs` outputs. Only when they fit in the count.
+    pub lights: Option<Vec<ExternalLight>>,
+}
+
+/// One light a plugin controller drives: a bulb or lamp on `outputs` consecutive outputs (3 for an RGB bulb).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExternalLight {
+    pub name: String,
+    pub outputs: u32,
 }
 
 /// What Studio's plugin host implements.

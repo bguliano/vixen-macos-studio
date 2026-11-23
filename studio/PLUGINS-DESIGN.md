@@ -455,6 +455,12 @@ Lifecycle guarantees (the host's job, all tested):
   read-only. Settings actions (`actions`: Detect Lights) run a plugin tool on the current settings; its `config` or
   `mergePatch` applies as an edit (`controller_action` for agents). A plugin that must also load on API 1.0 puts both
   at the configSchema root as `x-outputCount` / `x-actions` and checks `capabilities.controllerOutputs`.
+- Lights from a plugin (backlog B62): the `controller.outputsFor` answer may list `lights` (`{name, outputCount}` in
+  output order, 1/3/4 outputs each; ignored unless all valid and within the count). `controller_lights` reads them (or,
+  without a list, groups outputs named `<light> R/G/B(/W)`), and `element_single_bulbs` `fromController` / the Single
+  Bulbs sheet's Use the Controller's Lights make one Single Item per unpatched light, colour handling from its output
+  count, each patched to its own outputs, one Undo step. SDK helpers: `lights_outputs`, `lightsOutputs`,
+  `Outputs::for_lights`.
 
 ## Agent tools, commands and events
 

@@ -176,6 +176,7 @@ impl Server {
                 tools.push(vixen_session::studio_controller_network::tool());
                 tools.push(vixen_session::studio_controller_network::overview_tool());
                 tools.push(vixen_session::studio_patch::ranges_tool());
+                tools.push(vixen_session::studio_single_bulbs::lights_tool());
                 tools.push(vixen_session::studio_palette::tool());
                 tools.extend(vixen_session::studio_updates::tools());
                 tools.extend(studio_plugins::mcp::tools());
@@ -203,6 +204,7 @@ impl Server {
                     && name != "controller_network"
                     && name != "controller_overview"
                     && name != "patch_ranges"
+                    && name != "controller_lights"
                     && name != "command_palette"
                     && !vixen_session::studio_updates::is_tool(name)
                     && !vixen_session::studio_display::command_tools()
@@ -441,6 +443,9 @@ impl Server {
         }
         if name == "patch_ranges" {
             return vixen_session::studio_patch::ranges_of(&self.setup, args);
+        }
+        if name == "controller_lights" {
+            return vixen_session::studio_single_bulbs::controller_lights(&self.setup, args);
         }
         let obj = args.as_object().ok_or("arguments must be an object")?;
         if obj.keys().any(|k| k != "offset" && k != "limit") {

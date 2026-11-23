@@ -94,6 +94,11 @@ When your settings decide how many outputs the controller needs (a table of ligh
   would go and offers **Remove Outputs**; agents get a refusal naming them and pass `removePatchedOutputs: true`.
 - `outputNames` in the answer, one per output, name the outputs (`Ceiling R`, `Ceiling G`, `Ceiling B`), so patching
   and the Controllers section read like the device.
+- `lights` in the answer, `[{name, outputCount}]` in output order (1, 3 or 4 outputs each), lists the lights those
+  outputs drive. Studio's **Add ▸ Single Bulbs…** then offers **Use the Controller's Lights**: one element per light,
+  named after it, with the colour handling its outputs take, each patched to its own outputs, in one Undo step (agents:
+  `controller_lights`, then `element_single_bulbs` with `fromController`). Without `lights`, outputs named per light
+  (`Ceiling R`, `Ceiling G`, `Ceiling B`) are read the same way.
 - The inspector shows the count read-only, saying your plugin sets it, instead of the Outputs… button; agents see
   `outputsFromConfig: true` in `controller_types` and `controller_network`, and `controller_configure` refuses `outputs`.
 - Answer from `config` alone: no instance need exist (Live Output may be off), and Studio waits for you (5 s at most).
@@ -102,7 +107,8 @@ When your settings decide how many outputs the controller needs (a table of ligh
 
 The SDKs answer `controller.outputsFor` for you: implement `outputs_for(cls, config)` as a class method (Python),
 `static outputsFor(config)` (Node) or register `Plugin::outputs_for` (Rust), returning a count, a list of names, or
-both.
+both; to list the lights too, return `vp.lights_outputs([(name, 3), …])` (Python), `lightsOutputs([[name, 3], …])`
+(Node) or `Outputs::for_lights(…)` (Rust), which also name the outputs.
 
 **Studio before plugin API 1.1** doesn't know these fields and refuses manifests with unknown ones. To keep one package
 working there, put them at the root of `configSchema` as `x-outputCount` and `x-actions` (every Studio's checker ignores
@@ -166,7 +172,8 @@ does. The SDKs' `triplets(values, order)` helper groups outputs into `(r, g, b)`
 
 **One RGB device per three outputs.** Declare `"outputCount": "fromConfig"` (`maxOutputs` 3 × the most devices you
 support), list the devices in a table setting, answer `controller.outputsFor` with 3 outputs per row named after the
-device, and send device *k* outputs `3k, 3k+1, 3k+2`:
+device (and list the rows as `lights`, so Single Bulbs can make their elements), and send device *k* outputs
+`3k, 3k+1, 3k+2`:
 
 ```json recipe configSchema
 {
@@ -196,7 +203,7 @@ device, and send device *k* outputs `3k, 3k+1, 3k+2`:
 class Lights(vp.Controller):
     @classmethod
     def outputs_for(cls, config):
-        return [f"{d.get('name') or d['address']} {c}" for d in config["devices"] for c in "RGB"]
+        return vp.lights_outputs([(d.get("name") or d["address"], 3) for d in config["devices"]])
 ```
 
 In `configure`, on a Studio without `controllerOutputs` (`not plugin.host_sets_output_count`), refuse a device list

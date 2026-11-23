@@ -6,8 +6,8 @@
 //! configuration it is given, refuses a configuration containing `"bad"` with field errors, and with `--report` sends
 //! status, stats and a message after `controller.start`. `--slow-frames` sleeps 50 ms per frame. `--display=<json>`
 //! asks `display.snapshot` with those params after initialize and logs the answer. `controller.outputsFor` answers 3
-//! outputs per item of the configuration's `lamps` (named `<name> R/G/B`), and its `detect` tool answers a merge patch
-//! adding two lamps.
+//! outputs per item of the configuration's `lamps` (named `<name> R/G/B`; with `"listLights": true` also listed as `lights`,
+//! one per lamp), and its `detect` tool answers a merge patch adding two lamps.
 use serde_json::{json, Value};
 use std::io::{BufRead, Write};
 
@@ -113,7 +113,11 @@ fn main() {
                 let lamps = message["params"]["config"]["lamps"].as_array().cloned().unwrap_or_default();
                 let names: Vec<String> = lamps.iter().flat_map(|l| ["R", "G", "B"].map(|c| format!("{} {c}", l["name"].as_str().unwrap_or("Lamp")))).collect();
                 eprintln!("controller.outputsFor {}", names.len());
-                send(json!({"jsonrpc": "2.0", "id": id, "result": {"outputCount": names.len(), "outputNames": names}}));
+                let mut result = json!({"outputCount": names.len(), "outputNames": names});
+                if message["params"]["config"]["listLights"] == json!(true) {
+                    result["lights"] = lamps.iter().map(|l| json!({"name": l["name"].as_str().unwrap_or("Lamp"), "outputCount": 3})).collect();
+                }
+                send(json!({"jsonrpc": "2.0", "id": id, "result": result}));
             }
             "tool.call" => {
                 let p = &message["params"];

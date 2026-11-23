@@ -282,6 +282,9 @@ fn exercise(plugin: &Arc<PluginProcess>, controller: &ControllerType, options: &
             if count > controller.max_outputs {
                 return Err(format!("answered {count} outputs, more than its maxOutputs {}", controller.max_outputs));
             }
+            if answer.get("lights").is_some_and(|l| crate::controllers::parse_lights(l, count).is_none()) {
+                return Ok((Status::Warn, format!("lights isn't a list of {{name, outputCount 1, 3 or 4}} that fits in {count} outputs; Studio ignores it"), ()));
+            }
             match answer.get("outputNames").map(|n| n.as_array().map(Vec::len)) {
                 Some(Some(n)) if n as u64 != count => Ok((Status::Warn, format!("{n} outputNames for {count} outputs; Studio uses them only with one per output"), ())),
                 Some(None) => Ok((Status::Warn, "outputNames isn't an array of strings".into(), ())),

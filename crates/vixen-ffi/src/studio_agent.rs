@@ -280,6 +280,19 @@ impl DisplaySetupSession {
             .map(|v| v.to_string())
             .map_err(FfiError::new)
     }
+    /// The lights a controller drives, for the Single Bulbs sheet's Use Lights (`studio_single_bulbs::controller_lights`, the MCP
+    /// `controller_lights` tool): JSON {source, lights:[{name, firstOutput, lastOutput, outputCount, color, patched}], unpatched}.
+    /// Asks a plugin controller's plugin (up to its request timeout) without holding the working copy, so call it off the main
+    /// thread.
+    pub fn studio_controller_lights(&self, id: String) -> Result<String, FfiError> {
+        let id = uuid::Uuid::parse_str(&id).map_err(|_| FfiError::new("id must be a controller UUID"))?;
+        let snapshot = {
+            let working = self.inner.read();
+            let slot = working.slot_of(id).ok_or_else(|| FfiError::new("Controller not found"))?;
+            vixen_session::studio_single_bulbs::ControllerSnapshot::of(&working, slot)
+        };
+        snapshot.lights_json().map(|v| v.to_string()).map_err(FfiError::new)
+    }
     /// Runs a plugin controller's settings action (Detect Lights) on its current settings and returns the plugin's answer
     /// as JSON {config, message}; nothing is applied. The caller applies `config` with
     /// `studio_configure_controller_network`, so it's checked like any edit and is one step on Undo. Blocks while the

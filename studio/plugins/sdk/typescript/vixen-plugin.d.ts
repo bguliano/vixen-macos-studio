@@ -69,6 +69,10 @@ export type Awaitable<T> = T | Promise<T>;
 
 export function decode(encoding: string, values: unknown): number[] | FrameValue[];
 export function triplets(values: number[], order?: string): Array<[number, number, number]>;
+/** One light a controller drives, on the next outputCount outputs: 1 (single colour), 3 (RGB) or 4 (RGBW). */
+export interface Light { name: string; outputCount: number }
+export interface Outputs { outputCount: number; outputNames?: string[]; lights?: Light[] }
+export function lightsOutputs(lights: Array<[string, number]>): Outputs;
 export function validate(schema: object, value: unknown, at?: string): FieldError[];
 export function fillDefaults(schema: object, config: Config): Config;
 export function loadManifest(path?: string): Record<string, any>;
@@ -91,7 +95,7 @@ export class Controller {
   destroy(): Awaitable<void>;
   outputNames(): string[] | undefined;
   /** "outputCount": "fromConfig" types: the outputs a (checked) configuration needs; see the .mjs. */
-  static outputsFor(config: Config): Awaitable<number | string[] | { outputCount: number; outputNames?: string[] } | undefined>;
+  static outputsFor(config: Config): Awaitable<number | string[] | Outputs | undefined>;
   status(state: "running" | "unavailable" | "error", message?: string): void;
   /** Adds what was sent since the last call; the SDK sends the running totals. */
   stats(counters?: { packetsSent?: number; bytesSent?: number; errors?: number }): void;

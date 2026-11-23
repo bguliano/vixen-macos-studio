@@ -51,9 +51,232 @@ fn uuid_arg(a: &Value, key: &str) -> Result<Option<Uuid>, String> {
         .transpose()
 }
 
+/// One light a controller drives (B62): a bulb on `outputs` consecutive outputs from `first` (zero-based).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ControllerLight {
+    pub name: String,
+    pub first: u32,
+    pub outputs: u32,
+}
+
+impl ControllerLight {
+    /// The colour handling a bulb on this many outputs takes: 1 single colour, 3 RGB, 4 RGBW.
+    pub fn mode(&self) -> &'static str {
+        match self.outputs {
+            1 => "single",
+            4 => "rgbw",
+            _ => "rgb",
+        }
+    }
+}
+
+/// What [`lights_of`] needs of a controller, copied out of the working copy so the plugin can be asked without holding it.
+#[derive(Clone, Debug)]
+pub struct ControllerSnapshot {
+    pub id: Uuid,
+    pub name: String,
+    pub type_id: Uuid,
+    pub config: Option<vixen_output::ControllerConfig>,
+    /// Each output's name and whether it's patched.
+    pub outputs: Vec<(String, bool)>,
+}
+
+impl ControllerSnapshot {
+    pub fn of(s: &SetupSession, slot: u32) -> ControllerSnapshot {
+        let c = &s.controllers[slot as usize];
+        let outputs = c.outputs.iter().map(|o| (o.name.clone(), s.flow.source(o.cid).is_some())).collect();
+        ControllerSnapshot { id: c.id, name: c.name.clone(), type_id: c.type_id, config: c.config.clone(), outputs }
+    }
+
+    /// The controller's lights, in output order, and where they came from: `plugin` when its plugin lists them
+    /// (`controller.outputsFor` answers `lights`), else `outputNames` when its outputs are named per light, R G B (W) each
+    /// ("Ceiling R", "Ceiling G", "Ceiling B"), as a plugin controller's are. An error says why there are none.
+    pub fn lights(&self) -> Result<(Vec<ControllerLight>, &'static str), String> {
+        use vixen_output::modules::studio_external;
+        let mut why = None;
+        if let Some(vixen_output::ControllerConfig::External(config)) = &self.config {
+            if studio_external::outputs_from_config(&self.type_id) {
+                let settings = studio_external::describe(config).and_then(|d| serde_json::from_str::<Value>(&d).ok()).map(|d| d["config"].clone()).filter(Value::is_object);
+                match settings.and_then(|settings| studio_external::outputs_for(config, &settings.to_string())) {
+                    Some(Ok(answer)) => {
+                        let mut first = 0;
+                        let lights: Vec<ControllerLight> = answer
+                            .lights
+                            .unwrap_or_default()
+                            .into_iter()
+                            .map(|l| {
+                                let light = ControllerLight { name: l.name, first, outputs: l.outputs };
+                                first += l.outputs;
+                                light
+                            })
+                            .collect();
+                        // Lights past the controller's outputs (settings not applied yet) can't be patched: use the names.
+                        if !lights.is_empty() && first as usize <= self.outputs.len() {
+                            return Ok((lights, "plugin"));
+                        }
+                    }
+                    Some(Err(e)) => why = Some(e),
+                    None => {}
+                }
+            }
+        }
+        let names: Vec<&str> = self.outputs.iter().map(|(n, _)| n.as_str()).collect();
+        lights_from_names(&names).map(|l| (l, "outputNames")).ok_or_else(|| {
+            let base = format!("{} doesn't list its lights: its plugin gives no light list and its outputs aren't named per light (\"Ceiling R\", \"Ceiling G\", \"Ceiling B\")", self.name);
+            match why {
+                Some(why) => format!("{base}; {why}"),
+                None => base,
+            }
+        })
+    }
+
+    /// Whether any of a light's outputs is patched.
+    pub fn patched(&self, light: &ControllerLight) -> bool {
+        (light.first..light.first + light.outputs).any(|o| self.outputs.get(o as usize).is_some_and(|(_, p)| *p))
+    }
+
+    /// `controller_lights`' answer: the lights, outputs one-based, each saying whether it's patched.
+    pub fn lights_json(&self) -> Result<Value, String> {
+        let (lights, source) = self.lights()?;
+        let list: Vec<Value> = lights
+            .iter()
+            .map(|l| json!({"name":l.name,"firstOutput":l.first + 1,"lastOutput":l.first + l.outputs,"outputCount":l.outputs,"color":l.mode(),"patched":self.patched(l)}))
+            .collect();
+        let unpatched = lights.iter().filter(|l| !self.patched(l)).count();
+        Ok(json!({"controllerId":self.id.to_string(),"name":self.name,"source":source,"lights":list,"unpatched":unpatched}))
+    }
+}
+
+/// A controller's lights ([`ControllerSnapshot::lights`]).
+pub fn lights_of(s: &SetupSession, slot: u32) -> Result<(Vec<ControllerLight>, &'static str), String> {
+    ControllerSnapshot::of(s, slot).lights()
+}
+
+/// Lights from output names: each run of `<light> R`, `<light> G`, `<light> B` (and `<light> W` after it) is one light. `None`
+/// when there are no outputs or any output isn't part of such a run.
+pub fn lights_from_names(names: &[&str]) -> Option<Vec<ControllerLight>> {
+    let split = |n: &str| n.rsplit_once(' ').map(|(light, c)| (light.trim().to_string(), c.to_string()));
+    let mut lights = Vec::new();
+    let mut i = 0;
+    while i < names.len() {
+        let (light, _) = split(names[i])?;
+        let channels: Vec<String> = names[i..].iter().take(4).map_while(|n| split(n).filter(|(l, _)| *l == light).map(|(_, c)| c)).collect();
+        let outputs = match channels.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+            ["R", "G", "B", "W", ..] => 4,
+            ["R", "G", "B", ..] => 3,
+            _ => return None,
+        };
+        if light.is_empty() {
+            return None;
+        }
+        lights.push(ControllerLight { name: light, first: i as u32, outputs });
+        i += outputs as usize;
+    }
+    (!lights.is_empty()).then_some(lights)
+}
+
+/// `controller_lights`.
+pub fn controller_lights(s: &SetupSession, a: &Value) -> Result<Value, String> {
+    let id = uuid_arg(a, "id")?.ok_or("id is required")?;
+    let slot = s.slot_of(id).ok_or("Controller not found")?;
+    ControllerSnapshot::of(s, slot).lights_json()
+}
+
+pub fn lights_tool() -> Value {
+    json!({"name":"controller_lights","description":"The lights (devices) a controller drives, in output order, as element_single_bulbs fromController uses them: each light's name, its outputs (firstOutput/lastOutput, one-based), outputCount (1 single colour, 3 RGB, 4 RGBW), the color handling that fits and whether any of its outputs is patched. source plugin: its plugin lists them (a Govee Output controller's Devices table, for example); outputNames: its outputs are named per light, R G B (W) each. An error when the controller doesn't list its lights.","inputSchema":{"type":"object","properties":{"id":{"type":"string","description":"Controller id."}},"required":["id"],"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+}
+
+/// `element_single_bulbs` with `fromController`: one bulb per light the controller lists (not yet patched, unless
+/// `includePatched`), named after it (or `names`, one per light, in order), with the colour handling its outputs take, each
+/// patched to its own outputs.
+fn create_from_controller(s: &mut SetupSession, a: &Value) -> Result<Value, String> {
+    if let Some(key) = ["text", "count", "prefix", "startOutput"].into_iter().find(|k| a.get(*k).is_some()) {
+        return Err(format!("{key} doesn't apply with fromController: each bulb takes its own light's outputs"));
+    }
+    let controller = uuid_arg(a, "controllerId")?.ok_or("fromController needs controllerId")?;
+    let slot = s.slot_of(controller).ok_or("Controller not found")?;
+    let snapshot = ControllerSnapshot::of(s, slot);
+    let (all, source) = snapshot.lights()?;
+    let include_patched = a.get("includePatched").map(|v| v.as_bool().ok_or("includePatched must be true or false")).transpose()?.unwrap_or(false);
+    let (lights, skipped): (Vec<ControllerLight>, Vec<ControllerLight>) = all.into_iter().partition(|l| include_patched || !snapshot.patched(l));
+    let controller_name = s.controllers[slot as usize].name.clone();
+    if lights.is_empty() {
+        return Err(format!("Every light on {controller_name} is already patched; pass includePatched to add bulbs for them anyway"));
+    }
+    let names = match a.get("names") {
+        Some(_) => {
+            let names = names_of(&json!({"names":a["names"]}))?;
+            if names.len() != lights.len() {
+                return Err(format!("names must give one name per light: {controller_name} has {} to add", lights.len()));
+            }
+            names
+        }
+        None => lights.iter().map(|l| l.name.clone()).collect(),
+    };
+    let chosen = match a.get("color") {
+        Some(_) => {
+            let (mode, color) = crate::studio_color::parse(a, "color")?;
+            let per = crate::studio_color::channels_per_pixel(&mode).unwrap_or(3);
+            let misfits: Vec<String> = lights.iter().filter(|l| l.outputs != per).map(|l| format!("{} ({} outputs)", l.name, l.outputs)).collect();
+            if !misfits.is_empty() {
+                return Err(format!("color {mode} takes {per} outputs a bulb, which doesn't fit {}; leave color out to fit each light", misfits.join(", ")));
+            }
+            Some((mode, color))
+        }
+        None => None,
+    };
+    let preview = uuid_arg(a, "previewId")?;
+    if let Some(preview) = preview {
+        if !crate::preview::preview_entries(&s.system).iter().any(|p| p.id == preview) {
+            return Err("Preview not found".into());
+        }
+    }
+
+    let mut heads = Vec::with_capacity(names.len());
+    for name in &names {
+        let built = crate::studio_wiring::generate(&mut s.tree, &TemplateParams::Single { name: name.clone() }, 0).map_err(|e| format!("{e:?}"))?;
+        heads.extend(built.result.head);
+        s.apply_template_result(built.result);
+    }
+    // Colour handling, one call per kind of bulb.
+    let mut colors = Vec::new();
+    for mode in ["rgb", "rgbw", "single"] {
+        let nodes: Vec<_> = heads.iter().zip(&lights).filter(|(_, l)| chosen.as_ref().map_or(l.mode(), |(m, _)| m.as_str()) == mode).map(|(n, _)| *n).collect();
+        if !nodes.is_empty() {
+            colors.push(crate::studio_color::apply(s, &nodes, mode, chosen.as_ref().and_then(|(_, c)| *c))?);
+        }
+    }
+    let mut patched_total = 0;
+    for (head, light) in heads.iter().zip(&lights) {
+        let path = s.row_path_of(*head);
+        let outputs = crate::setup::controllers::OutputSelection::single(slot, light.first..light.first + light.outputs);
+        patched_total += s.patch_elements(&[path], &outputs, &Default::default(), false);
+    }
+    let ids: Vec<Uuid> = heads.iter().map(|n| s.tree.node(*n).id).collect();
+    let made: Vec<Value> = heads.iter().map(|n| json!({"id":s.tree.node(*n).id.to_string(),"name":s.tree.node(*n).name})).collect();
+    let wanted: u32 = lights.iter().map(|l| l.outputs).sum();
+    let ranges: Vec<Value> = ids.iter().map(|id| crate::studio_patch::ranges_of(s, &json!({"id":id.to_string()})).unwrap_or(Value::Null)).collect();
+    let text = ranges.iter().filter_map(|l| Some(format!("{}: {}", l["name"].as_str()?, l["text"].as_str()?))).collect::<Vec<_>>();
+    let patch = json!({"controllerId":controller.to_string(),"patched":patched_total,"needed":wanted,"short":wanted.saturating_sub(patched_total),"lights":ranges,"text":text});
+    let preview = match preview {
+        Some(preview) => Some(crate::studio_props::add_single_bulbs(s, preview, &ids, None)?),
+        None => None,
+    };
+    let from = json!({"source":source,"lights":lights.iter().map(|l| l.name.clone()).collect::<Vec<_>>(),"skipped":skipped.iter().map(|l| l.name.clone()).collect::<Vec<_>>()});
+    Ok(json!({"ids":ids.iter().map(|i| i.to_string()).collect::<Vec<_>>(),"bulbs":made,"createdNodes":heads.len(),"color":colors,"patch":patch,"preview":preview,"fromController":from}))
+}
+
 /// `element_single_bulbs`. Everything is checked before anything changes; a preview or patch that fails after the elements are
 /// made leaves the working copy partly changed, so callers publish only on success (the shared transaction does).
 pub fn create(s: &mut SetupSession, a: &Value) -> Result<Value, String> {
+    match a.get("fromController") {
+        Some(Value::Bool(true)) => return create_from_controller(s, a),
+        Some(Value::Bool(false)) | None => {}
+        Some(_) => return Err("fromController must be true or false".into()),
+    }
+    if a.get("includePatched").is_some() {
+        return Err("includePatched applies with fromController".into());
+    }
     let names = names_of(a)?;
     let (mode, color) = match a.get("color") {
         Some(_) => crate::studio_color::parse(a, "color")?,
@@ -119,8 +342,8 @@ pub fn tool() -> (&'static str, &'static str, Value, Vec<&'static str>) {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     (
         "element_single_bulbs",
-        "Add single bulbs in one step: smart bulbs, lamps or ceiling lights that are one light each (a Govee bulb on 3 RGB outputs, for example). Makes one Single Item element per name, at the top of the tree, from names (a list), text (a pasted list, one per line; commas and tabs also separate) or count with prefix (\"Bulb 1\", \"Bulb 2\", …); taken names get a number. color is their colour handling (rgb by default: 3 outputs per bulb; rgbw 4; single 1 with singleColor). controllerId patches them in the order given to that controller's free outputs from startOutput (zero-based, default 0), each bulb's channels together, so bulb 1 takes outputs 1-3, bulb 2 outputs 4-6 and so on; patch.short counts channels left unpatched when the controller ran out. previewId also shows each in that preview as a Single Light bulb linked to it and named after it, in a row right of the other props. One undo step for all of it.",
-        json!({"names":{"type":"array","items":string,"minItems":1,"maxItems":MAX_BULBS},"text":{"type":"string","maxLength":65536},"count":{"type":"integer","minimum":1,"maximum":MAX_BULBS},"prefix":string,"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"},"controllerId":string,"startOutput":{"type":"integer","minimum":0},"previewId":string}),
+        "Add single bulbs in one step: smart bulbs, lamps or ceiling lights that are one light each (a Govee bulb on 3 RGB outputs, for example). Makes one Single Item element per name, at the top of the tree, from names (a list), text (a pasted list, one per line; commas and tabs also separate) or count with prefix (\"Bulb 1\", \"Bulb 2\", …); taken names get a number. color is their colour handling (rgb by default: 3 outputs per bulb; rgbw 4; single 1 with singleColor). controllerId patches them in the order given to that controller's free outputs from startOutput (zero-based, default 0), each bulb's channels together, so bulb 1 takes outputs 1-3, bulb 2 outputs 4-6 and so on; patch.short counts channels left unpatched when the controller ran out. previewId also shows each in that preview as a Single Light bulb linked to it and named after it, in a row right of the other props. fromController (with controllerId) makes one bulb per light that controller lists instead (controller_lights shows them: a plugin controller's devices, such as Govee Output's Devices table, or outputs named per light), named after each light (or names, one per light in order), with the colour handling its outputs take unless color is given, each patched to its own light's outputs; lights already patched are skipped (fromController.skipped) unless includePatched. One undo step for all of it.",
+        json!({"fromController":{"type":"boolean"},"includePatched":{"type":"boolean"},"names":{"type":"array","items":string,"minItems":1,"maxItems":MAX_BULBS},"text":{"type":"string","maxLength":65536},"count":{"type":"integer","minimum":1,"maximum":MAX_BULBS},"prefix":string,"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"},"controllerId":string,"startOutput":{"type":"integer","minimum":0},"previewId":string}),
         vec![],
     )
 }
@@ -207,6 +430,60 @@ mod tests {
         // One step: Undo removes elements, patches and bulbs together.
         run("display_undo", json!({})).unwrap();
         assert_eq!(core.system.read().tree.len(), elements_before);
+        drop(core);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn output_names_group_into_lights_r_g_b_and_w() {
+        let lights = lights_from_names(&["Ceiling R", "Ceiling G", "Ceiling B", "Strip S1 R", "Strip S1 G", "Strip S1 B", "Strip S1 W", "Lamp R", "Lamp G", "Lamp B"]).unwrap();
+        let got: Vec<_> = lights.iter().map(|l| (l.name.as_str(), l.first, l.outputs, l.mode())).collect();
+        assert_eq!(got, [("Ceiling", 0, 3, "rgb"), ("Strip S1", 3, 4, "rgbw"), ("Lamp", 7, 3, "rgb")]);
+        // Default names, a light missing a channel, or no outputs: no lights.
+        assert_eq!(lights_from_names(&["Output #1", "Output #2", "Output #3"]), None);
+        assert_eq!(lights_from_names(&["A R", "A G", "B B"]), None);
+        assert_eq!(lights_from_names(&[]), None);
+    }
+
+    /// A controller whose outputs are named per light (as a plugin controller names them): one bulb per light, each on its own
+    /// outputs; a second run skips the lights already patched; names rename; a colour that doesn't fit is refused.
+    #[test]
+    fn bulbs_from_a_controllers_lights_patch_each_to_its_own_outputs() {
+        let root = std::env::temp_dir().join(format!("studio-bulbs-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, true);
+        let controller = run("controller_create", json!({"name":"Govee","typeId":vixen_output::ids::E131.to_string(),"outputs":11})).unwrap()["result"]["id"].clone();
+        let mut s = SetupSession::open(&core);
+        let slot = s.slot_of(Uuid::parse_str(controller.as_str().unwrap()).unwrap()).unwrap();
+        assert!(controller_lights(&s, &json!({"id":controller})).unwrap_err().contains("doesn't list its lights"));
+        let names = ["Kitchen 1 R", "Kitchen 1 G", "Kitchen 1 B", "Kitchen 2 R", "Kitchen 2 G", "Kitchen 2 B", "Lamp R", "Lamp G", "Lamp B", "Lamp W"];
+        for (o, name) in s.controllers[slot as usize].outputs.iter_mut().zip(names) {
+            o.name = name.to_string();
+        }
+        // Output 11 has no light: the names don't group.
+        assert!(controller_lights(&s, &json!({"id":controller})).is_err());
+        s.controllers[slot as usize].outputs.pop();
+        let listed = controller_lights(&s, &json!({"id":controller})).unwrap();
+        assert_eq!(listed["source"], "outputNames");
+        assert_eq!(listed["lights"][2], json!({"name":"Lamp","firstOutput":7,"lastOutput":10,"outputCount":4,"color":"rgbw","patched":false}));
+        assert!(create(&mut s, &json!({"fromController":true,"controllerId":controller,"color":"rgb"})).unwrap_err().contains("Lamp (4 outputs)"));
+        assert!(create(&mut s, &json!({"fromController":true,"controllerId":controller,"startOutput":0})).is_err());
+        assert!(create(&mut s, &json!({"fromController":true,"controllerId":controller,"names":["Only one"]})).unwrap_err().contains("one name per light"));
+
+        // Patch Kitchen 2's outputs by hand first: only Kitchen 1 and the lamp are added.
+        let other = create(&mut s, &json!({"names":["Old"],"controllerId":controller,"startOutput":3})).unwrap();
+        assert_eq!(other["patch"]["patched"], 3);
+        let made = create(&mut s, &json!({"fromController":true,"controllerId":controller,"names":["Kitchen Left","Living Room Lamp"]})).unwrap();
+        assert_eq!(made["fromController"]["skipped"], json!(["Kitchen 2"]));
+        assert_eq!(made["bulbs"].as_array().unwrap().iter().map(|b| b["name"].clone()).collect::<Vec<_>>(), ["Kitchen Left", "Living Room Lamp"]);
+        assert_eq!((made["patch"]["patched"].clone(), made["patch"]["short"].clone()), (json!(7), json!(0)));
+        let ranges: Vec<_> = made["patch"]["lights"].as_array().unwrap().iter().map(|l| (l["ranges"][0]["firstOutput"].clone(), l["ranges"][0]["lastOutput"].clone())).collect();
+        assert_eq!(ranges, [(json!(1), json!(3)), (json!(7), json!(10))]);
+        let modes: Vec<_> = made["color"].as_array().unwrap().iter().map(|c| c["channelsPerPixel"].clone()).collect();
+        assert_eq!(modes, [json!(3), json!(4)]);
+        assert_eq!(controller_lights(&s, &json!({"id":controller})).unwrap()["unpatched"], 0);
+        assert!(create(&mut s, &json!({"fromController":true,"controllerId":controller})).unwrap_err().contains("already patched"));
+        drop(s);
         drop(core);
         std::fs::remove_dir_all(root).unwrap();
     }

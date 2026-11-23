@@ -94,6 +94,19 @@ def triplets(values, order="rgb"):
     return [tuple(values[i + k] for k in index) for i in range(0, len(values) - 2, 3)]
 
 
+def lights_outputs(lights):
+    """An outputs_for answer for the lights a controller drives, in order: (name, outputs) pairs, outputs 1 (single colour),
+    3 (RGB) or 4 (RGBW). An RGB light's outputs are named "<name> R", "<name> G", "<name> B" (RGBW also "<name> W"), a
+    single-colour light's after it; Studio's Single Bulbs makes one element per light."""
+    lights = [(str(name), int(outputs)) for name, outputs in lights]
+    names = [name if outputs == 1 else f"{name} {c}" for name, outputs in lights for c in ("RGBW"[:outputs] if outputs > 1 else "-")]
+    count = sum(outputs for _, outputs in lights)
+    answer = {"outputCount": count, "lights": [{"name": name, "outputCount": outputs} for name, outputs in lights]}
+    if len(names) == count:
+        answer["outputNames"] = names
+    return answer
+
+
 _stats_lock = threading.Lock()
 
 
@@ -135,7 +148,8 @@ class Controller:
     def outputs_for(cls, config):
         """For a type with "outputCount": "fromConfig": the outputs a configuration needs. No instance exists (Studio
         asks while Live Output is off too); config is checked, with defaults filled in. Return an int, a list of output
-        names (one per output), or (count, names). None (the default) means the type doesn't set its own count."""
+        names (one per output), (count, names), or a dict {"outputCount", "outputNames", "lights"}: lights_outputs()
+        builds one from the lights the outputs drive. None (the default) means the type doesn't set its own count."""
         return None
 
     # Reports to Studio.
@@ -486,7 +500,10 @@ class Plugin:
         answer = cls.outputs_for(config)
         if answer is None:
             raise _MethodNotFound()
-        if isinstance(answer, tuple):
+        lights = None
+        if isinstance(answer, dict):
+            count, names, lights = answer["outputCount"], answer.get("outputNames"), answer.get("lights")
+        elif isinstance(answer, tuple):
             count, names = answer
         elif isinstance(answer, int):
             count, names = answer, None
@@ -496,6 +513,8 @@ class Plugin:
         result = {"outputCount": int(count)}
         if names is not None:
             result["outputNames"] = [str(n) for n in names]
+        if lights is not None:
+            result["lights"] = [{"name": str(l["name"]), "outputCount": int(l["outputCount"])} for l in lights]
         return result
 
     def _create(self, params):

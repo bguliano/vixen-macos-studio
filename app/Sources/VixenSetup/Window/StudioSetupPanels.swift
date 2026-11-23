@@ -114,7 +114,10 @@ struct StudioElementsPanel: View {
                 .sheet(isPresented: $addingBulbs) {
                     StudioSingleBulbsSheet(model: model) { addingBulbs = false }
                 }
-                .onAppear { StudioSingleBulbsSheet.installTestHook() }
+                .onAppear {
+                    StudioSingleBulbsSheet.installTestHook()
+                    StudioSingleBulbsSheet.open = { addingBulbs = true }
+                }
             }
             ElementOutline(model: model)
                 .frame(minHeight: 160)

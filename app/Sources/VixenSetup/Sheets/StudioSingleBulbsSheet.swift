@@ -5,7 +5,9 @@ import VixenKit
 /// Add ▸ Single Bulbs… in the Display pane (B60): smart bulbs, lamps and ceiling lights that are one light each, made in one
 /// step. Each name becomes a Single Item with the chosen colour handling; a controller patches them in order (an RGB bulb takes
 /// three outputs), and a preview shows each as a Single Light linked to it. Rust does all of it (`studio_single_bulbs.rs`), the
-/// MCP `element_single_bulbs` tool, as one step on the shared display history.
+/// MCP `element_single_bulbs` tool, as one step on the shared display history. A controller that lists its lights (a plugin
+/// controller such as Govee Output, through `controller.outputsFor`'s `lights`, or outputs named per light) offers Use the
+/// Controller's Lights (B62): one bulb per unpatched light, named after it, each patched to its own outputs.
 struct StudioSingleBulbsSheet: View {
     let model: SetupModel
     let onFinish: () -> Void
@@ -14,16 +16,40 @@ struct StudioSingleBulbsSheet: View {
     @MainActor private static var remembered = (names: "", color: "rgb", controller: "", start: 1, preview: "")
     /// Under test: a controller and preview to choose by name when the sheet opens (`studioSingleBulbsFill`).
     @MainActor private static var testChoices: (controller: String, preview: String)?
+    /// Under test: press Use the Controller's Lights once its lights are known (`studioSingleBulbsFill` with `index` 1).
+    @MainActor private static var testUseLights = false
+    /// Opens the sheet from the Elements panel (`studioSingleBulbsOpen` under test).
+    @MainActor static var open: (() -> Void)?
 
     /// `studioSingleBulbsFill` with `text` "names separated by |", `name` a controller and `label` a preview (by name): the next
-    /// sheet opens with them filled in, so a script can press Add Bulbs.
+    /// sheet opens with them filled in, so a script can press Add Bulbs; `index` 1 also uses the controller's lights.
+    /// `studioSingleBulbsOpen` opens the sheet.
     static func installTestHook() {
         guard UITestHarness.isActive, UITestHarness.customActions["studioSingleBulbsFill"] == nil else { return }
         UITestHarness.customActions["studioSingleBulbsFill"] = { step in
             remembered.names = (step.text ?? "").split(separator: "|").joined(separator: "\n")
             testChoices = (step.name ?? "", step.label ?? "")
+            testUseLights = step.index == 1
             return (true, nil)
         }
+        UITestHarness.customActions["studioSingleBulbsOpen"] = { _ in
+            guard let open else { return (false, "the Elements panel isn't showing") }
+            open()
+            return (true, nil)
+        }
+    }
+
+    /// `controller_lights` for the chosen controller.
+    struct Lights: Decodable {
+        struct Light: Decodable {
+            let name: String
+            let firstOutput: Int
+            let lastOutput: Int
+            let outputCount: Int
+            let patched: Bool
+        }
+        let lights: [Light]
+        var unpatched: [Light] { lights.filter { !$0.patched } }
     }
 
     @State private var names = StudioSingleBulbsSheet.remembered.names
@@ -33,10 +59,16 @@ struct StudioSingleBulbsSheet: View {
     @State private var preview = StudioSingleBulbsSheet.remembered.preview
     @State private var controllers: [StudioControllerOverview.Row] = []
     @State private var previews: [StudioTemplatePreview.Choice] = []
+    /// The chosen controller's lights, when it lists them.
+    @State private var lights: Lights?
+    /// The names came from Use the Controller's Lights: bulbs take their own lights' outputs while there's one name a light.
+    @State private var fromLights = false
 
     private var parsed: [String] { studioSingleBulbNames(text: names) }
     private var perBulb: Int { StudioTemplateColor.choices.first { $0.mode == color }?.channelsPerPixel ?? 3 }
     private var chosenController: StudioControllerOverview.Row? { controllers.first { $0.id == controller } }
+    /// Using the controller's lights: chosen from them, with one name per unpatched light still.
+    private var usingLights: Bool { fromLights && chosenController != nil && lights?.unpatched.count == parsed.count }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -56,7 +88,14 @@ struct StudioSingleBulbsSheet: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            StudioTemplateColorPicker(mode: $color)
+            if usingLights {
+                Text("Each bulb's color handling follows its outputs: RGB for 3, RGBW for 4, a single color for 1.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                StudioTemplateColorPicker(mode: $color)
+            }
             patchSection
             previewSection
             SheetButtons(okTitle: parsed.count == 1 ? "Add Bulb" : "Add Bulbs", okDisabled: parsed.isEmpty, ok: add, cancel: onFinish)
@@ -65,6 +104,7 @@ struct StudioSingleBulbsSheet: View {
         .frame(width: 460)
         .sheetKeys(okEnabled: !parsed.isEmpty, ok: add, cancel: onFinish)
         .task { await load() }
+        .task(id: controller) { await loadLights() }
     }
 
     private var countText: String {
@@ -84,11 +124,15 @@ struct StudioSingleBulbsSheet: View {
             }
             .fixedSize()
             .disabled(controllers.isEmpty)
-            if let chosen = chosenController {
+            if let chosen = chosenController, !usingLights {
                 HStack(spacing: 6) {
                     SheetFieldLabel("From output:")
                     SheetNumberField("From output:", value: $start, range: 1...max(1, chosen.outputs))
                 }
+            }
+            if let chosen = chosenController, let free = lights?.unpatched, !free.isEmpty, !usingLights {
+                Button("Use \(chosen.name)'s Lights (\(free.count))") { useLights() }
+                    .help("Make a bulb for each light \(chosen.name) lists that isn't patched yet, named after it and patched to its own outputs")
             }
             Text(patchNote)
                 .font(.callout)
@@ -100,6 +144,10 @@ struct StudioSingleBulbsSheet: View {
     private var patchNote: String {
         guard let chosen = chosenController else {
             return controllers.isEmpty ? "Add a controller under Controllers to patch the bulbs as they're made." : "Patch them later from Patching, or choose a controller."
+        }
+        if usingLights, let free = lights?.unpatched {
+            let each = zip(parsed, free).prefix(2).map { "\($0) outputs \($1.firstOutput)–\($1.lastOutput)" }
+            return "Each bulb takes its own light's outputs on \(chosen.name): " + each.joined(separator: ", ") + (free.count > 2 ? ", and so on." : ".")
         }
         let first = start, size = perBulb
         let needed = parsed.count * size
@@ -148,12 +196,37 @@ struct StudioSingleBulbsSheet: View {
         if !previews.contains(where: { $0.id == preview }) { preview = "" }
     }
 
+    private func loadLights() async {
+        fromLights = false
+        guard let session = model.session, !controller.isEmpty else {
+            lights = nil
+            return
+        }
+        let id = controller
+        let json = await offMain { try? session.studioControllerLights(id: id) }
+        guard id == controller else { return }
+        lights = json.flatMap { try? JSONDecoder().decode(Lights.self, from: Data($0.utf8)) }
+        if Self.testUseLights {
+            Self.testUseLights = false
+            useLights()
+        }
+    }
+
+    /// Names from the controller's unpatched lights, each bulb on its own light's outputs.
+    private func useLights() {
+        guard let free = lights?.unpatched, !free.isEmpty else { return }
+        names = free.map(\.name).joined(separator: "\n")
+        fromLights = true
+    }
+
     private func add() {
         let list = parsed
         guard !list.isEmpty else { return }
         Self.remembered = (names, color, controller, start, preview)
         var arguments: [String: Any] = ["names": list, "color": color]
-        if let chosen = chosenController {
+        if usingLights, let chosen = chosenController {
+            arguments = ["names": list, "fromController": true, "controllerId": chosen.id]
+        } else if let chosen = chosenController {
             arguments["controllerId"] = chosen.id
             arguments["startOutput"] = max(0, start - 1)
         }

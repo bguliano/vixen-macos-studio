@@ -1,7 +1,8 @@
 //! A plugin controller that sets its own output count and runs a settings action, through MCP only (backlog B61): a
 //! Python plugin on the real SDK answers `controller.outputsFor` from its `outputs_for` class method, `controller_types`
 //! and `controller_network` say so, `controller_configure` resizes and names the outputs and refuses `outputs`, and
-//! `controller_action` runs the plugin's Detect tool and applies its merge patch as one undo step.
+//! `controller_action` runs the plugin's Detect tool and applies its merge patch as one undo step. The plugin also lists its
+//! lights, so `controller_lights` shows them and `element_single_bulbs` `fromController` makes one bulb per lamp (B62).
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
@@ -18,7 +19,7 @@ plugin = vp.Plugin()
 class Lamps(vp.Controller):
     @classmethod
     def outputs_for(cls, config):
-        return [f"{lamp['name']} {c}" for lamp in config["lamps"] for c in "RGB"]
+        return vp.lights_outputs([(lamp["name"], 3) for lamp in config["lamps"]])
 
 
 @plugin.tool("detect")
@@ -105,6 +106,20 @@ fn a_plugin_sets_its_own_output_count_and_runs_a_settings_action() {
     assert_eq!(again["applied"], false, "{again}");
     let (error, unknown) = call(&mut server, "controller_action", json!({"id": id, "action": "nope"}));
     assert!(error && unknown.as_str().unwrap().contains("no action nope"), "{unknown}");
+
+    // B62: the plugin lists its lights (lights_outputs), so Single Bulbs makes one bulb per lamp, each on its own outputs.
+    let (error, lights) = call(&mut server, "controller_lights", json!({"id": id}));
+    assert!(!error, "{lights}");
+    assert_eq!((lights["source"].clone(), lights["unpatched"].clone()), (json!("plugin"), json!(3)), "{lights}");
+    assert_eq!(lights["lights"][2], json!({"name": "Porch", "firstOutput": 7, "lastOutput": 9, "outputCount": 3, "color": "rgb", "patched": false}));
+    let (error, bulbs) = call(&mut server, "element_single_bulbs", json!({"fromController": true, "controllerId": id}));
+    assert!(!error, "{bulbs}");
+    assert_eq!(bulbs["result"]["patch"]["patched"], 9, "{bulbs}");
+    assert_eq!(bulbs["result"]["bulbs"][1]["name"], "Ceiling", "{bulbs}");
+    let (_, lights) = call(&mut server, "controller_lights", json!({"id": id}));
+    assert_eq!(lights["unpatched"], 0, "{lights}");
+    let (error, undone) = call(&mut server, "display_undo", json!({}));
+    assert!(!error, "{undone}");
 
     // One undo step takes the action back: settings and outputs.
     let (error, undone) = call(&mut server, "display_undo", json!({}));

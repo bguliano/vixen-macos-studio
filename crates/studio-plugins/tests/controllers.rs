@@ -471,6 +471,60 @@ fn a_plugin_that_sets_its_own_output_count_resizes_names_and_guards_patched_outp
     drop(core);
 }
 
+/// B62: a plugin that lists its lights (`controller.outputsFor` `lights`) gets one single bulb per light from Single Bulbs,
+/// each patched to its own outputs and shown in a preview, in one undo step.
+#[test]
+fn single_bulbs_come_from_the_lights_a_plugin_lists() {
+    let _turn = turn();
+    let sandbox = Sandbox::new("plugin-lights");
+    let host = sandbox.host();
+    let dir = sandbox.plugin("lamp", "2.4.0", &[], &["u8"]);
+    let mut manifest: Value = serde_json::from_str(&std::fs::read_to_string(dir.join("vixen-plugin.json")).unwrap()).unwrap();
+    let schema = &mut manifest["contributes"]["controllers"][0]["configSchema"];
+    schema["properties"]["lamps"] = json!({"type": "array", "default": [], "items": {"type": "object", "properties": {"name": {"type": "string"}}, "additionalProperties": false}});
+    schema["properties"]["listLights"] = json!({"type": "boolean", "default": false});
+    schema["x-outputCount"] = json!("fromConfig");
+    std::fs::write(dir.join("vixen-plugin.json"), manifest.to_string()).unwrap();
+    host.link_dev(&dir).unwrap();
+    register(&host);
+    let root = sandbox.base.join("Profile");
+    let core = vixen_session::app::AppCore::open(root.clone(), false).unwrap();
+    let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, false).map(|r| r["result"].clone());
+    let lights = |id: &str| vixen_session::studio_single_bulbs::controller_lights(&vixen_session::setup::SetupSession::open(&core), &json!({"id": id}));
+
+    let controller = run("controller_create", json!({"name": "Govee", "typeId": TYPE_ID, "outputs": 3})).unwrap()["id"].as_str().unwrap().to_string();
+    let names = ["Kitchen 1", "Kitchen 2", "Kitchen 3", "Kitchen 4", "Living Room Lamp"];
+    let config = json!({"host": "10.0.0.7", "port": 4048, "listLights": true, "lamps": names.iter().map(|n| json!({"name": n})).collect::<Vec<_>>()});
+    assert_eq!(run("controller_configure", json!({"id": controller, "config": config})).unwrap()["controller"]["outputs"], 15);
+    let listed = lights(&controller).unwrap();
+    assert_eq!(listed["source"], "plugin");
+    assert_eq!(listed["unpatched"], 5);
+    assert_eq!(listed["lights"][4], json!({"name": "Living Room Lamp", "firstOutput": 13, "lastOutput": 15, "outputCount": 3, "color": "rgb", "patched": false}));
+
+    let elements_before = core.system.read().tree.len();
+    let preview = run("preview_create", json!({})).unwrap()["previewId"].clone();
+    let made = run("element_single_bulbs", json!({"fromController": true, "controllerId": controller, "previewId": preview})).unwrap();
+    assert_eq!(made["fromController"]["source"], "plugin");
+    assert_eq!(made["bulbs"].as_array().unwrap().iter().map(|b| b["name"].as_str().unwrap()).collect::<Vec<_>>(), names);
+    assert_eq!((made["patch"]["patched"].clone(), made["patch"]["short"].clone()), (json!(15), json!(0)));
+    for (i, light) in made["patch"]["lights"].as_array().unwrap().iter().enumerate() {
+        assert_eq!((light["ranges"][0]["firstOutput"].clone(), light["ranges"][0]["lastOutput"].clone()), (json!(3 * i + 1), json!(3 * i + 3)), "{light}");
+    }
+    assert_eq!(made["preview"]["linkedLights"], 5);
+    assert_eq!(lights(&controller).unwrap()["unpatched"], 0);
+    // One step: Undo takes the bulbs and their patches away again.
+    run("display_undo", json!({})).unwrap();
+    assert_eq!(core.system.read().tree.len(), elements_before);
+    assert_eq!(lights(&controller).unwrap()["unpatched"], 5);
+
+    // Without a light list the outputs' names ("Kitchen 1 R" …) still tell the lights apart.
+    let config = json!({"host": "10.0.0.7", "port": 4048, "lamps": [{"name": "Ceiling"}, {"name": "Porch"}]});
+    run("controller_configure", json!({"id": controller, "config": config, "removePatchedOutputs": true})).unwrap();
+    let listed = lights(&controller).unwrap();
+    assert_eq!((listed["source"].clone(), listed["lights"][1]["name"].clone()), (json!("outputNames"), json!("Porch")));
+    drop(core);
+}
+
 fn overview(core: &vixen_session::app::AppCore) -> Value {
     let setup = vixen_session::setup::SetupSession::from_system(core.system.read().clone(), &Default::default(), core.playback.hardware_allowed());
     vixen_session::studio_controller_network::overview(&setup, Some(core))

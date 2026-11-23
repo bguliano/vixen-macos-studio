@@ -226,9 +226,12 @@ Only for a type with `outputCount: "fromConfig"` (API 1.1). The outputs a config
 settings edit (inspector, paste, `controller_configure`, a settings action), also while Live Output is off, so no
 instance need exist; answer from `config` alone, quickly and without I/O. Studio resizes the controller to
 `outputCount` in the same undo step as the edit, keeps patches on the outputs that remain, and names the outputs from
-`outputNames` when there is one per output. Refuse a configuration with `-32004` as in `controller.configure`. Studio
+`outputNames` when there is one per output. List the lights the outputs drive in `lights` (a device table's rows) and
+Studio's Single Bulbs can make one element per light, each patched to its own outputs, in one step (`controller_lights`
+shows them to agents). Refuse a configuration with `-32004` as in `controller.configure`. Studio
 doesn't drop patched outputs without the user's go-ahead, and leaves the count as it was when you can't answer. The
-SDKs: `outputs_for` (Python, a class method), `static outputsFor` (Node), `Plugin::outputs_for` (Rust).
+SDKs: `outputs_for` (Python, a class method), `static outputsFor` (Node), `Plugin::outputs_for` (Rust); `lights_outputs`,
+`lightsOutputs` and `Outputs::for_lights` build an answer, names and lights, from the lights.
 
 | Param | Type | Required | Meaning |
 |---|---|---|---|
@@ -239,13 +242,14 @@ SDKs: `outputs_for` (Python, a class method), `static outputsFor` (Node), `Plugi
 |---|---|---|---|
 | `outputCount` | integer | yes | How many outputs it needs (0 to `maxOutputs`). |
 | `outputNames` | array of string | no | One name per output (`Ceiling R`, `Ceiling G`, …), up to 80 characters each. |
+| `lights` | array of object | no | The lights the outputs drive, in output order: `{name, outputCount}`, each on the next `outputCount` outputs (1 single colour, 3 RGB, 4 RGBW). Used only when every entry is valid and they fit in `outputCount`. |
 
 ```json controller.outputsFor params
 {"typeId": "893dbf09-f520-430a-8b62-80226447a42a", "config": {"devices": [{"name": "Ceiling", "deviceId": "1A:2B:3C:4D:5E:6F:70:81", "mode": "color", "segments": 1}]}}
 ```
 
 ```json controller.outputsFor result
-{"outputCount": 3, "outputNames": ["Ceiling R", "Ceiling G", "Ceiling B"]}
+{"outputCount": 3, "outputNames": ["Ceiling R", "Ceiling G", "Ceiling B"], "lights": [{"name": "Ceiling", "outputCount": 3}]}
 ```
 
 ### `controller.start`

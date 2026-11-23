@@ -353,11 +353,46 @@ impl Host {
     }
 }
 
-/// What a `"outputCount": "fromConfig"` type's configuration needs: the count, and optionally one name per output.
+/// What a `"outputCount": "fromConfig"` type's configuration needs: the count, and optionally one name per output and
+/// the lights the outputs drive (Studio's Single Bulbs makes one element per light from them).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Outputs {
     pub count: usize,
     pub names: Option<Vec<String>>,
+    pub lights: Option<Vec<Light>>,
+}
+
+/// One light (device) a controller drives, on the next `outputs` outputs: 1 (single colour), 3 (RGB) or 4 (RGBW).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Light {
+    pub name: String,
+    pub outputs: usize,
+}
+
+impl Outputs {
+    /// `count` outputs, unnamed.
+    pub fn count(count: usize) -> Outputs {
+        Outputs { count, names: None, lights: None }
+    }
+
+    /// One output per name.
+    pub fn named(names: Vec<String>) -> Outputs {
+        Outputs { count: names.len(), names: Some(names), lights: None }
+    }
+
+    /// The outputs for these lights in order, with the lights listed: an RGB light's are named `<light> R`, `<light> G`,
+    /// `<light> B` (an RGBW light's also `<light> W`), a single-colour light's output is named after it.
+    pub fn for_lights(lights: Vec<Light>) -> Outputs {
+        let names: Vec<String> = lights
+            .iter()
+            .flat_map(|l| match l.outputs {
+                1 => vec![l.name.clone()],
+                n => ["R", "G", "B", "W"].iter().take(n).map(|c| format!("{} {c}", l.name)).collect(),
+            })
+            .collect();
+        let count = lights.iter().map(|l| l.outputs).sum();
+        Outputs { count, names: (names.len() == count).then_some(names), lights: Some(lights) }
+    }
 }
 
 type Factory = Box<dyn Fn(&Instance) -> Box<dyn Controller>>;
@@ -627,6 +662,9 @@ impl Plugin {
         let mut answer = json!({"outputCount": outputs.count});
         if let Some(names) = outputs.names {
             answer["outputNames"] = json!(names);
+        }
+        if let Some(lights) = outputs.lights {
+            answer["lights"] = lights.iter().map(|l| json!({"name": l.name, "outputCount": l.outputs})).collect();
         }
         Some(Ok(answer))
     }
@@ -980,5 +1018,16 @@ mod tests {
         assert_eq!(fill_defaults(&schema, &json!({"host": "a"})), json!({"host": "a", "port": 80, "opts": {"x": true}}));
         let fields: Vec<String> = validate(&schema, &json!({"port": 0, "nope": 1})).into_iter().map(|e| e.field).collect();
         assert_eq!(fields, ["/host", "/nope", "/port"]);
+    }
+
+    #[test]
+    fn lights_name_their_outputs_and_are_answered() {
+        let light = |name: &str, outputs| Light { name: name.into(), outputs };
+        let plugin = Plugin::new().outputs_for(None, move |_| Outputs::for_lights(vec![light("Ceiling", 3), light("Porch", 1), light("Strip", 4)]));
+        let answer = plugin.answer_outputs(&json!({"typeId": "x", "config": {}})).unwrap().unwrap();
+        assert_eq!(answer["outputCount"], 8);
+        assert_eq!(answer["outputNames"], json!(["Ceiling R", "Ceiling G", "Ceiling B", "Porch", "Strip R", "Strip G", "Strip B", "Strip W"]));
+        assert_eq!(answer["lights"], json!([{"name": "Ceiling", "outputCount": 3}, {"name": "Porch", "outputCount": 1}, {"name": "Strip", "outputCount": 4}]));
+        assert_eq!(Outputs::count(2), Outputs { count: 2, names: None, lights: None });
     }
 }

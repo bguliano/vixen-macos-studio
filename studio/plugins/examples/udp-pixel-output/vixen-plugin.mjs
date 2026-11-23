@@ -73,6 +73,20 @@ export function triplets(values, order = "rgb") {
   return out;
 }
 
+/**
+ * An outputsFor answer for the lights a controller drives, in order: [name, outputs] pairs, outputs 1 (single colour), 3
+ * (RGB) or 4 (RGBW). An RGB light's outputs are named "<name> R", "<name> G", "<name> B" (RGBW also "<name> W"), a
+ * single-colour light's after it; Studio's Single Bulbs makes one element per light.
+ */
+export function lightsOutputs(lights) {
+  const list = lights.map(([name, outputs]) => [String(name), Math.trunc(Number(outputs))]);
+  const names = list.flatMap(([name, outputs]) => (outputs === 1 ? [name] : [..."RGBW".slice(0, outputs)].map((c) => `${name} ${c}`)));
+  const outputCount = list.reduce((sum, [, outputs]) => sum + outputs, 0);
+  const answer = { outputCount, lights: list.map(([name, outputs]) => ({ name, outputCount: outputs })) };
+  if (names.length === outputCount) answer.outputNames = names;
+  return answer;
+}
+
 /** One controller instance. Override what you need; anything may throw (or reject) and Studio gets the error. */
 export class Controller {
   constructor(plugin, instanceId, typeId, outputCount) {
@@ -103,7 +117,8 @@ export class Controller {
   /**
    * For a type with "outputCount": "fromConfig": the outputs a configuration needs. No instance exists (Studio asks while
    * Live Output is off too); config is checked, with defaults filled in. Return a number, an array of output names (one
-   * per output) or { outputCount, outputNames }. undefined (the default) means the type doesn't set its own count.
+   * per output) or { outputCount, outputNames, lights } (lightsOutputs() builds one from the lights the outputs drive).
+   * undefined (the default) means the type doesn't set its own count.
    */
   static outputsFor(config) {
     return undefined;
@@ -444,6 +459,7 @@ export class Plugin {
     if (Array.isArray(answer)) return { outputCount: answer.length, outputNames: answer.map(String) };
     const result = { outputCount: Math.trunc(Number(answer.outputCount)) };
     if (answer.outputNames !== undefined) result.outputNames = answer.outputNames.map(String);
+    if (answer.lights !== undefined) result.lights = answer.lights.map((l) => ({ name: String(l.name), outputCount: Math.trunc(Number(l.outputCount)) }));
     return result;
   }
 

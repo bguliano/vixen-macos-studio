@@ -63,7 +63,10 @@ command, edits are live with Undo, and each change is verified with harness runs
    makes one Single Item per typed or pasted name with its colour, patched in order to a controller and shown in a preview,
    one step; the designer's Single Light tool places one linked bulb per light when several elements or a group are
    selected, and Edit ▸ Add names it and adds Bulbs for Selected Elements; MCP `element_single_bulbs`, kind `single` for
-   `element_template` `previewId` and `preview_prop_create` `elementId`/`elementIds`.
+   `element_template` `previewId` and `preview_prop_create` `elementId`/`elementIds`. From a plugin's device list (B62):
+   with a controller chosen that lists its lights (Govee Output's Devices table), the sheet offers Use the Controller's
+   Lights, which fills in one name per unpatched light and patches each bulb to its own outputs; MCP `controller_lights`
+   and `element_single_bulbs` `fromController`.
 6. **Commissioning tests** per controller and per group: moving pixel, R/G/B/W bars, at a chosen brightness (default 25%),
    gated by the live-output switch. Mirrors the build manual's Part J checks. *Done:* a Test submenu on one element, group or
    controller in the Display pane (`StudioTestMenu.swift`, `studio_commission.rs`): Moving Pixel (wire order), Color Bars

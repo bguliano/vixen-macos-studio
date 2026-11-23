@@ -28,7 +28,7 @@ It exits 1 when a check fails. The checks, in order:
 | `launch` | The process starts in a throwaway data folder. |
 | `initialize` | It answers in time with a matching major version (muted unless `--live`). |
 | `tools` | Lists your tools. They are **not called**: a tool can act on the world. Settings actions name tools, so they aren't run either. |
-| `controller.outputsFor` | Only for `outputCount: "fromConfig"` types: answers an `outputCount` within `maxOutputs` for the example configuration, before any instance exists (a warning when `outputNames` isn't one per output). |
+| `controller.outputsFor` | Only for `outputCount: "fromConfig"` types: answers an `outputCount` within `maxOutputs` for the example configuration, before any instance exists (a warning when `outputNames` isn't one per output, or `lights` isn't valid or doesn't fit). |
 | `controller.create` | Per type: accepts a valid configuration made from the schema (defaults, else the smallest value each keyword allows); its normalised config still satisfies the schema. |
 | `controller.configure` | Accepts the valid configuration again. |
 | `controller.configure (invalid)` | Refuses an invalid one (an undeclared field when `additionalProperties` is false, else a typed field given the wrong type) with `-32004` and `data.errors`. Anything else is a warning, since Studio checks the schema first. |

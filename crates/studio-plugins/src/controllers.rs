@@ -30,7 +30,7 @@ use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
-use vixen_output::modules::studio_external::{ExternalConfig, ExternalControllers, ExternalOutputs, ExternalType};
+use vixen_output::modules::studio_external::{ExternalConfig, ExternalControllers, ExternalLight, ExternalOutputs, ExternalType};
 use vixen_output::modules::{ConfigMismatch, ControllerMessage, ModuleShared, ModuleStatus};
 use vixen_output::{ControllerConfig, DataPolicy, ModuleIds, OutputCommand, OutputModule};
 use vixen_xml::XElement;
@@ -856,8 +856,8 @@ impl ExternalControllers for PluginControllers {
 /// Longest output name taken from a plugin.
 const MAX_OUTPUT_NAME: usize = 80;
 
-/// `controller.outputsFor {typeId, config}` → `{outputCount, outputNames?}`, checked against the type's limit. Names are
-/// used only when there is one per output.
+/// `controller.outputsFor {typeId, config}` → `{outputCount, outputNames?, lights?}`, checked against the type's limit.
+/// Names are used only when there is one per output; lights only when [`parse_lights`] takes them.
 fn outputs_for(inner: &Arc<Inner>, found: &TypeInfo, settings: &str) -> Result<ExternalOutputs, String> {
     let settings: Value = serde_json::from_str(settings).map_err(|_| "the settings aren't a JSON object".to_string())?;
     let process = crate::host::ensure_running(inner, &found.plugin_id).map_err(|why| format!("{} can't work out the outputs: {why}", found.plugin_name))?;
@@ -880,7 +880,27 @@ fn parse_outputs(plugin: &str, max: u64, answer: &Value) -> Result<ExternalOutpu
     let names = answer.get("outputNames").and_then(Value::as_array).filter(|names| names.len() as u64 == count).and_then(|names| {
         names.iter().map(|n| n.as_str().map(|t| t.chars().take(MAX_OUTPUT_NAME).collect::<String>())).collect::<Option<Vec<String>>>()
     });
-    Ok(ExternalOutputs { count: count as u32, names })
+    let lights = answer.get("lights").and_then(|l| parse_lights(l, count));
+    Ok(ExternalOutputs { count: count as u32, names, lights })
+}
+
+/// The most lights one answer lists.
+const MAX_LIGHTS: usize = 1000;
+
+/// `lights` (B62): `[{name, outputCount}]` in output order, each on the next `outputCount` outputs (1, 3 or 4: a single
+/// colour, RGB or RGBW bulb). `None` unless every entry is a named light of 1, 3 or 4 outputs and together they fit in
+/// `count`, so Studio never patches a bulb to outputs that aren't there.
+pub fn parse_lights(lights: &Value, count: u64) -> Option<Vec<ExternalLight>> {
+    let list = lights.as_array().filter(|l| l.len() <= MAX_LIGHTS)?;
+    let lights = list
+        .iter()
+        .map(|l| {
+            let name = l.get("name")?.as_str()?.trim().chars().take(MAX_OUTPUT_NAME).collect::<String>();
+            let outputs = l.get("outputCount")?.as_u64().filter(|n| matches!(n, 1 | 3 | 4))?;
+            (!name.is_empty()).then_some(ExternalLight { name, outputs: outputs as u32 })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    (lights.iter().map(|l| u64::from(l.outputs)).sum::<u64>() <= count).then_some(lights)
 }
 
 /// RFC 7396: objects merge key by key, `null` removes a key, anything else replaces.
@@ -941,10 +961,22 @@ mod tests {
     #[test]
     fn outputs_answers_are_checked_and_names_need_one_per_output() {
         let three = parse_outputs("Lamp", 100, &json!({"outputCount": 3, "outputNames": ["A R", "A G", "A B"]})).unwrap();
-        assert_eq!(three, ExternalOutputs { count: 3, names: Some(vec!["A R".into(), "A G".into(), "A B".into()]) });
+        assert_eq!(three, ExternalOutputs { count: 3, names: Some(vec!["A R".into(), "A G".into(), "A B".into()]), lights: None });
         assert_eq!(parse_outputs("Lamp", 100, &json!({"outputCount": 3, "outputNames": ["A"]})).unwrap().names, None);
         assert!(parse_outputs("Lamp", 100, &json!({"outputCount": 101})).unwrap_err().contains("at most 100"));
         assert!(parse_outputs("Lamp", 100, &json!({})).is_err());
+    }
+
+    #[test]
+    fn lights_are_taken_only_when_every_one_is_named_and_they_fit() {
+        let answer = json!({"outputCount": 7, "lights": [{"name": "Ceiling", "outputCount": 3}, {"name": " Lamp ", "outputCount": 4}]});
+        let lights = parse_outputs("Lamp", 100, &answer).unwrap().lights.unwrap();
+        assert_eq!(lights, [ExternalLight { name: "Ceiling".into(), outputs: 3 }, ExternalLight { name: "Lamp".into(), outputs: 4 }]);
+        // Too many outputs for the count, an unnamed light or a light of 2 outputs: no lights, the count still stands.
+        for bad in [json!([{"name": "A", "outputCount": 3}, {"name": "B", "outputCount": 3}]), json!([{"name": " ", "outputCount": 3}]), json!([{"name": "A", "outputCount": 2}]), json!("A")] {
+            let outputs = parse_outputs("Lamp", 100, &json!({"outputCount": 5, "lights": bad})).unwrap();
+            assert_eq!((outputs.count, outputs.lights), (5, None));
+        }
     }
 
     #[test]
