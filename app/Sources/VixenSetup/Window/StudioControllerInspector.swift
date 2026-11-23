@@ -9,7 +9,7 @@ struct StudioControllerNetworkInspector: View {
     let model: SetupModel
 
     @State private var info: StudioControllerNetwork?
-    @State private var status = ""
+    @State private var status: StudioControllerLiveStatus?
     @State private var check: StudioProbeResult?
     @State private var checking = false
     @State private var error: String?
@@ -127,8 +127,13 @@ struct StudioControllerNetworkInspector: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 row("Status") {
-                    Text(status)
-                        .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(status?.text ?? "")
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let problem = status?.problem {
+                            StudioControllerProblemLabel(problem: problem)
+                        }
+                    }
                 }
             }
             .font(.callout)
@@ -231,8 +236,8 @@ struct StudioControllerNetworkInspector: View {
         }
         let changed = next != info
         info = next
-        if let statusJSON, let decoded = try? JSONDecoder().decode(StudioControllerStatus.self, from: Data(statusJSON.utf8)) {
-            status = decoded.text
+        if let statusJSON, let decoded = try? JSONDecoder().decode(StudioControllerLiveStatus.self, from: Data(statusJSON.utf8)) {
+            status = decoded
         }
         // Fields being typed in keep their text; the others follow the controller.
         guard changed || resetFields else { return }
@@ -255,7 +260,39 @@ nonisolated struct StudioControllerNetwork: Decodable, Equatable, Sendable {
     let layout: String
 }
 
-private struct StudioControllerStatus: Decodable { let text: String }
+/// `studio_controller_network::status`: the status line, and what's wrong while something is (send errors with how long
+/// ago the last one was; a plugin's own `unavailable`/`error` state while it's current).
+struct StudioControllerLiveStatus: Decodable, Equatable {
+    struct Problem: Decodable, Equatable {
+        let level: String
+        let text: String
+    }
+
+    let text: String
+    let problem: Problem?
+    let moduleState: String?
+    let moduleProblem: String?
+
+    /// A plugin controller's state comes first: it's what the plugin says right now.
+    var current: Problem? {
+        if let moduleProblem { return Problem(level: moduleState == "unavailable" ? "warning" : "error", text: moduleProblem) }
+        return problem
+    }
+}
+
+/// A problem in full, wrapping rather than truncating: the list's Output column only has room for its start.
+struct StudioControllerProblemLabel: View {
+    let problem: StudioControllerLiveStatus.Problem
+
+    var body: some View {
+        Label(problem.text, systemImage: problem.level == "error" ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+            .symbolRenderingMode(.multicolor)
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
+    }
+}
+
 private struct StudioProbeResult: Decodable { let reachable: Bool?; let text: String }
 private struct StudioConfigureResult: Decodable { let newSlot: Int? }
 

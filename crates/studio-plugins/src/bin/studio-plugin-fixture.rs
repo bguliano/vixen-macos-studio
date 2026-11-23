@@ -4,7 +4,10 @@
 //!
 //! It is also a controller plugin: it logs every `controller.*` request and frame to stderr, adds `"seen": true` to the
 //! configuration it is given, refuses a configuration containing `"bad"` with field errors, and with `--report` sends
-//! status, stats and a message after `controller.start`. `--slow-frames` sleeps 50 ms per frame. `--display=<json>`
+//! status, stats and a message after `controller.start`. `--find-devices` reports `unavailable` after `controller.start`
+//! and `running` with the instance's first lit frame (with `--find-devices-after=<n>`, its n-th frame), as a LAN plugin
+//! does while it looks for its devices. `--slow-frames`
+//! sleeps 50 ms per frame. `--display=<json>`
 //! asks `display.snapshot` with those params after initialize and logs the answer. `controller.outputsFor` answers 3
 //! outputs per item of the configuration's `lamps` (named `<name> R/G/B`; with `"listLights": true` also listed as `lights`,
 //! one per lamp), and its `detect` tool answers a merge patch adding two lamps.
@@ -24,6 +27,9 @@ fn main() {
     let stubborn = args.iter().any(|a| a == "--stubborn");
     let report = args.iter().any(|a| a == "--report");
     let slow_frames = args.iter().any(|a| a == "--slow-frames");
+    let find_after = args.iter().find_map(|a| a.strip_prefix("--find-devices-after=")).and_then(|n| n.parse::<u64>().ok());
+    let find_devices = find_after.is_some() || args.iter().any(|a| a == "--find-devices");
+    let mut finding: std::collections::HashSet<String> = std::collections::HashSet::new();
     let display = args.iter().find_map(|a| a.strip_prefix("--display=")).map(str::to_string);
     if mode == "crash" {
         eprintln!("fixture crashing at start");
@@ -81,6 +87,15 @@ fn main() {
             "controller.frame" => {
                 let p = &message["params"];
                 eprintln!("frame {} seq={} {} {}", p["instanceId"].as_str().unwrap_or(""), p["seq"], p["encoding"].as_str().unwrap_or(""), p["values"]);
+                // Base64 for u8 frames ("AAAA" is dark), a number array for json.
+                let lit = match &p["values"] {
+                    Value::String(b64) => b64.chars().any(|c| c != 'A' && c != '='),
+                    values => values.as_array().is_some_and(|v| v.iter().any(|x| x.as_u64().is_some_and(|x| x > 0))),
+                };
+                let found = find_after.map_or(lit, |n| p["seq"].as_u64().is_some_and(|seq| seq >= n));
+                if let Some(instance) = p["instanceId"].as_str().filter(|i| found && finding.remove(*i)) {
+                    send(json!({"jsonrpc": "2.0", "method": "controller.status", "params": {"instanceId": instance, "state": "running"}}));
+                }
                 if slow_frames {
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
@@ -102,6 +117,10 @@ fn main() {
                 let instance = p["instanceId"].as_str().unwrap_or("").to_string();
                 eprintln!("{method} {instance} outputs={}", p["outputCount"]);
                 send(json!({"jsonrpc": "2.0", "id": id, "result": {}}));
+                if find_devices && method == "controller.start" {
+                    send(json!({"jsonrpc": "2.0", "method": "controller.status", "params": {"instanceId": instance, "state": "unavailable", "message": "finding devices on the network…"}}));
+                    finding.insert(instance.clone());
+                }
                 if report && method == "controller.start" {
                     send(json!({"jsonrpc": "2.0", "method": "controller.stats", "params": {"instanceId": instance, "packetsSent": 10, "bytesSent": 300, "errors": 1}}));
                     send(json!({"jsonrpc": "2.0", "method": "controller.message", "params": {"instanceId": instance, "title": "Lamp", "text": "found 2 lamps"}}));

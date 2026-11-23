@@ -1,0 +1,16 @@
+{
+  "steps": [
+    {"action": "window", "id": "administration"},
+    {"action": "wait", "seconds": 8},
+    {"action": "studioSection", "name": "controllers"},
+    {"action": "wait", "seconds": 3},
+    {"action": "hook", "name": "studio.layout", "path": ["size", "1280", "800", "Vixen Studio"]},
+    {"action": "wait", "seconds": 0.6},
+    {"action": "studioControllersSelect", "name": "Govee"},
+    {"action": "wait", "seconds": 2.5},
+    {"action": "studioControllersState"},
+    {"action": "snapshot", "name": "01-patched"},
+    {"action": "wait", "seconds": 4},
+    {"action": "quit"}
+  ]
+}

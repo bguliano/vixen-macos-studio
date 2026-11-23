@@ -430,6 +430,8 @@ Plugin → host · notification
 
 The instance's state, shown as the controller's health in the Controllers section, `controller_overview` and
 `plugin_info`. A status you report while starting stands (Studio only sets `running` itself if you said nothing).
+It shows while it's current: report `running` once your device answers and the controller shows as sending again.
+A status isn't counted as a send error; report those in `controller.stats`.
 
 | Param | Type | Required | Meaning |
 |---|---|---|---|

@@ -122,7 +122,8 @@ struct StudioControllersSection: View {
                 Label(row.health.text, systemImage: row.health.symbol)
                     .symbolRenderingMode(.multicolor)
                     .foregroundStyle(row.health.dimmed ? .secondary : .primary)
-                    .lineLimit(1)
+                    // Two lines, like Name: enough for most reasons; the inspector shows them in full.
+                    .lineLimit(2)
                     .help(([row.health.text] + row.problems.dropFirst()).joined(separator: "\n"))
             }
             .width(min: 64, ideal: 72)

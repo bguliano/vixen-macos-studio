@@ -14,6 +14,8 @@ struct StudioPluginControllerInspector: View {
     let model: SetupModel
 
     @State private var info: PluginInfo?
+    /// The engine's status for the controller: sending, the plugin's own state, send errors.
+    @State private var status: StudioControllerLiveStatus?
     @State private var form: [FormField] = []
     @State private var formSchema = ""
     /// The configuration being edited: the controller's, plus edits not applied yet because they don't check out.
@@ -137,6 +139,19 @@ struct StudioPluginControllerInspector: View {
                 }
                 .controlSize(.small)
             }
+        }
+        if plugin.problem == nil, let status {
+            Group {
+                if let problem = status.current {
+                    StudioControllerProblemLabel(problem: problem)
+                } else {
+                    Text(status.text)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .accessibilityIdentifier("studio.pluginController.status")
         }
         if let problem = plugin.problem {
             VStack(alignment: .leading, spacing: StudioMetrics.spacingXS) {
@@ -572,14 +587,17 @@ struct StudioPluginControllerInspector: View {
     private func refresh(reset: Bool = false) async {
         guard let session = model.session else { info = nil; return }
         let rows = model.controllerSelection
-        let json = await offMain { () -> String? in
-            guard let id = session.firstControllerInfo(rows: rows)?.id else { return nil }
-            return session.studioControllerNetwork(id: id)
+        let core = model.app.core
+        let (json, statusJSON) = await offMain { () -> (String?, String?) in
+            guard let id = session.firstControllerInfo(rows: rows)?.id else { return (nil, nil) }
+            return (session.studioControllerNetwork(id: id), core?.studioControllerStatus(id: id))
         }
         guard let json, let next = try? JSONDecoder().decode(PluginInfo.self, from: Data(json.utf8)) else {
             info = nil
             return
         }
+        let nextStatus = statusJSON.flatMap { try? JSONDecoder().decode(StudioControllerLiveStatus.self, from: Data($0.utf8)) }
+        if nextStatus != status { status = nextStatus }
         let switched = next.id != info?.id
         let configChanged = next.plugin.config != info?.plugin.config
         info = next

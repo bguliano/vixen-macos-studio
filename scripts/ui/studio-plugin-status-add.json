@@ -1,0 +1,33 @@
+{
+  "steps": [
+    {"action": "window", "id": "administration"},
+    {"action": "wait", "seconds": 7},
+    {"action": "menu", "path": ["Vixen Studio", "Settings…"]},
+    {"action": "wait", "seconds": 1.5},
+    {"action": "hook", "name": "studio.settings", "path": ["tab", "plugins"]},
+    {"action": "wait", "seconds": 1},
+    {"action": "hook", "name": "studio.plugins", "path": ["link", "@WORK@/dev/lamp"]},
+    {"action": "wait", "seconds": 2.5},
+    {"action": "hook", "name": "studio.settings", "path": ["tab", "general"]},
+    {"action": "closeWindow"},
+    {"action": "window", "id": "administration"},
+    {"action": "wait", "seconds": 3.5},
+    {"action": "studioSection", "name": "controllers"},
+    {"action": "wait", "seconds": 4},
+    {"action": "hook", "name": "setup.command", "path": ["controllerType", "Lamp"]},
+    {"action": "hook", "name": "setup.command", "path": ["addController"]},
+    {"action": "wait", "seconds": 0.6},
+    {"action": "hook", "name": "setup.sheetAnswer", "path": ["Govee"]},
+    {"action": "wait", "seconds": 0.8},
+    {"action": "hook", "name": "setup.sheetAnswer", "path": ["3"]},
+    {"action": "wait", "seconds": 3},
+    {"action": "hook", "name": "studio.layout", "path": ["size", "1280", "800", "Vixen Studio"]},
+    {"action": "wait", "seconds": 0.6},
+    {"action": "studioControllersSelect", "name": "Govee"},
+    {"action": "wait", "seconds": 2},
+    {"action": "studioControllersState"},
+    {"action": "snapshot", "name": "00-unpatched"},
+    {"action": "wait", "seconds": 4},
+    {"action": "quit"}
+  ]
+}

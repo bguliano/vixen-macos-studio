@@ -236,9 +236,8 @@ pub(crate) fn route(inner: &Inner, plugin_id: &str, method: &str, params: &Value
                 Some("error") => ModuleStatus::Error(if message.is_empty() { "The plugin reported an error".into() } else { message }),
                 _ => return Err(invalid("state must be running, unavailable or error")),
             };
-            if let ModuleStatus::Error(m) | ModuleStatus::Unavailable(m) = &status {
-                instance.shared.record_error(m.clone());
-            }
+            // A state is shown while it's current, not counted as a send error: plugins say `unavailable` while they look
+            // for their devices at every start, then `running`. Send errors come from `controller.stats`.
             instance.reported.store(true, Ordering::SeqCst);
             instance.shared.set_status(status);
         }

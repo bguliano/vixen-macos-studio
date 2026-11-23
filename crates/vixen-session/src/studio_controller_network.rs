@@ -417,7 +417,14 @@ pub fn configure(s: &mut SetupSession, a: &Value) -> Result<Value, String> {
 /// clock, so "last packet" is as fresh as the caller's polling (the inspector polls once a second).
 static LAST_SEEN: Mutex<Option<HashMap<Uuid, (u64, Instant)>>> = Mutex::new(None);
 
-/// The status line: whether output is running and how long ago it last sent a packet.
+/// When each controller's send-error count last moved, the same way: the engine keeps the last error but not its time.
+static LAST_ERROR: Mutex<Option<HashMap<Uuid, (u64, Instant)>>> = Mutex::new(None);
+
+/// Send errors older than this, on a controller that is sending again, are a warning rather than an error.
+const RECENT_ERROR: Duration = Duration::from_secs(60);
+
+/// The status line: whether output is running and how long ago it last sent a packet, and any send errors with how
+/// long ago the last one was (`problem`).
 pub fn status(core: &AppCore, id: Uuid) -> Value {
     let muted = !core.playback.hardware_allowed();
     let open = core.execution().is_open();
@@ -465,11 +472,49 @@ pub fn status(core: &AppCore, id: Uuid) -> Value {
             None => "Running, no packets sent yet".to_string(),
         }
     };
-    let module_problem = match module_status {
-        ModuleStatus::Error(m) | ModuleStatus::Unavailable(m) | ModuleStatus::UnsupportedOnMacOs(m) => Some(m),
-        _ => None,
+    let error_ago = {
+        let mut guard = LAST_ERROR.lock();
+        let seen = guard.get_or_insert_with(HashMap::new);
+        match seen.get(&id) {
+            _ if errors == 0 => {
+                seen.remove(&id);
+                None
+            }
+            Some((count, at)) if errors == *count => Some(now - *at),
+            // New errors, a first look, or the counter restarted with the controller.
+            _ => {
+                seen.insert(id, (errors, now));
+                Some(Duration::ZERO)
+            }
+        }
     };
-    json!({"running":running,"liveOutput":open && !muted,"muted":muted,"packetsSent":packets,"lastPacketMsAgo":ago.map(|d|d.as_millis() as u64),"errors":errors,"lastError":last_error,"moduleProblem":module_problem,"text":text})
+    let sending = ago.is_some_and(|d| d < Duration::from_secs(2));
+    let problem = match (&last_error, error_ago) {
+        (Some(error), Some(age)) => {
+            // Old errors stay visible, but only as a warning unless packets stopped. A plugin that reports no packet
+            // counts can't show that, so for it only the age counts.
+            let stalled = open && !muted && running && packets > 0 && !sending;
+            let level = if age < RECENT_ERROR || stalled { "error" } else { "warning" };
+            json!({"level":level,"text":format!("Send errors ({}), last {}: {error}", group_digits(errors as usize), age_text(age))})
+        }
+        _ => Value::Null,
+    };
+    let (module_state, module_problem) = match module_status {
+        ModuleStatus::Unavailable(m) => (Some("unavailable"), Some(m)),
+        ModuleStatus::Error(m) | ModuleStatus::UnsupportedOnMacOs(m) => (Some("error"), Some(m)),
+        _ => (None, None),
+    };
+    json!({"running":running,"liveOutput":open && !muted,"muted":muted,"packetsSent":packets,"lastPacketMsAgo":ago.map(|d|d.as_millis() as u64),"errors":errors,"lastError":last_error,"lastErrorMsAgo":error_ago.map(|d|d.as_millis() as u64),"problem":problem,"moduleState":module_state,"moduleProblem":module_problem,"text":text})
+}
+
+/// "just now", "40 s ago", "3 min ago", "2 h ago".
+fn age_text(age: Duration) -> String {
+    match age.as_secs() {
+        s if s < 5 => "just now".into(),
+        s if s < 60 => format!("{s} s ago"),
+        s if s < 3600 => format!("{} min ago", s / 60),
+        s => format!("{} h ago", s / 3600),
+    }
 }
 
 /// Whether anything answers at `address`: a TCP connection to port 80, where WLED and most pixel controllers serve
@@ -571,11 +616,12 @@ fn health(c: &ControllerEntry, info: &Value, status: Option<&Value>, problems: &
     if !c.running || status["running"] != true {
         return ("stopped", "Stopped: not sending".into());
     }
+    // A plugin's own state shows while it's current: `unavailable` (still looking for its devices) is a warning.
     if let Some(problem) = status["moduleProblem"].as_str().filter(|_| matches!(c.config, Some(ControllerConfig::External(_)))) {
-        return ("error", problem.to_string());
+        return (if status["moduleState"] == "unavailable" { "warning" } else { "error" }, problem.to_string());
     }
-    if let Some(error) = status["lastError"].as_str().filter(|_| status["errors"].as_u64().unwrap_or(0) > 0) {
-        return ("error", format!("Send errors ({}): {error}", status["errors"]));
+    if let Some(text) = status["problem"]["text"].as_str() {
+        return (if status["problem"]["level"] == "error" { "error" } else { "warning" }, text.to_string());
     }
     if status["lastPacketMsAgo"].as_u64().is_some_and(|ms| ms >= 2000) {
         return ("warning", status["text"].as_str().unwrap_or_default().to_string());
@@ -585,7 +631,7 @@ fn health(c: &ControllerEntry, info: &Value, status: Option<&Value>, problems: &
 
 /// The MCP `controller_overview` tool: the Controllers section's list.
 pub fn overview_tool() -> Value {
-    json!({"name":"controller_overview","description":"Every controller as the show window's Controllers section lists it, in pane order: name, type, protocol, address, universes, outputs and how many are patched, run state (running = set to send while Live Output is on), live status (packets sent, last packet, send errors) and health {level: ok|stopped|off|pending|warning|error, text}, with problems (universe table errors). needAttention counts warning and error rows. Read-only; change settings with controller_configure, run state with output_start/output_stop.","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+    json!({"name":"controller_overview","description":"Every controller as the show window's Controllers section lists it, in pane order: name, type, protocol, address, universes, outputs and how many are patched, run state (running = set to send while Live Output is on), live status (packets sent, last packet, send errors with how long ago the last one was) and health {level: ok|stopped|off|pending|warning|error, text}, with problems (universe table errors). needAttention counts warning and error rows. Read-only; change settings with controller_configure, run state with output_start/output_stop.","inputSchema":{"type":"object","properties":{},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
 }
 
 pub fn overview_execute(s: &SetupSession, core: Option<&AppCore>, a: &Value) -> Result<Value, String> {
@@ -636,6 +682,12 @@ mod tests {
         let slot = s.add_controller(ids::E131, "WLED", 10).unwrap();
         let id = s.controllers[slot as usize].id;
         (s, id)
+    }
+
+    #[test]
+    fn send_error_ages_read_as_words() {
+        let ages = [0, 4, 5, 59, 60, 3599, 7200].map(|s| age_text(Duration::from_secs(s)));
+        assert_eq!(ages, ["just now", "just now", "5 s ago", "59 s ago", "1 min ago", "59 min ago", "2 h ago"]);
     }
 
     #[test]

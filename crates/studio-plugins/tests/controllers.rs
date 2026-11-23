@@ -525,6 +525,52 @@ fn single_bulbs_come_from_the_lights_a_plugin_lists() {
     drop(core);
 }
 
+/// B68: a plugin that says `unavailable` while it looks for its devices, then `running`, shows as fine afterwards rather
+/// than as a send error forever; a configuration it refuses still shows as an error, in full.
+#[test]
+fn a_passing_unavailable_status_is_not_a_send_error() {
+    let _turn = turn();
+    let sandbox = Sandbox::new("finding");
+    let host = sandbox.host();
+    host.link_dev(&sandbox.plugin("lamp", "2.3.0", &["--find-devices"], &["u8"])).unwrap();
+    register(&host);
+    let core = vixen_session::app::AppCore::open(sandbox.base.join("Profile"), false).unwrap();
+    let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, false).map(|r| r["result"].clone());
+    let tree = run("element_template", json!({"kind": "megatree", "name": "Tree", "count": 1, "pixels": 1, "color": "rgb"})).unwrap();
+    let controller = run("controller_create", json!({"name": "Govee", "typeId": TYPE_ID, "outputs": 3})).unwrap()["id"].as_str().unwrap().to_string();
+    run("patch_elements", json!({"elementId": tree["id"], "controllerId": controller})).unwrap();
+    core.playback.open_execution();
+    vixen_session::studio_live::set_allowed_locally(&core, true);
+    vixen_session::studio_live::execute(&core, "output_start", &json!({"controllerId": controller, "confirm": true})).unwrap();
+    // As the Controllers section reads it: with run state.
+    let row = || {
+        let setup = vixen_session::setup::SetupSession::open(&core);
+        vixen_session::studio_controller_network::overview(&setup, Some(&core))["controllers"][0].clone()
+    };
+
+    // While it looks: a warning with the plugin's words, and no send error.
+    wait_until("the unavailable status", || row()["health"]["text"] == "finding devices on the network…");
+    assert_eq!(row()["health"]["level"], "warning");
+    // Frames flow, the plugin says running: healthy, nothing counted.
+    vixen_session::studio_commission::start(&core, vixen_session::studio_commission::Origin::Local, &json!({"controllerId": controller, "pattern": "allOn"})).unwrap();
+    wait_until("running", || row()["health"]["level"] == "ok");
+    let row_now = row();
+    assert_eq!((row_now["status"]["errors"].clone(), row_now["status"]["problem"].clone()), (json!(0), Value::Null), "{row_now}");
+    vixen_session::studio_commission::stop(&core);
+
+    // A configuration the plugin refuses is still an error, and its send error says how long ago it was.
+    // (A new configuration replaces the module, stopped; start it again.)
+    run("controller_configure", json!({"id": controller, "config": {"host": "10.0.0.7", "port": 4048, "bad": true}})).unwrap();
+    vixen_session::studio_live::execute(&core, "output_start", &json!({"controllerId": controller, "confirm": true})).unwrap();
+    wait_until("the refusal", || row()["health"]["level"] == "error");
+    let refused = row();
+    assert!(refused["health"]["text"].as_str().unwrap().ends_with("failed: bad is not allowed"), "{refused}");
+    assert!(refused["status"]["problem"]["text"].as_str().unwrap().starts_with("Send errors (1), last just now: controller.create failed"), "{refused}");
+    vixen_session::studio_live::set_allowed_locally(&core, false);
+    core.playback.close_execution();
+    drop(core);
+}
+
 fn overview(core: &vixen_session::app::AppCore) -> Value {
     let setup = vixen_session::setup::SetupSession::from_system(core.system.read().clone(), &Default::default(), core.playback.hardware_allowed());
     vixen_session::studio_controller_network::overview(&setup, Some(core))
