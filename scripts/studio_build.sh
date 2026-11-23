@@ -6,10 +6,15 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LOCK="${TMPDIR:-/tmp}/vixen-studio-build.lock"
+STALE_AFTER=180   # seconds a lock without a pid may live (a fresh one is still being written)
 waited=0
 until mkdir "$LOCK" 2>/dev/null; do
-    if [ -f "$LOCK/pid" ] && ! kill -0 "$(cat "$LOCK/pid")" 2>/dev/null; then
-        rm -rf "$LOCK"; continue   # stale lock from a build that died
+    if [ -f "$LOCK/pid" ]; then
+        if ! kill -0 "$(cat "$LOCK/pid")" 2>/dev/null; then
+            rm -rf "$LOCK"; continue   # stale lock from a build that died
+        fi
+    elif [ -e "$LOCK" ] && [ $(($(date +%s) - $(stat -f %m "$LOCK" 2>/dev/null || date +%s))) -ge $STALE_AFTER ]; then
+        rm -rf "$LOCK"; continue   # a plain file or a pid-less directory left by something else
     fi
     [ $((waited % 30)) -eq 0 ] && echo "Waiting for another Studio build ($(cat "$LOCK/owner" 2>/dev/null || echo unknown))..."
     sleep 5; waited=$((waited + 5))
