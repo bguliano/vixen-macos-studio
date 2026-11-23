@@ -427,9 +427,58 @@ mod tests {
             })
             .collect();
         assert_eq!(sent, (0..5u8).flat_map(|i| [10 + i, 100 + i, 200 + i]).collect::<Vec<_>>());
+        // A full-intensity white Set Level reaches every output at 255, as bright as the commissioning tests' allOn at 100%.
+        let white = vixen_core::CombinedState { lighting: Some(vixen_core::LightingValue::new(vixen_core::Color::WHITE, 1.0)), ..Default::default() };
+        graph.evaluate(&vec![white; 5]);
+        assert!(graph.commands(0).iter().all(|c| matches!(c, vixen_output::OutputCommand::U8(255))), "{:?}", graph.commands(0));
         // One step: Undo removes elements, patches and bulbs together.
         run("display_undo", json!({})).unwrap();
         assert_eq!(core.system.read().tree.len(), elements_before);
+        drop(core);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Five RGBW bulbs (Govee Output rows with Channels RGBW) on 20 outputs: patched 20 to 20, and Vixen's RGBW breakdown puts
+    /// white on W alone, colour on R G B, and a white with a tint on both.
+    #[test]
+    fn rgbw_bulbs_take_four_outputs_each_and_white_goes_to_w() {
+        let root = std::env::temp_dir().join(format!("studio-bulbs-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let run = |name: &str, args: Value| core.studio_display.execute(&core, name, &args, true);
+        let controller = run("controller_create", json!({"name":"Govee","typeId":vixen_output::ids::E131.to_string(),"outputs":20})).unwrap()["result"]["id"].clone();
+        let names = ["Kitchen 1", "Kitchen 2", "Kitchen 3", "Kitchen 4", "Living Room Lamp"];
+        let made = run("element_single_bulbs", json!({"names":names,"color":"rgbw","controllerId":controller})).unwrap()["result"].clone();
+        assert_eq!(made["color"]["channelsPerPixel"], 4);
+        assert_eq!((made["patch"]["patched"].clone(), made["patch"]["needed"].clone(), made["patch"]["short"].clone()), (json!(20), json!(20), json!(0)));
+        let system = core.system.read().clone();
+        let elements: Vec<Uuid> = made["ids"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|id| system.tree.node(system.tree.find(&Uuid::parse_str(id.as_str().unwrap()).unwrap()).unwrap()).element_id.unwrap())
+            .collect();
+        let mut graph = crate::show::build_output_graph(&system, &elements);
+        let lit = |color: vixen_core::Color, intensity: f64| vixen_core::CombinedState { lighting: Some(vixen_core::LightingValue::new(color, intensity)), ..Default::default() };
+        graph.evaluate(&[
+            lit(vixen_core::Color::WHITE, 1.0),
+            lit(vixen_core::Color::RED, 1.0),
+            lit(vixen_core::Color::WHITE, 0.5),
+            lit(vixen_core::Color::rgb(255, 200, 150), 1.0),
+            vixen_core::CombinedState::default(),
+        ]);
+        let sent: Vec<u8> = graph
+            .commands(0)
+            .iter()
+            .map(|c| match c {
+                vixen_output::OutputCommand::U8(v) => *v,
+                other => panic!("unexpected command {other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            sent.chunks(4).collect::<Vec<_>>(),
+            [[0, 0, 0, 255], [255, 0, 0, 0], [0, 0, 0, 127], [105, 50, 0, 150], [0, 0, 0, 0]],
+            "R G B W per bulb"
+        );
         drop(core);
         std::fs::remove_dir_all(root).unwrap();
     }
