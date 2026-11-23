@@ -127,6 +127,10 @@
   "file": "crates/vixen-preview/src/session.rs",
   "hash": "e5e2645a9d25b03a"
  },
+ "block:designer-add-menu": {
+  "file": "app/Sources/VixenPreview/DesignerCommands.swift",
+  "hash": "10fcf4c582ce0e52"
+ },
  "block:designer-in-pane": {
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "cdf10d3bf61cca20"
@@ -162,6 +166,14 @@
  "block:designer-shape-export": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "c56ec8e8c777430e"
+ },
+ "block:designer-single-lights": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "49edd2d7e22627b1"
+ },
+ "block:designer-single-lights-draw": {
+  "file": "crates/vixen-preview/src/session.rs",
+  "hash": "5d25df35fbc858c8"
  },
  "block:dialog-prompt-verb": {
   "file": "app/Sources/VixenDialogs/Common.swift",
@@ -1407,6 +1419,10 @@
   "file": "app/Sources/VixenPreview/DesignerModel.swift",
   "hash": "fc58c90e3aa5b9fc"
  },
+ "line:app/Sources/VixenPreview/DesignerWindow.swift:ce4a4cb6e0717a24": {
+  "file": "app/Sources/VixenPreview/DesignerWindow.swift",
+  "hash": "ce4a4cb6e0717a24"
+ },
  "line:app/Sources/VixenPreview/DesignerWindow.swift:f70f8144064d98d8": {
   "file": "app/Sources/VixenPreview/DesignerWindow.swift",
   "hash": "f70f8144064d98d8"
@@ -2290,6 +2306,10 @@
  "line:crates/vixen-session/src/lib.rs:6043f0579981bcfa": {
   "file": "crates/vixen-session/src/lib.rs",
   "hash": "6043f0579981bcfa"
+ },
+ "line:crates/vixen-session/src/lib.rs:695eaa8b0d0336c4": {
+  "file": "crates/vixen-session/src/lib.rs",
+  "hash": "695eaa8b0d0336c4"
  },
  "line:crates/vixen-session/src/lib.rs:71eeca2dd233139f": {
   "file": "crates/vixen-session/src/lib.rs",

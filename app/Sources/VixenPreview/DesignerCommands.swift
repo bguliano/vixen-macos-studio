@@ -92,6 +92,9 @@ private struct DesignerEditItems: View {
         Divider()
         Button("Background Properties...") { model.sheet = .resizeBackground }
         Divider()
+        // STUDIO-BEGIN designer-add-menu: Edit ▸ Add names the Single Light tool and places one linked bulb per selected light (B60)
+        StudioDesignerAddMenu(model: model)
+        // STUDIO-END designer-add-menu
         Button("Templates (Legacy)") { model.sheet = .templates }
     }
 }

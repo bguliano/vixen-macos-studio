@@ -63,7 +63,7 @@ fn a_new_megatree_appears_linked_in_the_chosen_preview() {
     let lights_before = try_call("display_geometry", json!({"previewId":preview,"pixels":false})).unwrap()["props"].as_array().unwrap().len();
 
     // Only shapes the designer can build from an element take a previewId.
-    let refused = try_call("element_template", json!({"kind":"single","name":"Lone","count":1,"previewId":preview})).unwrap_err();
+    let refused = try_call("element_template", json!({"kind":"group","name":"Lone","count":3,"previewId":preview})).unwrap_err();
     assert!(refused.contains("megatree, matrix or arch"), "{refused}");
 
     let made = try_call(

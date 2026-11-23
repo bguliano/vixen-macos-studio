@@ -28,6 +28,10 @@ use vixen_xml::XElement;
 #[path = "studio_design_undo.rs"]
 mod studio_design_undo;
 // STUDIO-END designer-live-undo
+// STUDIO-BEGIN designer-single-lights: the Single Light tool places one linked bulb per selected light (B60)
+#[path = "studio_single_lights.rs"]
+pub mod studio_single_lights;
+// STUDIO-END designer-single-lights
 // STUDIO-BEGIN designer-access: the designer's props for VoiceOver, and Tab between them (R43)
 #[path = "studio_access.rs"]
 pub mod studio_access;
@@ -1332,6 +1336,11 @@ impl DesignSession {
         } else if self.mouse_captured && matches!(self.tool, Tool::PolyLine | Tool::MultiString) {
             // If we're not Selecting items, we're drawing them
             return true;
+        // STUDIO-BEGIN designer-single-lights-draw: several selected elements or a group get one linked bulb per light
+        } else if self.studio_places_single_lights() {
+            self.studio_draw_single_lights(translated, ch);
+            return true;
+        // STUDIO-END designer-single-lights-draw
         } else {
             self.deselect_selected_display_item(ch);
             if let Some(shape) = self.new_shape_for_tool(translated) {

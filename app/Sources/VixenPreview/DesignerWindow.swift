@@ -182,7 +182,7 @@ private struct ToolGroups: View {
             .toolGroup("Select")
         VStack(spacing: 3) {
             HStack(spacing: 3) {
-                IconButton(icon: "buttonDrawPixel", help: "Single Light", active: tool == .single) {
+                IconButton(icon: "buttonDrawPixel", help: StudioDesignerAddMenu.singleLightHelp, active: tool == .single) { // STUDIO: says what the tool does with elements selected (B60)
                     // `Keyboard.Modifiers == Control`: that key alone, so ⌘⇧ doesn't count. Read from the click itself.
                     let flags = (NSApp.currentEvent?.modifierFlags ?? NSEvent.modifierFlags).intersection([.command, .shift, .option, .control])
                     model.chooseSingleLight(commandHeld: flags == .command)

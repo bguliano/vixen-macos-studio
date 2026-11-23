@@ -54,6 +54,12 @@ impl PreviewDesigner {
         change
     }
 
+    /// Edit ▸ Add ▸ Bulbs for Selected Elements: one Single Light per light of the element tree's selection, each linked to its
+    /// light and named after it, as one undo step (`studio_single_lights` in vixen-preview; B60).
+    pub fn studio_place_single_lights(&self) -> DesignerChange {
+        self.run(|s| s.studio_place_single_lights())
+    }
+
     /// The Location Offset sheet's fields, as they're committed: one undo step each, none when nothing changed.
     pub fn studio_set_location_offset(&self, x: f64, y: f64) -> DesignerChange {
         self.run(|s| s.studio_set_location_offset(x, y))

@@ -372,6 +372,13 @@ pub fn studio_build_info() -> String {
     studio_mcp::build().to_string()
 }
 
+/// The Single Bulbs sheet's names from what was typed or pasted: one per line, commas and tabs separating too, blanks dropped
+/// (`studio_single_bulbs::parse_names`, which the MCP `element_single_bulbs` text runs).
+#[uniffi::export]
+pub fn studio_single_bulb_names(text: String) -> Vec<String> {
+    vixen_session::studio_single_bulbs::parse_names(&text)
+}
+
 /// The template Colour picker's choices as JSON: [{mode, label, channelsPerPixel, note}].
 #[uniffi::export]
 pub fn studio_color_choices() -> String {

@@ -59,6 +59,11 @@ command, edits are live with Undo, and each change is verified with harness runs
    preview. *Done:* a Show in Preview picker in the Megatree, Pixel Grid and Arch sheets
    (`StudioTemplatePreview.swift`, `studio_props::add_linked`) adds the matching Mega Tree, Pixel Grid or Arch, linked
    light for light in the prop's order; MCP `element_template` `previewId` and `preview_prop_create` `elementId`.
+   Single bulbs (B60): Display ▸ Elements ▸ Add ▸ Single Bulbs… (`StudioSingleBulbsSheet.swift`, `studio_single_bulbs.rs`)
+   makes one Single Item per typed or pasted name with its colour, patched in order to a controller and shown in a preview,
+   one step; the designer's Single Light tool places one linked bulb per light when several elements or a group are
+   selected, and Edit ▸ Add names it and adds Bulbs for Selected Elements; MCP `element_single_bulbs`, kind `single` for
+   `element_template` `previewId` and `preview_prop_create` `elementId`/`elementIds`.
 6. **Commissioning tests** per controller and per group: moving pixel, R/G/B/W bars, at a chosen brightness (default 25%),
    gated by the live-output switch. Mirrors the build manual's Part J checks. *Done:* a Test submenu on one element, group or
    controller in the Display pane (`StudioTestMenu.swift`, `studio_commission.rs`): Moving Pixel (wire order), Color Bars

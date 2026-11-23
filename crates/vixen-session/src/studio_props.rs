@@ -9,8 +9,43 @@ fn text<'a>(a: &'a Value, k: &str) -> Result<&'a str, String> {
         .filter(|s| !s.is_empty() && s.len() <= 256)
         .ok_or(format!("Invalid {k}"))
 }
-/// The prop kinds a new element can be shown as, linked: the template kinds whose shape the native designer builds from the element.
-pub const LINKED_KINDS: [&str; 3] = ["megatree", "matrix", "arch"];
+/// The prop kinds a new element can be shown as, linked: the template kinds whose shape the native designer builds from the element,
+/// and single bulbs (one per light).
+pub const LINKED_KINDS: [&str; 4] = ["megatree", "matrix", "arch", "single"];
+
+/// Single bulbs for elements of the working copy, as the designer's Single Light tool draws them with the elements selected
+/// (`studio_single_lights`): one bulb per light under `nodes`, linked to it and named after it (`name` names a lone bulb), in a row
+/// right of the preview's other props, or under them when the row wouldn't fit. One write-back.
+pub fn add_single_bulbs(s: &mut SetupSession, preview: Uuid, nodes: &[Uuid], name: Option<&str>) -> Result<Value, String> {
+    use vixen_preview::session::studio_single_lights::{single_light_targets, MAX_SINGLE_LIGHTS, SINGLE_LIGHT_SPACING};
+    let entry = crate::preview::preview_entries(&s.system)
+        .into_iter()
+        .find(|p| p.id == preview)
+        .ok_or("Preview not found")?;
+    let data = crate::preview::load_preview_data(&s.system.module_store, &entry).map_err(|e| e.to_string())?;
+    let tree = Arc::new(s.tree.to_element_tree(s.system.tree.color_sets.clone()));
+    if let Some(missing) = nodes.iter().find(|n| tree.find(n).is_none()) {
+        return Err(format!("Element not found: {missing}"));
+    }
+    let lights = single_light_targets(&tree, nodes);
+    if lights.is_empty() {
+        return Err("Those elements have no lights to show".into());
+    }
+    if lights.len() > MAX_SINGLE_LIGHTS {
+        return Err(format!("At most {MAX_SINGLE_LIGHTS} single bulbs at once"));
+    }
+    let width_limit = if data.width > 0 { data.width } else { 1920 };
+    let (x, y) = vixen_preview::session::studio_single_lights::free_row_origin(&data, lights.len(), width_limit);
+    let mut design = DesignSession::new(data, Some(tree.clone()));
+    let mut change = vixen_preview::session::Change::default();
+    let ids = design.studio_add_single_lights(vixen_preview::point::PreviewPoint::new(x, y), &lights, width_limit, &mut change);
+    if let (Some(name), [only]) = (name, ids.as_slice()) {
+        design.set_shape_property(*only, "Name", PropertyValue::Text(name.chars().take(256).collect())).map_err(|e| format!("{e:?}"))?;
+    }
+    crate::preview_design::save_preview_data(&mut s.system, &entry, design.data());
+    s.dirty.studio_module = true;
+    Ok(json!({"previewId":preview.to_string(),"shape":"Single Light","propIds":ids.iter().map(|i| i.0).collect::<Vec<_>>(),"linkedLights":ids.len(),"x":x,"y":y,"spacing":SINGLE_LIGHT_SPACING}))
+}
 
 /// Adds a preview shape for an element of the working copy, as the native designer does when a prop is drawn with that element
 /// selected: the strings, lights per string and every light's link come from the element, in its order (a megatree's S1 Px1 at
@@ -29,7 +64,8 @@ pub fn add_linked(s: &mut SetupSession, preview: Uuid, node: Uuid, kind: &str, n
         "megatree" => (Tool::MegaTree, "Mega Tree"),
         "matrix" => (Tool::PixelGrid, "Pixel Grid"),
         "arch" => (Tool::Arch, "Arch"),
-        _ => return Err("A linked preview shape can be a megatree, matrix or arch".into()),
+        "single" => return add_single_bulbs(s, preview, &[node], name),
+        _ => return Err("A linked preview shape can be a megatree, matrix, arch or single".into()),
     };
     let mut lights = Vec::new();
     let mut stack = vec![element];
@@ -92,6 +128,19 @@ pub fn add_linked(s: &mut SetupSession, preview: Uuid, node: Uuid, kind: &str, n
 
 pub fn edit(s: &mut SetupSession, name: &str, a: &Value) -> Result<Value, String> {
     let id = Uuid::parse_str(text(a, "previewId")?).map_err(|_| "Invalid previewId")?;
+    if name == "preview_prop_create" && a.get("elementIds").is_some() {
+        if a["kind"] != "single" {
+            return Err("elementIds applies to kind single; give a megatree, matrix or arch one elementId".into());
+        }
+        let nodes = a["elementIds"]
+            .as_array()
+            .filter(|v| !v.is_empty() && v.len() <= 4096)
+            .ok_or("elementIds needs 1..4096 element UUIDs")?
+            .iter()
+            .map(|v| v.as_str().and_then(|t| Uuid::parse_str(t).ok()).ok_or("elementIds must be element UUIDs"))
+            .collect::<Result<Vec<_>, _>>()?;
+        return add_single_bulbs(s, id, &nodes, None);
+    }
     if name == "preview_prop_create" && a.get("elementId").is_some() {
         let node = Uuid::parse_str(text(a, "elementId")?).map_err(|_| "Invalid elementId")?;
         let label = a.get("name").map(|_| text(a, "name")).transpose()?;
@@ -200,7 +249,7 @@ pub fn edit(s: &mut SetupSession, name: &str, a: &Value) -> Result<Value, String
 pub fn tools() -> Vec<Value> {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     vec![
-        ("preview_prop_create","Add a native preview prop at the default location; change geometry with preview_prop_set. With elementId (kind megatree, matrix or arch) the shape is built from that element and already linked light for light, as the designer does when a prop is drawn with the element selected: strings, lights per string and order come from the element, it is sized for its lights and placed right of the preview's other props, and name defaults to the element's. element_template's previewId does the same for a new prop.",json!({"previewId":string,"name":string,"elementId":string,"kind":{"type":"string","enum":["string","arch","rectangle","ellipse","megatree","matrix","star"]}}),vec!["previewId","kind"]),
+        ("preview_prop_create","Add a native preview prop at the default location; change geometry with preview_prop_set. With elementId (kind megatree, matrix or arch) the shape is built from that element and already linked light for light, as the designer does when a prop is drawn with the element selected: strings, lights per string and order come from the element, it is sized for its lights and placed right of the preview's other props, and name defaults to the element's. Kind single with elementId or elementIds (several at once) adds one Single Light bulb per light under those elements, each linked to its light and named after it, in a row right of the other props (or under them when it wouldn't fit), as the designer's Single Light tool does with those elements selected; the result lists propIds. element_template's previewId does the same for a new prop.",json!({"previewId":string,"name":string,"elementId":string,"elementIds":{"type":"array","items":string,"minItems":1,"maxItems":4096},"kind":{"type":"string","enum":["string","arch","rectangle","ellipse","megatree","matrix","star","single"]}}),vec!["previewId","kind"]),
         ("preview_prop_link","Link a preview prop to element node UUIDs using native linking rules. Requires snapshot expectedRevision.",json!({"previewId":string,"propId":{"type":"integer","minimum":0},"nodeIds":{"type":"array","items":string,"minItems":1,"maxItems":4096}}),vec!["previewId","propId","nodeIds","expectedRevision"]),
         ("preview_prop_set","Set a native preview property. Use metadata IDs from preview_props and the matching valueType. Requires snapshot expectedRevision.",json!({"previewId":string,"propId":{"type":"integer","minimum":0},"property":string,"valueType":{"type":"string","enum":["int","bool","text","enum","double"]},"value":{}}),vec!["previewId","propId","property","valueType","value","expectedRevision"]),
     ].into_iter().map(|(name,description,mut properties,required)|{properties["expectedRevision"]=json!({"type":"integer","minimum":0});json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":false,"destructiveHint":false,"openWorldHint":false}})}).collect()

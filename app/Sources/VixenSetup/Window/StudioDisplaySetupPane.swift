@@ -367,7 +367,7 @@ final class StudioDisplayLive {
     /// A display command from the pane's own menus (Patch ▸ Reverse and the like), the same command the MCP tool runs. An
     /// edit made in the last half second publishes first; the command is then one step on the shared history, and the
     /// working copy reloads to show it.
-    func perform(command: String, arguments: [String: Any], model: SetupModel, app: AppModel) {
+    func perform(command: String, arguments: [String: Any], model: SetupModel, app: AppModel, label: String? = nil) {
         guard let core = app.core, !working, blocked == nil,
               let data = try? JSONSerialization.data(withJSONObject: arguments),
               let json = String(data: data, encoding: .utf8) else { return }
@@ -386,7 +386,7 @@ final class StudioDisplayLive {
             notice = failure
             await refreshHistory(core: core, rebuildIfChanged: false)
             if failure == nil {
-                registerUndo(label: command)
+                registerUndo(label: label ?? command)
                 scheduleSave(core: core)
             }
             reload(model: model)

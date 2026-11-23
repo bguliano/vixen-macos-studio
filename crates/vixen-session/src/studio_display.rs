@@ -268,6 +268,7 @@ impl StudioDisplay {
             Kind::LipSync => crate::studio_lipsync::label(command),
             Kind::Dictionary => "",
             Kind::Face => crate::studio_face_mapping::LABEL,
+            Kind::Display if command == "element_single_bulbs" => "Add Single Bulbs",
             Kind::Display => command,
         };
         let name = if Kind::of(command) == Kind::Dictionary { crate::studio_phoneme_mappings::label(command, args) } else { name.to_string() };
@@ -928,7 +929,7 @@ pub fn command_tools() -> Vec<Value> {
     let boolean = json!({"type":"boolean"});
     let entries=vec![
         ("profile_save","Save current live display configuration and module data. Explicit confirmation required; retains undo history.",json!({"confirm":boolean}),vec!["confirm"],true),
-        ("element_template","Create a bounded single item, arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows (1 for single); pixels=visible pixels per string/columns. Megatree and matrix wiring, as the template sheet's diagram shows it (megatree drawn flat: S1 on the left, each string's Px1 at the bottom; matrix: Row1 at the bottom, Pixel1 on the left): start = the corner where the wire enters (default bottomLeft); reverseEveryOtherString (zigZag is the same option) makes each string run back the way the previous one came; hiddenPixels = dark pixels at the Px1 end (bottom) of every string, such as lights tucked under a tree's base, made in a separate group \"<name> Hidden\" (hiddenId) that keeps their wire position but is not part of the prop. Patch both together: patch_elements with alsoIds:[hiddenId]. The result's wiring gives the order in words. color sets colour handling on every new light in the same step, as the template's Colour picker does: rgb (3 channels per pixel, R G B), rgbw (4, R G B W) or single (1; singleColor, default royal blue). Without color the lights get no colour handling. previewId (megatree, matrix or arch) also adds the matching shape to that preview in the same step, already linked light for light in the prop's order, as preview_prop_create with elementId does; the result's preview names it (propId, strings, lightsPerString).",json!({"previewId":string,"name":string,"kind":{"type":"string","enum":["single","arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean,"reverseEveryOtherString":boolean,"start":{"type":"string","enum":["bottomLeft","bottomRight","topLeft","topRight"]},"hiddenPixels":{"type":"integer","minimum":0,"maximum":1000},"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["name","kind","count"],false),
+        ("element_template","Create a bounded single item, arch, group, megatree or matrix using native template algorithms. count=segments/strings/rows (1 for single); pixels=visible pixels per string/columns. Megatree and matrix wiring, as the template sheet's diagram shows it (megatree drawn flat: S1 on the left, each string's Px1 at the bottom; matrix: Row1 at the bottom, Pixel1 on the left): start = the corner where the wire enters (default bottomLeft); reverseEveryOtherString (zigZag is the same option) makes each string run back the way the previous one came; hiddenPixels = dark pixels at the Px1 end (bottom) of every string, such as lights tucked under a tree's base, made in a separate group \"<name> Hidden\" (hiddenId) that keeps their wire position but is not part of the prop. Patch both together: patch_elements with alsoIds:[hiddenId]. The result's wiring gives the order in words. color sets colour handling on every new light in the same step, as the template's Colour picker does: rgb (3 channels per pixel, R G B), rgbw (4, R G B W) or single (1; singleColor, default royal blue). Without color the lights get no colour handling. previewId (megatree, matrix or arch) also adds the matching shape to that preview in the same step, already linked light for light in the prop's order, as preview_prop_create with elementId does; the result's preview names it (propId, strings, lightsPerString). For single, previewId adds a linked Single Light bulb. To add several single bulbs at once (smart bulbs, lamps), patched in order, use element_single_bulbs.",json!({"previewId":string,"name":string,"kind":{"type":"string","enum":["single","arch","group","megatree","matrix"]},"count":{"type":"integer","minimum":1,"maximum":4096},"pixels":{"type":"integer","minimum":1,"maximum":4096},"zigZag":boolean,"reverseEveryOtherString":boolean,"start":{"type":"string","enum":["bottomLeft","bottomRight","topLeft","topRight"]},"hiddenPixels":{"type":"integer","minimum":0,"maximum":1000},"color":{"type":"string","enum":["rgb","rgbw","single"]},"singleColor":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["name","kind","count"],false),
         ("element_color","Set colour handling on an element/group's leaves, as the Color Handling helper does: the Color property plus a Color Breakdown filter, replacing existing ones. rgb = 3 channels per pixel (R, G, B), rgbw = 4 (R, G, B, W), single = 1 in color (default royal blue). Patch afterwards; the breakdown's channels are what patching connects.",json!({"id":string,"mode":{"type":"string","enum":["rgb","rgbw","single"]},"color":{"type":"string","pattern":"^#[0-9a-fA-F]{6}$"}}),vec!["id","mode"],false),
         crate::studio_locations::tool_entry(),
         ("element_wire_order","Reverse the selected element/group row order using the native setup command.",json!({"id":string}),vec!["id"],false),
@@ -946,6 +947,8 @@ pub fn command_tools() -> Vec<Value> {
         ("patch_reverse","Reverse the order an element or group's lights are patched in, within the outputs it already uses: a string wired backwards, fixed in one undoable step. Each light keeps its channels together and in order (an RGB pixel stays R, G, B). The result gives the outputs as universe:channel ranges.",json!({"id":string}),vec!["id"],false),
         ("patch_swap","Swap where two elements or groups are patched (two strings or groups hung in each other's place) in one undoable step. Both must use the same number of outputs and share no lights; each keeps its own light order. The result gives both as universe:channel ranges.",json!({"id":string,"withId":string}),vec!["id","withId"],false),
         ("patch_move","Move an element or group's patched outputs, in order, to a controller's outputs from startOutput (zero-based, as patch_elements counts), in one undoable step. The destination must be unpatched or the element's own outputs. patch_ranges shows where it is now. The result gives the new universe:channel ranges.",json!({"id":string,"controllerId":string,"startOutput":{"type":"integer","minimum":0,"maximum":1048576}}),vec!["id","controllerId","startOutput"],false),
+        // Several single bulbs in one step (studio_single_bulbs.rs, B60).
+        { let (name, description, props, required) = crate::studio_single_bulbs::tool(); (name, description, props, required, false) },
         ("display_undo","Undo the latest shared UI/agent display edit.",json!({}),vec![],false),
         ("display_redo","Redo the latest shared UI/agent display edit.",json!({}),vec![],false),
     ];
@@ -1004,7 +1007,7 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             let kind = text(a, "kind")?;
             let preview = match a.get("previewId") {
                 Some(_) if !crate::studio_props::LINKED_KINDS.contains(&kind) => {
-                    return Err("previewId applies to a megatree, matrix or arch".into())
+                    return Err("previewId applies to a single item, megatree, matrix or arch".into())
                 }
                 Some(_) => Some(id(a, "previewId")?),
                 None => None,
@@ -1073,6 +1076,7 @@ fn extra_edit(s: &mut SetupSession, command: &str, a: &Value) -> Result<Value, S
             crate::studio_color::apply(s, &[node], &mode, color)
         }
         "element_location" => crate::studio_locations::apply(s, a),
+        "element_single_bulbs" => crate::studio_single_bulbs::create(s, a),
         "element_wire_order" => {
             let p = path(s, id(a, "id")?)?;
             s.reverse_rows(&[p]);

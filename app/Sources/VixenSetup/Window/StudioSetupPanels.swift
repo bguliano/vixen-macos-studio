@@ -89,11 +89,15 @@ struct WrappingHStack: Layout {
 
 struct StudioElementsPanel: View {
     @Bindable var model: SetupModel
+    @State private var addingBulbs = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: StudioMetrics.spacingS) {
             StudioColumnHeader(title: "Elements") {
                 Menu {
+                    Button("Single Bulbs…") { addingBulbs = true }
+                        .help("Several lights that are one bulb each, such as smart bulbs or lamps, named, colored and patched in one step")
+                    Divider()
                     ForEach(model.templates, id: \.name) { template in
                         Button(template.name) {
                             model.templateName = template.name
@@ -105,8 +109,12 @@ struct StudioElementsPanel: View {
                         .labelStyle(.titleAndIcon)
                 }
                 .fixedSize()
-                .help("Add a single item, a group, or a prop from a template such as a mega tree or arch")
+                .help("Add single bulbs, a single item, a group, or a prop from a template such as a mega tree or arch")
                 .disabled(model.studioEditingPaused)
+                .sheet(isPresented: $addingBulbs) {
+                    StudioSingleBulbsSheet(model: model) { addingBulbs = false }
+                }
+                .onAppear { StudioSingleBulbsSheet.installTestHook() }
             }
             ElementOutline(model: model)
                 .frame(minHeight: 160)
