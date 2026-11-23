@@ -106,6 +106,9 @@ nonisolated public enum OutlineCommand: Sendable {
 @MainActor
 public final class OutlineHandle {
     fileprivate weak var coordinator: OutlineView.Coordinator?
+    /// Set once `loadRoots` has been asked for, so a tree that arrives later, after that call gave up waiting or with no
+    /// loaded tree before it, still fetches its rows.
+    private var wantsRoots = false
 
     public init() {}
 
@@ -115,6 +118,7 @@ public final class OutlineHandle {
 
     /// The first fetch, off the main thread. A tree with a handle shows nothing until this has run.
     public func loadRoots() async {
+        wantsRoots = true
         // The view may only just be on its way, if SwiftUI is building it from the same change that asked for this.
         for _ in 0..<500 where coordinator == nil {
             try? await Task.sleep(for: .milliseconds(2))
@@ -128,13 +132,12 @@ public final class OutlineHandle {
         }
     }
 
-    /// A new tree takes over. When the one it replaces is still alive with rows loaded, `loadRoots` may already have gone
-    /// there, so the new tree loads its own.
+    /// A new tree takes over. Once roots have been asked for, `loadRoots` may already have gone to the tree it replaces, or
+    /// given up before any tree arrived, so the new tree loads its own.
     fileprivate func attach(_ next: OutlineView.Coordinator) {
         guard coordinator !== next else { return }
-        let previous = coordinator
         coordinator = next
-        if previous?.hasRoots == true {
+        if wantsRoots, !next.hasRoots {
             Task { await next.loadRoots() }
         }
     }
