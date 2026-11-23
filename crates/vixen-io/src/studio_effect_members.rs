@@ -1,4 +1,4 @@
-//! Effect members only Studio has (Bars' Step on Marks, #67; Spiral's, B51).
+//! Effect members only Studio has (Bars' Step on Marks, #67; Spiral's, B51; Step Every for both, B55).
 //!
 //! Real Vixen and the vanilla port ignore or keep members they don't know, but writing them on every effect would
 //! change files nobody edited that way. So a Studio member is left out while it holds its table default, and a file
@@ -7,11 +7,13 @@
 use vixen_effects::framework::{ParamDesc, ParamValue};
 
 /// (CLR namespace of the effect's data class, member name).
-const MEMBERS: [(&str, &str); 6] = [
+const MEMBERS: [(&str, &str); 8] = [
     ("VixenModules.Effect.Bars", "MarkCollectionId"),
+    ("VixenModules.Effect.Bars", "StepEveryMs"),
     ("VixenModules.Effect.Bars", "StepsPerCycle"),
     ("VixenModules.Effect.Bars", "StepToMarks"),
     ("VixenModules.Effect.Spiral", "MarkCollectionId"),
+    ("VixenModules.Effect.Spiral", "StepEveryMs"),
     ("VixenModules.Effect.Spiral", "StepsPerCycle"),
     ("VixenModules.Effect.Spiral", "StepToMarks"),
 ];
@@ -47,10 +49,11 @@ mod tests {
         for (name, per_cycle) in STEPPING {
             let d = effect(name);
             let members = params_to_members(&Params::defaults(d.params));
-            assert!(!members.iter().any(|m| matches!(m.local.as_str(), "StepToMarks" | "MarkCollectionId" | "StepsPerCycle")), "{name}");
+            assert!(!members.iter().any(|m| matches!(m.local.as_str(), "StepToMarks" | "MarkCollectionId" | "StepsPerCycle" | "StepEveryMs")), "{name}");
             let back = round_trip(d, &Params::defaults(d.params));
             assert!(!back.boolean("StepToMarks"), "{name}");
             assert_eq!(back.int("StepsPerCycle"), per_cycle, "{name}");
+            assert_eq!(back.int("StepEveryMs"), 0, "{name}");
         }
     }
 
@@ -63,10 +66,12 @@ mod tests {
             p.set("StepToMarks", ParamValue::Bool(true));
             p.set("MarkCollectionId", ParamValue::Guid(id));
             p.set("StepsPerCycle", ParamValue::Int(8));
+            p.set("StepEveryMs", ParamValue::Int(250));
             let back = round_trip(d, &p);
             assert!(back.boolean("StepToMarks"), "{name}");
             assert_eq!(back.guid("MarkCollectionId"), id, "{name}");
             assert_eq!(back.int("StepsPerCycle"), 8, "{name}");
+            assert_eq!(back.int("StepEveryMs"), 250, "{name}");
         }
     }
 }

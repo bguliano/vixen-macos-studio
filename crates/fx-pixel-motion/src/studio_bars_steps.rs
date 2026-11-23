@@ -1,4 +1,4 @@
-//! Tests for Bars' Step on Marks (#67); the code is in the `bars-step-*` blocks of `bars.rs`.
+//! Tests for Bars' Step on Marks (#67) and its Step Every interval (B55); the code is in the `bars-step-*` blocks of `bars.rs`.
 
 #[cfg(test)]
 mod tests {
@@ -102,6 +102,32 @@ mod tests {
     }
 
     #[test]
+    fn step_every_steps_on_a_fixed_interval_without_marks() {
+        let marks = beats(&[500, 1000]);
+        let on_marks = frames(std::slice::from_ref(&marks), |p| stepping(p, &marks, "Up"));
+        // No collections at all: StepEveryMs 500 makes the same steps the marks at 500 and 1000 did.
+        let every = frames(&[], |p| {
+            stepping(p, &marks, "Up");
+            p.set("MarkCollectionId", ParamValue::Guid(Uuid::nil()));
+            p.set("StepEveryMs", ParamValue::Int(500));
+        });
+        assert_eq!(every[..21], on_marks[..21]);
+        assert_ne!(every[10], every[0]);
+        assert_eq!(every[30], every[0], "three steps are one full cycle");
+    }
+
+    #[test]
+    fn step_every_wins_over_the_collection_when_set() {
+        let marks = beats(&[500]);
+        let f = frames(std::slice::from_ref(&marks), |p| {
+            stepping(p, &marks, "Up");
+            p.set("StepEveryMs", ParamValue::Int(250));
+        });
+        assert_ne!(f[5], f[0], "the interval steps before the collection's first mark");
+        assert_ne!(f[10], f[5]);
+    }
+
+    #[test]
     fn step_settings_replace_the_movement_settings_while_on() {
         let mut tree = ElementTree::new();
         let g = testing::grid(&mut tree, "G", 2, 10);
@@ -113,8 +139,11 @@ mod tests {
         assert!(!shown.contains(&"MarkCollectionId") && !shown.contains(&"StepsPerCycle"));
         p.set("StepToMarks", ParamValue::Bool(true));
         let shown = testing::visible_names(&DESCRIPTOR, &p, &t);
-        assert!(shown.contains(&"MarkCollectionId") && shown.contains(&"StepsPerCycle"));
+        assert!(shown.contains(&"MarkCollectionId") && shown.contains(&"StepsPerCycle") && shown.contains(&"StepEveryMs"));
         assert!(!shown.contains(&"Speed") && !shown.contains(&"SpeedCurve") && !shown.contains(&"MovementType"));
+        p.set("StepEveryMs", ParamValue::Int(500));
+        assert!(!testing::visible_names(&DESCRIPTOR, &p, &t).contains(&"MarkCollectionId"), "the interval replaces the collection");
+        p.set("StepEveryMs", ParamValue::Int(0));
         p.set("BarType", ParamValue::Enum("ZigZag".to_string()));
         assert!(!testing::visible_names(&DESCRIPTOR, &p, &t).contains(&"StepToMarks"));
     }

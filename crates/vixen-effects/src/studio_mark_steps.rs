@@ -1,15 +1,33 @@
 //! Beat-quantized movement: effects that step once per mark of a chosen collection instead of moving continuously
-//! (Bars' Step on Marks, #67).
+//! (Bars' Step on Marks, #67), or once every fixed number of milliseconds for sequences without beat marks (B55).
 
 use vixen_core::{MarkCollection, TimeSpan};
 
-/// The times of the marks of a collection that fall inside an effect, as ms from the effect's start, sorted. Marks at the
-/// same time (beat tracks often repeat one) are one step.
+/// When an effect steps: the times of the marks of a collection that fall inside it, as ms from the effect's start,
+/// sorted (marks at the same time, which beat tracks often repeat, are one step), or a fixed interval.
 pub struct MarkSteps {
     times: Vec<f64>,
+    /// Step Every: `(interval, effect length)` in ms. Counted, not listed, so a tiny interval costs nothing.
+    every: Option<(f64, f64)>,
 }
 
 impl MarkSteps {
+    /// The step source of an effect's Step on Marks: every `every_ms` ms when that is above zero (the Step Every
+    /// member), else the marks of `collection`.
+    pub fn for_effect(collection: Option<&MarkCollection>, every_ms: i32, start: TimeSpan, span: TimeSpan) -> MarkSteps {
+        if every_ms > 0 {
+            MarkSteps::every(every_ms as f64, span)
+        } else {
+            MarkSteps::new(collection, start, span)
+        }
+    }
+
+    /// A step every `interval_ms` ms from the effect's start, the first one interval in (so it starts at step zero),
+    /// up to the effect's end.
+    pub fn every(interval_ms: f64, span: TimeSpan) -> MarkSteps {
+        MarkSteps { times: Vec::new(), every: Some((interval_ms.max(1.0), span.total_ms())) }
+    }
+
     /// The marks of `collection` from `start` to the effect's end; marks before the effect never count, so it
     /// starts at step zero. No collection means no steps.
     pub fn new(collection: Option<&MarkCollection>, start: TimeSpan, span: TimeSpan) -> MarkSteps {
@@ -19,12 +37,16 @@ impl MarkSteps {
             .unwrap_or_default();
         times.sort_by(f64::total_cmp);
         times.dedup();
-        MarkSteps { times }
+        MarkSteps { times, every: None }
     }
 
-    /// How many marks have passed `ms` into the effect; a mark exactly at `ms` counts.
+    /// How many steps have passed `ms` into the effect; a step exactly at `ms` counts.
     pub fn passed(&self, ms: f64) -> usize {
-        self.times.partition_point(|t| *t <= ms)
+        match self.every {
+            Some((interval, end)) if ms >= 0.0 => (ms.min(end) / interval).floor() as usize,
+            Some(_) => 0,
+            None => self.times.partition_point(|t| *t <= ms),
+        }
     }
 
     /// The position in one cycle, 0..1, after the marks passed at `ms`, each mark moving `1 / steps_per_cycle`.
@@ -73,5 +95,28 @@ mod tests {
         assert_eq!(s.cycle_position(400.0, 4), 0.0);
         assert_eq!(s.cycle_position(500.0, 4), 0.25);
         assert_eq!(MarkSteps::new(None, TimeSpan::ZERO, TimeSpan::from_ms_i(1000)).cycle_position(500.0, 4), 0.0);
+    }
+
+    #[test]
+    fn a_fixed_interval_steps_from_the_effect_start_to_its_end() {
+        let s = MarkSteps::every(250.0, TimeSpan::from_ms_i(1000));
+        assert_eq!(s.passed(-1.0), 0);
+        assert_eq!(s.passed(0.0), 0);
+        assert_eq!(s.passed(249.0), 0);
+        assert_eq!(s.passed(250.0), 1);
+        assert_eq!(s.passed(999.0), 3);
+        assert_eq!(s.passed(1000.0), 4);
+        assert_eq!(s.passed(5000.0), 4, "no steps past the effect's end");
+        assert_eq!(s.cycle_position(500.0, 4), 0.5);
+    }
+
+    #[test]
+    fn a_step_interval_replaces_the_collection_only_when_set() {
+        let c = collection(&[100]);
+        let span = TimeSpan::from_ms_i(1000);
+        assert_eq!(MarkSteps::for_effect(Some(&c), 0, TimeSpan::ZERO, span).passed(500.0), 1);
+        assert_eq!(MarkSteps::for_effect(Some(&c), 200, TimeSpan::ZERO, span).passed(500.0), 2);
+        assert_eq!(MarkSteps::for_effect(None, 200, TimeSpan::ZERO, span).passed(500.0), 2);
+        assert_eq!(MarkSteps::every(0.0, span).passed(10.0), 10, "intervals under 1 ms step every ms");
     }
 }

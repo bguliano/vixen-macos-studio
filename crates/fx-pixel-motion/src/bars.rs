@@ -44,7 +44,8 @@ fn visibility(p: &Params, _t: &TargetInfo, v: &mut Visibility) {
     // STUDIO-BEGIN bars-step-visibility: Step on Marks replaces the movement settings while it is on (#67)
     let steps = flat && p.boolean("StepToMarks");
     v.set("StepToMarks", flat);
-    v.set("MarkCollectionId", steps);
+    v.set("StepEveryMs", steps);
+    v.set("MarkCollectionId", steps && p.int("StepEveryMs") <= 0);
     v.set("StepsPerCycle", steps);
     if steps {
         v.set("MovementType", false);
@@ -279,10 +280,11 @@ fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
         virtual_buffer: PixelFrameBuffer::new(0, 0),
         studio_steps: None, // STUDIO: bars-step-marks
     };
-    // STUDIO-BEGIN bars-step-marks-render: the marks Step on Marks counts, taken once per render
+    // STUDIO-BEGIN bars-step-marks-render: the marks (or the Step Every interval) Step on Marks counts, taken once per render
     if !e.zig_zag && p.boolean("StepToMarks") {
         let marks = ctx.mark_collection(p.guid("MarkCollectionId"));
-        let steps = vixen_effects::studio_mark_steps::MarkSteps::new(marks, ctx.start_time, ctx.time_span);
+        let every = p.int("StepEveryMs");
+        let steps = vixen_effects::studio_mark_steps::MarkSteps::for_effect(marks, every, ctx.start_time, ctx.time_span);
         e.studio_steps = Some((steps, p.int("StepsPerCycle")));
     }
     // STUDIO-END bars-step-marks-render

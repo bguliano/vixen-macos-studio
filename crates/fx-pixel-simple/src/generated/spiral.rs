@@ -20,7 +20,7 @@ pub static ENUM_SpiralDirection: EnumDesc = EnumDesc { name: "SpiralDirection", 
 pub static ENUM_StringOrientation: EnumDesc = EnumDesc { name: "StringOrientation", members: &[EnumMember { name: "Horizontal", label: "Horizontal" }, EnumMember { name: "Vertical", label: "Vertical" }] };
 pub static ENUM_TargetPositioningType: EnumDesc = EnumDesc { name: "TargetPositioningType", members: &[EnumMember { name: "Strings", label: "Strings" }, EnumMember { name: "Locations", label: "Locations" }] };
 
-pub static PARAMS: [ParamDesc; 20] = [ // STUDIO: three Step on Marks members (B51)
+pub static PARAMS: [ParamDesc; 21] = [ // STUDIO: four Step on Marks members (B51, B55)
     ParamDesc {
         name: "TargetPositioning",
         xml: "TargetPositioning",
@@ -382,6 +382,25 @@ pub static PARAMS: [ParamDesc; 20] = [ // STUDIO: three Step on Marks members (B
         display: Display::Stored,
         bool_labels: None,
         default: || ParamValue::Guid(Uuid::nil()),
+    },
+    ParamDesc {
+        name: "StepEveryMs",
+        xml: "StepEveryMs",
+        xml_ns: "VixenModules.Effect.Spiral",
+        xml_level: 1,
+        kind: ParamKind::Int,
+        category: "Configuration",
+        category_order: 1,
+        label: "Step Every (ms)",
+        description: "Steps the spiral every this many milliseconds instead of on marks, for sequences without a beat track. 0 steps on the mark collection.",
+        order: 2,
+        browsable: true,
+        is_value: true,
+        exclude_from_default: false,
+        editor: Editor::Number { min: 0.0, max: 60000.0, step: 10.0 },
+        display: Display::Stored,
+        bool_labels: None,
+        default: || ParamValue::Int(0),
     },
     ParamDesc {
         name: "StepsPerCycle",

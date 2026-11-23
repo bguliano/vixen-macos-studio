@@ -25,7 +25,7 @@
  },
  "block:bars-step-marks": {
   "file": "crates/fx-pixel-motion/src/generated/bars.rs",
-  "hash": "87b5acf84aa2c2ec"
+  "hash": "7b51db24302ab681"
  },
  "block:bars-step-marks-flat": {
   "file": "crates/fx-pixel-motion/src/bars.rs",
@@ -41,7 +41,7 @@
  },
  "block:bars-step-marks-render": {
   "file": "crates/fx-pixel-motion/src/bars.rs",
-  "hash": "a2bf2216985aa4c2"
+  "hash": "796f8a309454f804"
  },
  "block:bars-step-marks-select": {
   "file": "crates/fx-pixel-motion/src/bars.rs",
@@ -49,7 +49,7 @@
  },
  "block:bars-step-visibility": {
   "file": "crates/fx-pixel-motion/src/bars.rs",
-  "hash": "a6d8b19589072f50"
+  "hash": "8b4ebebbce298467"
  },
  "block:beats-undo": {
   "file": "crates/vixen-session/src/marks/beats.rs",
@@ -661,7 +661,7 @@
  },
  "block:spiral-step-marks": {
   "file": "crates/fx-pixel-simple/src/generated/spiral.rs",
-  "hash": "6a5a25d5cd37b996"
+  "hash": "319217604b8cac34"
  },
  "block:spiral-step-marks-helper": {
   "file": "crates/fx-pixel-simple/src/spiral.rs",
@@ -673,7 +673,7 @@
  },
  "block:spiral-step-marks-render": {
   "file": "crates/fx-pixel-simple/src/spiral.rs",
-  "hash": "c1be9fa5f2b2e0ef"
+  "hash": "6ac2d2237a92e3e3"
  },
  "block:spiral-step-marks-select": {
   "file": "crates/fx-pixel-simple/src/spiral.rs",
@@ -681,7 +681,7 @@
  },
  "block:spiral-step-visibility": {
   "file": "crates/fx-pixel-simple/src/spiral.rs",
-  "hash": "bddc68759d099344"
+  "hash": "22fb044ae42df3ba"
  },
  "block:state-mapper-live": {
   "file": "app/Sources/VixenDialogs/StateMapperSheet.swift",
@@ -1923,17 +1923,17 @@
   "file": "crates/fx-pixel-motion/src/bars.rs",
   "hash": "a98901fc295d2182"
  },
- "line:crates/fx-pixel-motion/src/generated/bars.rs:d6b1e30a2e4c240f": {
+ "line:crates/fx-pixel-motion/src/generated/bars.rs:793d8453cbc5d525": {
   "file": "crates/fx-pixel-motion/src/generated/bars.rs",
-  "hash": "d6b1e30a2e4c240f"
+  "hash": "793d8453cbc5d525"
  },
  "line:crates/fx-pixel-motion/src/lib.rs:496cad2a5af12935": {
   "file": "crates/fx-pixel-motion/src/lib.rs",
   "hash": "496cad2a5af12935"
  },
- "line:crates/fx-pixel-simple/src/generated/spiral.rs:11c2a01b27816a65": {
+ "line:crates/fx-pixel-simple/src/generated/spiral.rs:9ff9e2b929c635f7": {
   "file": "crates/fx-pixel-simple/src/generated/spiral.rs",
-  "hash": "11c2a01b27816a65"
+  "hash": "9ff9e2b929c635f7"
  },
  "line:crates/fx-pixel-simple/src/lib.rs:d014b5bcadcace5c": {
   "file": "crates/fx-pixel-simple/src/lib.rs",

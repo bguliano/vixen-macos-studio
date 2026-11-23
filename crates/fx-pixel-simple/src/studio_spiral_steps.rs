@@ -1,4 +1,4 @@
-//! Tests for Spiral's Step on Marks (B51); the code is in the `spiral-step-*` blocks of `spiral.rs`.
+//! Tests for Spiral's Step on Marks (B51) and its Step Every interval (B55); the code is in the `spiral-step-*` blocks of `spiral.rs`.
 
 #[cfg(test)]
 mod tests {
@@ -107,6 +107,20 @@ mod tests {
     }
 
     #[test]
+    fn step_every_turns_the_spiral_on_a_fixed_interval_without_marks() {
+        let marks = beats(&[500, 1000, 1500, 2000]);
+        let on_marks = frames(std::slice::from_ref(&marks), |p| stepping(p, &marks, "Forward"));
+        let every = frames(&[], |p| {
+            stepping(p, &marks, "Forward");
+            p.set("MarkCollectionId", ParamValue::Guid(Uuid::nil()));
+            p.set("StepEveryMs", ParamValue::Int(500));
+        });
+        assert_eq!(every[..41], on_marks[..41]);
+        assert_ne!(every[10], every[0]);
+        assert_eq!(every[30], every[0], "three steps are one full color pattern");
+    }
+
+    #[test]
     fn step_settings_replace_the_movement_settings_while_on() {
         let mut tree = ElementTree::new();
         let g = testing::grid(&mut tree, "G", 2, 10);
@@ -120,7 +134,10 @@ mod tests {
         p.set("StepToMarks", ParamValue::Bool(true));
         let shown = testing::visible_names(&DESCRIPTOR, &p, &t);
         assert!(shown.contains(&"MarkCollectionId") && shown.contains(&"StepsPerCycle") && shown.contains(&"Direction"));
+        assert!(shown.contains(&"StepEveryMs"));
         assert!(!shown.contains(&"Speed") && !shown.contains(&"SpeedCurve") && !shown.contains(&"MovementType"));
+        p.set("StepEveryMs", ParamValue::Int(500));
+        assert!(!testing::visible_names(&DESCRIPTOR, &p, &t).contains(&"MarkCollectionId"), "the interval replaces the collection");
     }
 
     #[test]

@@ -26,7 +26,8 @@ fn visibility(p: &Params, _t: &TargetInfo, v: &mut Visibility) {
     // STUDIO-BEGIN spiral-step-visibility: Step on Marks replaces the movement settings while it is on (B51)
     let steps = p.boolean("StepToMarks");
     v.set("StepToMarks", true);
-    v.set("MarkCollectionId", steps);
+    v.set("StepEveryMs", steps);
+    v.set("MarkCollectionId", steps && p.int("StepEveryMs") <= 0);
     v.set("StepsPerCycle", steps);
     if steps {
         v.set("MovementType", false);
@@ -101,10 +102,11 @@ fn render(ctx: &RenderCtx, p: &Params) -> EffectIntents {
         neg_position: false,
         studio_steps: None, // STUDIO: spiral-step-marks
     };
-    // STUDIO-BEGIN spiral-step-marks-render: the marks Step on Marks counts, taken once per render
+    // STUDIO-BEGIN spiral-step-marks-render: the marks (or the Step Every interval) Step on Marks counts, taken once per render
     if p.boolean("StepToMarks") {
         let marks = ctx.mark_collection(p.guid("MarkCollectionId"));
-        let steps = vixen_effects::studio_mark_steps::MarkSteps::new(marks, ctx.start_time, ctx.time_span);
+        let every = p.int("StepEveryMs");
+        let steps = vixen_effects::studio_mark_steps::MarkSteps::for_effect(marks, every, ctx.start_time, ctx.time_span);
         e.studio_steps = Some((steps, p.int("StepsPerCycle")));
     }
     // STUDIO-END spiral-step-marks-render
