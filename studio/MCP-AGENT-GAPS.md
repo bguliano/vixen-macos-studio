@@ -58,12 +58,11 @@ Song structure (`music_rhythm` sections, `sequence_section_marks`), beat and bar
 `music_rhythm` tempo map), effects on every beat with alternation across props (`effects_on_marks` `rotateTargets`,
 `motif_place` target sets), palettes (`sequence_palette`), taste checks (`render_analyze`), contact sheets
 (`preview_sheet`), rebuilding one section (`section_rebuild`), "what is on at time t" (`effects_find` with
-`range:[t, t+1]` and `match:"overlaps"`).
+`range:[t, t+1]` and `match:"overlaps"`), intensity that follows the song's loudness (`effects_edit` `levelFromEnergy`
+shapes each effect's level curve from the sequence's audio, B94).
 
 ## Left for later (internal backlog)
 
-- Intensity envelopes from the song's energy (a build-up that follows loudness) still need the agent to turn
-  `music_rhythm` loudness into a LevelCurve.
 - `effect_parameters` reads gradients in a different shape than every write tool takes them.
 - `motif_place`, `effects_on_marks` and `effect_step` take no `buildId` (tag afterwards with `build_tag`).
 - No warning at placement time when a movement effect or an impossible colour goes on a one-channel or fixed-colour prop

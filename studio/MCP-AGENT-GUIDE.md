@@ -38,8 +38,9 @@ and none of them restricts what you can still do by hand.
    problems: empty sections, effects past the song's end, duplicates, props that stay dark in a section they have
    effects in, props nothing lights. Fix and read it again until `ok`.
 9. **Adjust in bulk: `effects_find` / `effects_edit`.** Same filter for both: `range` or `section` (`"Chorus*"`),
-   `types`, `targetIds`, `fromBuild`, `layerId`. `effects_edit` sets `params`, `color`, `levelScale`, `shiftMs`,
-   `stretch`, or deletes (`delete:true, confirm:true`).
+   `types`, `targetIds`, `fromBuild`, `layerId`. `effects_edit` sets `params`, `color`, `levelFromEnergy`, `levelScale`,
+   `shiftMs`, `stretch`, or deletes (`delete:true, confirm:true`). `levelFromEnergy` (`{range:[20,100]}`) shapes each
+   effect's level curve from the song's loudness over its span: a build-up or swell that follows the music.
 10. **Taste check: `render_analyze`** (`marks:["Music - All"]`, `sections:"Sections"`) flags dark stretches, spazzing,
     changes off the beat and colours that lean blue/purple or leave the palette, each with a time to jump to. Watch only
     what it flags: `preview_sheet` (a contact sheet of a span) or `preview_video`.
@@ -62,6 +63,7 @@ and none of them restricts what you can still do by hand.
 | Repeat or mirror a passage | `passage_copy` |
 | Find effects by section, type, prop, build | `effects_find` |
 | Change many effects at once | `effects_edit` |
+| Brightness that follows the song's loudness | `effects_edit` `levelFromEnergy` |
 | What is on at a moment | `effects_find` with `range:[t, t+1]`, `match:"overlaps"` |
 | Rebuild one section without losing hand edits | `section_rebuild`, `build_edits`, `build_tag` |
 | The whole sequence in one read, with problems | `sequence_summary` |

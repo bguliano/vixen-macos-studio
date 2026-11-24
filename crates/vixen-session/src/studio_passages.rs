@@ -3,7 +3,7 @@
 //! choreographed passage to other times or to every matching section with optional retargeting (passage_copy), and read
 //! a whole sequence section by section in one call with the problems an agent would otherwise miss (sequence_summary).
 //! Sections are the marks sequence_section_marks writes ("Sections"): each mark starts a section named by its text.
-use super::{builds, confirm, mark_effects, parameter_values, record, string, uuid, BATCH_LIMIT};
+use super::{builds, confirm, mark_effects, parameter_values, record, rhythm::Loudness, string, uuid, BATCH_LIMIT};
 use crate::{
     app::AppCore,
     sequence::{EffectId, SequenceSession},
@@ -16,7 +16,8 @@ use std::{
     sync::Arc,
 };
 use uuid::Uuid;
-use vixen_core::TimeSpan;
+use vixen_core::{Curve, TimeSpan};
+use vixen_effects::framework::{EffectDescriptor, Editor, ParamDesc, ParamKind, ParamValue};
 
 /// The mark collection sequence_section_marks writes and music_rhythm reads back.
 pub(super) const SECTIONS: &str = "Sections";
@@ -260,7 +261,7 @@ fn effect_row(s: &SequenceSession, id: EffectId) -> Value {
 
 pub(super) const FIND_DESCRIPTION: &str = "Find effects by where and what they are, without listing the whole sequence: range [startMs,endMs] or section (a name from the Sections marks, or a list; * matches anything, so \"Chorus*\" is every chorus), types (effect names or type ids), targetIds (effects on those elements or anything under them), fromBuild (effects a build placed) and layerId, all combined. match starts (default) takes effects that start inside the range or section, overlaps any that touch it. Returns total, counts byType and byTarget, and the effects themselves in time order (id, type, startMs, durationMs, targets, colours, layerId, and buildId when a build placed it), limit at a time (default 200, at most 2000) from offset. Read-only. effects_edit and passage_copy take the same filter. Example: {sequenceId, section:\"Chorus*\", types:[\"Pulse\"]}.";
 
-pub(super) const EDIT_DESCRIPTION: &str = "Change every effect a filter picks in one undo step, with one render pass: the bulk edit agents otherwise do with effects_find, effect_parameters and an effects_batch of params ops. Filter as effects_find (range or section, types, targetIds, fromBuild, layerId, match); at least one of them. Edits, applied in this order to each effect: params (name to value as effect_parameters reports them; an effect whose type lacks one of them is left alone and counted in skipped), color (#RRGGBB set as the effect's colour, solid; effects with no colour parameter are skipped), levelScale (multiply the effect's level curve and level settings, e.g. Twinkle's Max and Min, by this: 0.5 halves it, 1.2 brightens; clamped to 100%), shiftMs (move by this much, negative is earlier; an effect that would leave the sequence is refused) and stretch (multiply each duration). delete:true removes them instead (needs confirm:true). buildId given with edits re-tags the edited effects as that build, so a later section_rebuild doesn't treat the agent's own edit as a hand edit. dryRun:true reports what would change without changing anything. Returns matched, edited, skipped (with why), removed and the effect ids. Example: {sequenceId, section:\"Verse*\", types:[\"Twinkle\"], levelScale:0.6}.";
+pub(super) const EDIT_DESCRIPTION: &str = "Change every effect a filter picks in one undo step, with one render pass: the bulk edit agents otherwise do with effects_find, effect_parameters and an effects_batch of params ops. Filter as effects_find (range or section, types, targetIds, fromBuild, layerId, match); at least one of them. Edits, applied in this order to each effect: params (name to value as effect_parameters reports them; an effect whose type lacks one of them is left alone and counted in skipped), color (#RRGGBB set as the effect's colour, solid; effects with no colour parameter are skipped), levelFromEnergy (true, or {range:[low,high] percent, default [0,100], smoothMs, default 500}: replace the effect's level curve (LevelCurve, Curve or PulseCurve) with the song's loudness over the effect's own time span, so a build-up or swell follows the music: low at the song's quietest 5%, high at its loudest 5%; reads the sequence's audio; effects with no level curve are skipped), levelScale (multiply the effect's level curve and level settings, e.g. Twinkle's Max and Min, by this: 0.5 halves it, 1.2 brightens; clamped to 100%; after levelFromEnergy it scales the envelope), shiftMs (move by this much, negative is earlier; an effect that would leave the sequence is refused) and stretch (multiply each duration). delete:true removes them instead (needs confirm:true). buildId given with edits re-tags the edited effects as that build, so a later section_rebuild doesn't treat the agent's own edit as a hand edit. dryRun:true reports what would change without changing anything. Returns matched, edited, skipped (with why), removed and the effect ids. Examples: {sequenceId, section:\"Verse*\", types:[\"Twinkle\"], levelScale:0.6}; {sequenceId, section:\"Bridge\", targetIds:[\"<Mega Tree id>\"], levelFromEnergy:{range:[20,100]}}.";
 
 pub(super) const COPY_DESCRIPTION: &str = "Copy a choreographed passage to other places in one undo step, with every parameter exactly as it is (the native copy, as paste does): the source is range [startMs,endMs] or section, optionally narrowed by targetIds/types (effects starting inside it are copied, keeping their offsets from the source start). Destinations: toMs (a list of start times) or toSections (section names or patterns, e.g. \"Chorus*\": every matching section other than the source, each copy starting at that section's start). targetMap {sourceId: destinationId} retargets on the way (e.g. Mini Tree L to Mini Tree R to mirror a passage); unmapped targets keep their own. Each copy is cut at its destination's end (the section's end, or the next toMs, or the sequence end) unless fit:\"keep\": effects starting past it are dropped, ones crossing it trimmed. repeat:true lays the passage end to end until each destination is full, so a short chorus pattern fills a longer chorus (the last pass is cut at the end). replace:true first deletes what is already in each destination span on the targets the copy uses (the copy replaces it; undo brings it back). Copies keep their source effect's layer unless toLayerId is given. buildId tags every copy. dryRun:true reports the plan without changing anything. Returns per destination: startMs, endMs, passes, copied, trimmed, dropped and replaced; and effectIds. Example: {sequenceId, section:\"Chorus 1\", toSections:\"Chorus*\", replace:true}.";
 
@@ -281,6 +282,10 @@ pub(super) fn tools() -> Vec<(&'static str, &'static str, Value, Vec<&'static st
         ("effects_edit", EDIT_DESCRIPTION, with(json!({
             "params": {"type":"object","description":"Parameter name to value, as effect_parameters reports them","examples":[{"Speed":4}]},
             "color": color,
+            "levelFromEnergy": {"anyOf":[{"type":"boolean"},{"type":"object","properties":{
+                "range": {"type":"array","items":{"type":"number","minimum":0,"maximum":100},"minItems":2,"maxItems":2},
+                "smoothMs": {"type":"number","minimum":0,"maximum":10000}
+            },"additionalProperties":false}],"examples":[true,{"range":[20,100],"smoothMs":1000}]},
             "levelScale": {"type":"number","minimum":0,"maximum":10,"examples":[0.5,1.2]},
             "shiftMs": {"type":"number","minimum":-3600000,"maximum":3600000,"examples":[-35]},
             "stretch": {"type":"number","minimum":0.01,"maximum":100,"examples":[0.5]},
@@ -335,7 +340,7 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
     let f = read_filter(core, s, a, false)?;
     let ids = picked(s, &f);
     let dry = a["dryRun"] == true;
-    let edits = ["params", "color", "levelScale", "shiftMs", "stretch"];
+    let edits = ["params", "color", "levelFromEnergy", "levelScale", "shiftMs", "stretch"];
     if a["delete"] == true {
         if edits.iter().any(|k| a.get(*k).is_some()) {
             return Err("delete:true removes the effects; it doesn't combine with edits".into());
@@ -351,7 +356,7 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
         return Ok(json!({"matched":ids.len(),"removed":ids.len(),"effectIds":ids.iter().map(|i| i.0).collect::<Vec<_>>(),"effects":s.effect_count()}));
     }
     if !edits.iter().any(|k| a.get(*k).is_some()) {
-        return Err("Give an edit: params, color, levelScale, shiftMs or stretch (or delete:true)".into());
+        return Err("Give an edit: params, color, levelFromEnergy, levelScale, shiftMs or stretch (or delete:true)".into());
     }
     let length = s.length().total_ms();
     let level = a.get("levelScale").map(|v| v.as_f64().filter(|n| (0.0..=10.0).contains(n)).ok_or("levelScale must be 0..10")).transpose()?;
@@ -363,6 +368,10 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
             return Err("color must be #RRGGBB".into());
         }
     }
+    let envelope = match a.get("levelFromEnergy") {
+        None | Some(Value::Bool(false)) => None,
+        Some(v) => Some(energy_envelope(s, v)?),
+    };
     // Plan every change first; nothing is applied when any effect would leave the sequence.
     let mut plans = Vec::new();
     let mut skipped: BTreeMap<String, usize> = BTreeMap::new();
@@ -395,12 +404,22 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
                 }
             }
         }
+        let (start, span) = (e.node.start.total_ms(), e.node.time_span.total_ms());
+        let (new_start, new_span) = (start + shift, (span * stretch).max(1.0));
+        if let Some((loudness, low, high)) = &envelope {
+            let Some(p) = level_curve(descriptor) else {
+                *skipped.entry(format!("{}: no level curve", descriptor.name)).or_default() += 1;
+                continue;
+            };
+            values.retain(|(n, _)| *n != p);
+            values.push((p, ParamValue::Curve(energy_curve(loudness, new_start, new_span, *low, *high))));
+        }
         if let Some(factor) = level {
             // Level curves and the level sliders (Twinkle's Max and Min, Chase's Default Level...) all scale.
             let levels: Vec<&'static str> = descriptor
                 .params
                 .iter()
-                .filter(|p| mark_effects::LEVEL_PARAMS.contains(&p.name) || matches!(p.editor, vixen_effects::framework::Editor::Level))
+                .filter(|p| mark_effects::LEVEL_PARAMS.contains(&p.name) || matches!(p.editor, Editor::Level))
                 .map(|p| p.name)
                 .collect();
             if levels.is_empty() {
@@ -413,8 +432,6 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
                 values.push((name, mark_effects::scale_level(&current, factor)));
             }
         }
-        let (start, span) = (e.node.start.total_ms(), e.node.time_span.total_ms());
-        let (new_start, new_span) = (start + shift, (span * stretch).max(1.0));
         let timing = shift != 0.0 || stretch != 1.0;
         if timing && (new_start < 0.0 || new_start + new_span > length + END_SLACK_MS) {
             return Err(format!("Effect {} ({} at {:.0} ms) would leave the sequence (0..{length:.0} ms)", id.0, descriptor.name, start));
@@ -462,6 +479,65 @@ pub(super) fn edit(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bo
         s.render_all_dirty();
     }
     Ok(super::seq_palette::warn(s, json!({"matched":ids.len(),"edited":edited.len(),"skipped":skipped,"effectIds":edited}), &edited))
+}
+
+/// levelFromEnergy's loudness of the sequence's song and its [low, high] level range in percent.
+fn energy_envelope(s: &SequenceSession, v: &Value) -> Result<(Loudness, f64, f64), String> {
+    let (range, smooth) = match v {
+        Value::Bool(true) => (None, None),
+        Value::Object(o) => {
+            if let Some(k) = o.keys().find(|k| !["range", "smoothMs"].contains(&k.as_str())) {
+                return Err(format!("levelFromEnergy: unknown field {k} (range, smoothMs)"));
+            }
+            (o.get("range"), o.get("smoothMs"))
+        }
+        _ => return Err("levelFromEnergy must be true or {range:[low,high], smoothMs}".into()),
+    };
+    let (low, high) = match range {
+        None => (0.0, 100.0),
+        Some(r) => match r.as_array().map(|r| r.iter().map(Value::as_f64).collect::<Vec<_>>()).as_deref() {
+            Some([Some(lo), Some(hi)]) if (0.0..=100.0).contains(lo) && (0.0..=100.0).contains(hi) => (*lo, *hi),
+            _ => return Err("levelFromEnergy.range must be [low, high], each 0..100 percent".into()),
+        },
+    };
+    let smooth = match smooth {
+        None => 500.0,
+        Some(n) => n.as_f64().filter(|n| (0.0..=10_000.0).contains(n)).ok_or("levelFromEnergy.smoothMs must be 0..10000")?,
+    };
+    let audio = s.audio().ok_or("levelFromEnergy reads the sequence's audio, and this sequence has no song (add one with sequence_audio)")?;
+    Ok((Loudness::new(audio.mono(), audio.sample_rate(), smooth), low, high))
+}
+
+/// The level curve levelFromEnergy shapes: the first of LevelCurve, Curve and PulseCurve, else any curve level editor.
+fn level_curve(descriptor: &EffectDescriptor) -> Option<&'static str> {
+    let curve = |p: &&ParamDesc| matches!(p.kind, ParamKind::Curve);
+    mark_effects::LEVEL_PARAMS
+        .iter()
+        .find_map(|n| descriptor.params.iter().filter(curve).find(|p| p.name == *n))
+        .or_else(|| descriptor.params.iter().filter(curve).find(|p| matches!(p.editor, Editor::Level)))
+        .map(|p| p.name)
+}
+
+/// A level curve over [start, start + span] ms following the song's loudness, from `low` to `high` percent: a point at
+/// least every 100 ms (at most 65), with points dropped where the curve is straight to within half a percent.
+fn energy_curve(loudness: &Loudness, start: f64, span: f64, low: f64, high: f64) -> Curve {
+    let n = (span / 100.0).ceil().clamp(1.0, 64.0) as usize;
+    let all: Vec<(f64, f64)> = (0..=n)
+        .map(|i| {
+            let x = i as f64 / n as f64;
+            (x * 100.0, (low + (high - low) * loudness.at(start + x * span)).clamp(0.0, 100.0))
+        })
+        .collect();
+    let mut points = vec![all[0]];
+    for i in 1..all.len() - 1 {
+        let (prev, next) = (*points.last().unwrap(), all[i + 1]);
+        let straight = prev.1 + (next.1 - prev.1) * (all[i].0 - prev.0) / (next.0 - prev.0);
+        if (all[i].1 - straight).abs() > 0.5 {
+            points.push(all[i]);
+        }
+    }
+    points.push(all[n]);
+    Curve { points, library_reference_name: String::new(), is_current_library_curve: false }
 }
 
 /// One destination of a copy: where it starts, where it must end, and its name when it is a section.
@@ -805,6 +881,86 @@ fn clock(ms: f64) -> String {
 #[cfg(test)]
 mod tests {
     use super::name_matches;
+    use crate::{app::AppCore, sequence::EffectId};
+    use serde_json::{json, Value};
+    use vixen_effects::framework::ParamValue;
+
+    /// A 220 Hz tone: quiet for the first half, 20 dB louder for the second.
+    fn swell(path: &std::path::Path, seconds: f64) {
+        let sr = 44_100u32;
+        let n = (f64::from(sr) * seconds) as usize;
+        let data: Vec<u8> = (0..n)
+            .flat_map(|i| {
+                let gain = if i < n / 2 { 0.05 } else { 0.5 };
+                ((gain * (2.0 * std::f64::consts::PI * 220.0 * i as f64 / f64::from(sr)).sin() * 32767.0) as i16).to_le_bytes()
+            })
+            .collect();
+        let mut wav = Vec::new();
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+        wav.extend_from_slice(b"WAVEfmt ");
+        for v in [16u32.to_le_bytes().to_vec(), 1u16.to_le_bytes().to_vec(), 1u16.to_le_bytes().to_vec(), sr.to_le_bytes().to_vec(), (sr * 2).to_le_bytes().to_vec(), 2u16.to_le_bytes().to_vec(), 16u16.to_le_bytes().to_vec()] {
+            wav.extend_from_slice(&v);
+        }
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        wav.extend_from_slice(&data);
+        std::fs::write(path, wav).unwrap();
+    }
+
+    /// B94: levelFromEnergy turns the song's loudness over each effect into its level curve, in one undo step.
+    #[test]
+    fn level_from_energy_follows_the_song() {
+        let base = std::env::temp_dir().join(format!("studio-energy-{}", uuid::Uuid::new_v4()));
+        let core = AppCore::open(base.clone(), true).unwrap();
+        std::fs::create_dir_all(core.paths.media_dir()).unwrap();
+        swell(&core.paths.media_dir().join("swell.wav"), 8.0);
+        let run = |name: &str, args: Value| crate::studio_sequence::execute(&core, name, &args, true).unwrap();
+        let fail = |name: &str, args: Value| crate::studio_sequence::execute(&core, name, &args, true).unwrap_err();
+        let tree = core.studio_display.execute(&core, "element_create", &json!({"name": "Tree"}), false).unwrap()["result"]["ids"][0].clone();
+        let type_of = |name: &str| vixen_effect_registry::all().iter().find(|d| d.name == name).unwrap().type_id.to_string();
+        let id = run("sequence_create", json!({"lengthMs": 8000, "media": "swell.wav"}))["sequenceId"].clone();
+        let pulse = run("effect_add", json!({"sequenceId": id, "typeId": type_of("Pulse"), "targetId": tree, "startMs": 2000, "durationMs": 4000}))["effectId"].as_u64().unwrap();
+        run("effect_add", json!({"sequenceId": id, "typeId": type_of("Set Level"), "targetId": tree, "startMs": 1000, "durationMs": 500}));
+        let shared = crate::studio_sequence::find(&core, uuid::Uuid::parse_str(id.as_str().unwrap()).unwrap()).unwrap();
+        let curve = || match shared.lock().effect(EffectId(pulse)).unwrap().node.params.get("LevelCurve") {
+            ParamValue::Curve(c) => c.points.clone(),
+            other => panic!("{other:?}"),
+        };
+        let level_at = |points: &[(f64, f64)], x: f64| {
+            let i = points.partition_point(|p| p.0 < x).clamp(1, points.len() - 1);
+            let (a, b) = (points[i - 1], points[i]);
+            a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0)
+        };
+        let before = curve();
+
+        let edited = run("effects_edit", json!({"sequenceId": id, "targetIds": [tree], "levelFromEnergy": {"range": [20, 80], "smoothMs": 200}}));
+        assert_eq!((edited["edited"].as_u64(), edited["skipped"]["Set Level: no level curve"].as_u64()), (Some(1), Some(1)), "{edited}");
+        let points = curve();
+        assert!(points.len() < 20, "straight runs collapse: {points:?}");
+        assert_eq!((points[0].0, points.last().unwrap().0), (0.0, 100.0));
+        assert!((level_at(&points, 10.0) - 20.0).abs() < 2.0, "quiet half at the low end: {points:?}");
+        assert!((level_at(&points, 90.0) - 80.0).abs() < 2.0, "loud half at the high end: {points:?}");
+        let rise: Vec<f64> = points.iter().filter(|p| p.1 > 25.0 && p.1 < 75.0).map(|p| p.0).collect();
+        assert!(rise.iter().all(|x| (40.0..=60.0).contains(x)), "it rises where the song does (4 s, the middle): {points:?}");
+        let undo = run("sequence_status", json!({"sequenceId": id}))["undo"].clone();
+        assert_eq!(undo[0], "Edit effects (Agent)", "{undo}");
+        run("sequence_undo", json!({"sequenceId": id}));
+        assert_eq!(curve(), before, "one Undo puts the old curve back");
+
+        // levelScale scales the envelope; the default range is 0..100.
+        run("effects_edit", json!({"sequenceId": id, "types": ["Pulse"], "levelFromEnergy": true, "levelScale": 0.5}));
+        assert!((level_at(&curve(), 90.0) - 50.0).abs() < 2.0, "{:?}", curve());
+
+        let quiet = run("sequence_create", json!({"lengthMs": 8000}))["sequenceId"].clone();
+        run("effect_add", json!({"sequenceId": quiet, "typeId": type_of("Pulse"), "targetId": tree, "startMs": 0, "durationMs": 1000}));
+        assert!(fail("effects_edit", json!({"sequenceId": quiet, "types": ["Pulse"], "levelFromEnergy": true})).contains("no song"));
+        assert!(fail("effects_edit", json!({"sequenceId": id, "types": ["Pulse"], "levelFromEnergy": {"range": [0, 200]}})).contains("range"));
+        assert!(fail("effects_edit", json!({"sequenceId": id, "types": ["Pulse"], "levelFromEnergy": {"steps": 4}})).contains("steps"));
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(&base);
+    }
 
     #[test]
     fn section_patterns() {

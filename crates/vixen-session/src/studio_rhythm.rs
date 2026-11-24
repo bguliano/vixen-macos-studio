@@ -367,6 +367,45 @@ fn level(samples: &[f32], sr: f64, from: f64, to: f64) -> f64 {
     db(samples[a..b].iter().map(|v| f64::from(*v).powi(2)).sum::<f64>() / (b - a) as f64)
 }
 
+/// The song's loudness over time for level envelopes (effects_edit levelFromEnergy, B94): the RMS level every
+/// LOUDNESS_STEP_MS, smoothed over a centred window, as 0..1 from the song's quietest 5% to its loudest 5% of windows
+/// with music in them (within 30 dB of the loud level, so silence before and after the song doesn't set the floor).
+pub(super) struct Loudness {
+    values: Vec<f64>,
+}
+
+const LOUDNESS_STEP_MS: f64 = 50.0;
+
+impl Loudness {
+    pub(super) fn new(samples: &[f32], sample_rate: u32, smooth_ms: f64) -> Self {
+        let per = ((LOUDNESS_STEP_MS / 1000.0 * f64::from(sample_rate)).round() as usize).max(1);
+        let raw: Vec<f64> = samples.chunks(per).map(|c| db(c.iter().map(|v| f64::from(*v).powi(2)).sum::<f64>() / c.len() as f64)).collect();
+        let half = (smooth_ms / LOUDNESS_STEP_MS / 2.0).round() as usize;
+        let smoothed: Vec<f64> = (0..raw.len())
+            .map(|i| {
+                let w = &raw[i.saturating_sub(half)..(i + half + 1).min(raw.len())];
+                w.iter().sum::<f64>() / w.len() as f64
+            })
+            .collect();
+        let top = percentile(raw.clone(), 0.95);
+        let music: Vec<f64> = smoothed.iter().copied().filter(|d| *d >= top - 30.0).collect();
+        let (quiet, loud) = (percentile(music.clone(), 0.05), percentile(music, 0.95));
+        let values = smoothed.iter().map(|d| ((d - quiet) / (loud - quiet).max(1.0)).clamp(0.0, 1.0)).collect();
+        Self { values }
+    }
+
+    /// Loudness 0..1 at a time in ms, between the two nearest windows (0 past the end of the song).
+    pub(super) fn at(&self, ms: f64) -> f64 {
+        let x = (ms / LOUDNESS_STEP_MS - 0.5).max(0.0);
+        let i = x.floor() as usize;
+        match (self.values.get(i), self.values.get(i + 1)) {
+            (Some(a), Some(b)) => a + (b - a) * x.fract(),
+            (Some(a), None) => *a,
+            _ => 0.0,
+        }
+    }
+}
+
 /// Where the music starts and ends: the first and last 50 ms within 30 dB of its loud level (95th percentile).
 fn music_span(samples: &[f32], sr: f64) -> Option<(f64, f64)> {
     let block = ((sr * 0.05) as usize).max(1);
