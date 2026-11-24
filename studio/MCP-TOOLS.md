@@ -1,6 +1,6 @@
 # Implemented MCP tools
 
-165 tools, generated from the tested bridge tools/list result. No placeholder tools. Plugin-contributed tools (`plugin__<short-id>__<tool>`) are listed at runtime from the installed plugins.
+166 tools, generated from the tested bridge tools/list result. No placeholder tools. Plugin-contributed tools (`plugin__<short-id>__<tool>`) are listed at runtime from the installed plugins.
 
 | Tool | Read only | Description |
 |---|---|---|
