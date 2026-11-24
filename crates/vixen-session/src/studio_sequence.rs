@@ -46,6 +46,8 @@ pub mod layer_filters;
 pub mod builds;
 #[path = "studio_sequence_palette.rs"]
 pub mod seq_palette;
+#[path = "studio_passages.rs"]
+mod passages;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -438,6 +440,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "sequence_activity" {
         return activity(core, &shared, a);
     }
+    if name == "sequence_summary" {
+        return passages::summary(core, &shared, a);
+    }
     if name == "render_analyze" {
         return render_analyze(core, &shared, a);
     }
@@ -532,6 +537,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
         "effect_step" => return step_effects::effect_step(core, &mut s, a, agent),
         "motif_place" => return motifs::place(core, &mut s, a, agent),
+        "effects_find" => return passages::find(core, &s, a),
+        "effects_edit" => return passages::edit(core, &mut s, a, agent),
+        "passage_copy" => return passages::copy(core, &mut s, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
         "section_rebuild" => return builds::execute(core, &mut s, name, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
         "build_edits" | "build_tag" | "sequence_versions" | "sequence_version_restore" => {
             return builds::execute(core, &mut s, name, a, agent)
@@ -917,8 +925,14 @@ fn plan_add(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEff
     let targets = targets(core, a)?;
     let type_id = uuid(a, "typeId")?;
     let start = ms(a, "startMs")?;
-    let duration = ms(a, "durationMs")?;
-    if duration < 1.0 || start + duration > s.length().total_ms() {
+    let mut duration = ms(a, "durationMs")?;
+    // An effect ending within a millisecond past the end (a section's end is the sequence length, give or take float
+    // rounding) is trimmed to the end rather than refused (B73).
+    let length = s.length().total_ms();
+    if start + duration > length && start + duration <= length + 1.0 {
+        duration = length - start;
+    }
+    if duration < 1.0 || start + duration > length {
         return Err("Effect must fit within sequence and have positive duration".into());
     }
     let descriptor = vixen_effect_registry::by_type_id(&type_id).ok_or("Effect type not found")?;
@@ -1773,6 +1787,7 @@ pub fn tools() -> Vec<Value> {
     ];
     let mut entries=entries;
     entries.extend(builds::tools());
+    entries.extend(passages::tools());
     entries.extend(seq_palette::tools());
     entries.extend(library::tools());
     entries.extend(inspector::tools());

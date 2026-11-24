@@ -158,5 +158,18 @@ fn mcp_tools_md_and_the_plugin_docs_match_tools_list() {
             }
         }
     }
+    // The agent guide and gap analysis (B73) name only real tools (and built-in motifs) in backticks.
+    let motifs = server.dispatch(json!({"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"motif_list","arguments":{}}})).unwrap();
+    let motifs: Value = serde_json::from_str(motifs["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let motif_names: Vec<String> = motifs["motifs"].as_array().unwrap().iter().map(|m| m["name"].as_str().unwrap().to_string()).collect();
+    for page in ["studio/MCP-AGENT-GUIDE.md", "studio/MCP-AGENT-GAPS.md"] {
+        let text = std::fs::read_to_string(repo.join(page)).unwrap();
+        for word in text.split('`').skip(1).step_by(2) {
+            let name = word.split([' ', '{']).next().unwrap();
+            if name.contains('_') && name.chars().all(|c| c.is_ascii_lowercase() || c == '_') && !name.starts_with('_') {
+                assert!(names.contains(&name) || motif_names.iter().any(|m| m == name), "{page}: `{name}` isn't an MCP tool");
+            }
+        }
+    }
     let _ = std::fs::remove_dir_all(&base);
 }

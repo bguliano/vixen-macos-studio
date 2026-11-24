@@ -91,7 +91,7 @@ pub(super) fn sequence_audio(s: &SequenceSession) -> Option<String> {
         .find_map(|m| m.file_name.rsplit(['/', '\\']).next().filter(|n| !n.is_empty()).map(str::to_string))
 }
 
-pub(super) const DESCRIPTION: &str = "Place one template effect on every mark of a mark collection, in one undo step with one render pass: the GUI-visible way to put effects on the rhythm (see sequence_onset_marks). markCollection is the collection's id or exact name. range [startMs,endMs] limits which marks are used (default the whole sequence). A mark's strength is its text read as a number 0..1 (as sequence_onset_marks writes it); a mark whose text is not a number counts as 1, so hand-added marks always fire. minStrength skips weaker marks. snap moves each mark to the nearest beat, 8th or 16th of gridCollection, a beat collection (default \"Music - All\" from sequence_music_marks; 8th halves each beat, 16th quarters it); marks that land on the same point merge, keeping the strongest. template is effect_add's own fields: {typeId, targetId|targetIds|targetSlice, params?, layerId?, rotateTargets?}; every target gets an effect on every mark, or with rotateTargets:true one target per mark in turn. duration is \"untilNext\" (default: each effect lasts until the next mark times gapFraction, default 0.8, so staccato passages keep gaps; the last runs to the range end) or a number of milliseconds; maxMs caps it. levelFromStrength:true scales the effect's level (LevelCurve, Curve, PulseCurve or IntensityLevel, whichever it has) by levelRange[0] + (levelRange[1]-levelRange[0]) * strength percent, default [0,100]. cycle {param, values} (or a list of them) sets that parameter to values[i % n] on the i-th mark, e.g. rotating ColorGradient colours per hit. cycleColors [\"#RRGGBB\", ...] does the same for the effect's colour parameter (ColorGradient, Color or Colors, else its first colour parameter), each mark solid in the next colour, without naming the parameter. dryRun:true checks everything and returns the counts (effects, marksUsed, skipped) without adding anything. Returns effectIds, marks used and why others were skipped.";
+pub(super) const DESCRIPTION: &str = "Place one template effect on every mark of a mark collection, in one undo step with one render pass: the GUI-visible way to put effects on the rhythm (see sequence_onset_marks). markCollection is the collection's id or exact name. range [startMs,endMs] limits which marks are used (default the whole sequence). A mark's strength is its text read as a number 0..1 (as sequence_onset_marks writes it); a mark whose text is not a number counts as 1, so hand-added marks always fire. minStrength skips weaker marks. snap moves each mark to the nearest beat, 8th or 16th of gridCollection, a beat collection (default \"Music - All\" from sequence_music_marks; 8th halves each beat, 16th quarters it); marks that land on the same point merge, keeping the strongest. template is effect_add's own fields: {typeId, targetId|targetIds|targetSlice, params?, layerId?, rotateTargets?}; every target gets an effect on every mark, or with rotateTargets:true one target per mark in turn. duration is \"untilNext\" (default: each effect lasts until the next mark times gapFraction, default 0.8, so staccato passages keep gaps; the last runs to the range end) or a number of milliseconds; maxMs caps it. levelFromStrength:true scales the effect's level (LevelCurve, Curve, PulseCurve or IntensityLevel, whichever it has) by levelRange[0] + (levelRange[1]-levelRange[0]) * strength percent, default [0,100]. cycle {param, values} (or a list of them) sets that parameter to values[i % n] on the i-th mark, e.g. rotating ColorGradient colours per hit. cycleColors [\"#RRGGBB\", ...] does the same for the effect's colour parameter (ColorGradient, Color or Colors, else its first colour parameter), each mark solid in the next colour, without naming the parameter. dryRun:true checks everything and returns the counts (effects, marksUsed, skipped) without adding anything. Returns effectIds, marks used and why others were skipped. section (a section name from the Sections marks, e.g. \"Chorus 2\") may replace range.";
 
 pub(super) fn schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
@@ -101,6 +101,8 @@ pub(super) fn schema() -> Value {
         "sequenceId": string,
         "markCollection": string,
         "range": {"type":"array","items":number,"minItems":2,"maxItems":2},
+        "section": {"type":"string","minLength":1,"maxLength":256,"description":"In place of range: one section's name from the Sections marks (sequence_section_marks), e.g. \"Chorus 2\"","examples":["Chorus 2"]},
+        "sectionsCollection": {"type":"string","minLength":1,"maxLength":256},
         "minStrength": {"type":"number","minimum":0,"maximum":1},
         "snap": {"type":"string","enum":["beat","8th","16th"]},
         "gridCollection": string,
@@ -203,7 +205,11 @@ pub(super) struct Selection {
 pub(super) fn select_hits(s: &SequenceSession, a: &Value) -> Result<Selection, String> {
     let length = s.length().total_ms();
     let source = collection(s, string(a, "markCollection")?, "markCollection")?;
+    if a.get("range").is_some() && a.get("section").is_some() {
+        return Err("Give range or section, not both".into());
+    }
     let (start, end) = match a.get("range") {
+        None if a.get("section").is_some() => super::passages::section_range(s, a)?,
         Some(range) => {
             let r: Vec<f64> = range.as_array().unwrap().iter().filter_map(Value::as_f64).collect();
             if r[0] >= r[1] || r[0] >= length {

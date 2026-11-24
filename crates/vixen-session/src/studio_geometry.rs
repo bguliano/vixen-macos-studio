@@ -463,3 +463,159 @@ fn matrix(prop: &Prop, orientation: &str) -> Value {
     }
     summary
 }
+
+// display_layout (B73): what the display is made of and where, in one read.
+
+/// One prop as display_layout reports it: the element to target, its lights in the preview and where they sit.
+struct LayoutProp {
+    target: NodeId,
+    kinds: Vec<String>,
+    lights: usize,
+    channels: HashSet<NodeId>,
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+}
+
+/// The element each drawn prop should be targeted with: its one leaf when every light is the same element (a dumb string
+/// drawn as many dots), otherwise the prop's group. Props drawn more than once merge.
+fn layout(system: &SystemData, preview: Uuid) -> Vec<LayoutProp> {
+    let mut out: Vec<LayoutProp> = Vec::new();
+    for prop in collect(system, Some(preview), None) {
+        let channels: HashSet<NodeId> = prop.lights.iter().map(|l| l.node).collect();
+        let target = if channels.len() == 1 { *channels.iter().next().unwrap() } else if let Some(e) = prop.element { e } else { continue };
+        let (min_x, max_x, min_y, max_y) = bounds(&prop.lights);
+        match out.iter_mut().find(|p| p.target == target) {
+            Some(p) => {
+                if !p.kinds.contains(&prop.kind) {
+                    p.kinds.push(prop.kind.clone());
+                }
+                p.lights += prop.lights.len();
+                p.channels.extend(channels);
+                (p.min_x, p.max_x, p.min_y, p.max_y) = (p.min_x.min(min_x), p.max_x.max(max_x), p.min_y.min(min_y), p.max_y.max(max_y));
+            }
+            None => out.push(LayoutProp { target, kinds: vec![prop.kind.clone()], lights: prop.lights.len(), channels, min_x, max_x, min_y, max_y }),
+        }
+    }
+    out
+}
+
+/// The preview with the most linked lights, when none is named.
+fn busiest_preview(system: &SystemData) -> Option<Uuid> {
+    let entries = crate::preview::preview_entries(system);
+    entries.iter().map(|e| (e.id, collect(system, Some(e.id), None).iter().map(|p| p.lights.len()).sum::<usize>())).max_by_key(|(_, n)| *n).filter(|(_, n)| *n > 0).map(|(id, _)| id)
+}
+
+/// Every prop of a preview as (element id, name), for sequence_summary's unused-prop check.
+pub fn layout_props(system: &SystemData, preview: Option<Uuid>) -> Result<Vec<(Uuid, String)>, String> {
+    let preview = preview.or_else(|| busiest_preview(system)).ok_or("No preview has linked lights")?;
+    Ok(layout(system, preview).into_iter().map(|p| (system.tree.node(p.target).id, system.tree.node(p.target).name.clone())).collect())
+}
+
+pub const LAYOUT_DESCRIPTION: &str = "What the display is made of and where, in one read, for planning a show: every prop drawn in a preview (default: the one with the most linked lights) with the element id to target it by, its name, shape kind(s), lights drawn, channels (how many independently controllable elements: 1 means the whole prop is one string that can only change level and colour together, so Wipes, Chases, Meteors and other movement show nothing on it; pick Pulse, Set Level, Twinkle on several of them, or chase across props instead), control (\"one channel\", \"channels\" or \"pixels\"), colors (\"full\" for RGB props, or the only colours a single- or discrete-colour prop can show: effects in any other colour leave it dark, so a red Pulse on a white string shows nothing), its centre and box as 0-100 of the display (x from the left, y from the bottom), and area (left/centre/right, low/middle/high). order gives the props' element ids sorted leftToRight, rightToLeft, insideOut (centre first), outsideIn and bottomToTop, ready for motif_place targetSets or effects_batch ops to chase across props in space; mirrorPairs pairs props placed symmetrically about the centre (left with its right twin) for mirrored looks and passage_copy targetMap. Read-only. Example: {previewId}.";
+
+pub fn layout_tool() -> Value {
+    let string = json!({"type":"string","minLength":1,"maxLength":64});
+    json!({"name":"display_layout","description":LAYOUT_DESCRIPTION,"inputSchema":{"type":"object","properties":{"previewId":string},"additionalProperties":false},"annotations":{"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}})
+}
+
+pub fn layout_execute(system: &SystemData, revision: u64, a: &Value) -> Result<Value, String> {
+    let obj = a.as_object().ok_or("arguments must be an object")?;
+    if let Some(extra) = obj.keys().find(|k| k.as_str() != "previewId") {
+        return Err(format!("Unknown argument {extra}"));
+    }
+    let preview = match a.get("previewId") {
+        Some(v) => {
+            let id = v.as_str().and_then(|s| Uuid::parse_str(s).ok()).ok_or("previewId must be a UUID")?;
+            if !crate::preview::preview_entries(system).iter().any(|e| e.id == id) {
+                return Err("Preview not found".into());
+            }
+            id
+        }
+        None => busiest_preview(system).ok_or("No preview has linked lights")?,
+    };
+    let preview_name = crate::preview::preview_entries(system).into_iter().find(|e| e.id == preview).map(|e| e.name).unwrap_or_default();
+    let props = layout(system, preview);
+    if props.is_empty() {
+        return Ok(json!({"revision":revision,"previewId":preview.to_string(),"previewName":preview_name,"props":[]}));
+    }
+    let tree = &system.tree;
+    let (lo_x, hi_x) = props.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p.min_x), b.max(p.max_x)));
+    let (lo_y, hi_y) = props.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p.min_y), b.max(p.max_y)));
+    // Preview y grows downward; the layout's y grows upward, as display_geometry's yPct does.
+    let tenth = |v: f32| (f64::from(v) * 10.0).round() / 10.0;
+    let px = |x: f32| if hi_x > lo_x { tenth(100.0 * (x - lo_x) / (hi_x - lo_x)) } else { 50.0 };
+    let py = |y: f32| if hi_y > lo_y { tenth(100.0 * (hi_y - y) / (hi_y - lo_y)) } else { 50.0 };
+    struct Row {
+        id: String,
+        name: String,
+        cx: f64,
+        cy: f64,
+        width: f64,
+        json: Value,
+    }
+    let mut rows: Vec<Row> = props
+        .iter()
+        .map(|p| {
+            let node = tree.node(p.target);
+            let (cx, cy) = (px((p.min_x + p.max_x) / 2.0), py((p.min_y + p.max_y) / 2.0));
+            let channels = p.channels.len();
+            let control = if channels == 1 { "one channel" } else if channels == p.lights { "pixels" } else { "channels" };
+            let area = format!(
+                "{} {}",
+                if cy >= 66.7 { "high" } else if cy >= 33.3 { "middle" } else { "low" },
+                if cx < 33.3 { "left" } else if cx <= 66.7 { "centre" } else { "right" }
+            );
+            // Discrete-colour props only show their own colours: anything else is filtered to dark.
+            let valid = tree.valid_colors(p.target, true);
+            let colors = if valid.is_empty() { json!("full") } else { json!(valid.iter().map(|c| format!("#{:02x}{:02x}{:02x}", c.r, c.g, c.b)).collect::<Vec<_>>()) };
+            let json = json!({
+                "elementId": node.id.to_string(), "name": node.name, "kind": p.kinds.join(", "), "lights": p.lights,
+                "channels": channels, "control": control, "colors": colors,
+                "centre": {"xPct": cx, "yPct": cy},
+                "box": {"left": px(p.min_x), "right": px(p.max_x), "bottom": py(p.max_y), "top": py(p.min_y)},
+                "area": area,
+            });
+            Row { id: node.id.to_string(), name: node.name.clone(), cx, cy, width: px(p.max_x) - px(p.min_x), json }
+        })
+        .collect();
+    rows.sort_by(|a, b| a.cx.total_cmp(&b.cx).then(a.name.cmp(&b.name)));
+    let ids = |rows: &[&Row]| rows.iter().map(|r| r.id.clone()).collect::<Vec<_>>();
+    let refs: Vec<&Row> = rows.iter().collect();
+    let left_to_right = ids(&refs);
+    let mut right_to_left = left_to_right.clone();
+    right_to_left.reverse();
+    let mut inside: Vec<&Row> = rows.iter().collect();
+    inside.sort_by(|a, b| (a.cx - 50.0).abs().total_cmp(&(b.cx - 50.0).abs()).then(a.cx.total_cmp(&b.cx)));
+    let inside_out = ids(&inside);
+    let mut outside_in = inside_out.clone();
+    outside_in.reverse();
+    let mut low: Vec<&Row> = rows.iter().collect();
+    low.sort_by(|a, b| a.cy.total_cmp(&b.cy).then(a.cx.total_cmp(&b.cx)));
+    let bottom_to_top = ids(&low);
+    // Mirror pairs: a left prop and the right prop nearest its reflection, of similar width and height.
+    let mut pairs = Vec::new();
+    let mut taken = HashSet::new();
+    for l in rows.iter().filter(|r| r.cx < 47.5) {
+        let twin = rows
+            .iter()
+            .filter(|r| r.cx > 52.5 && !taken.contains(&r.id))
+            .map(|r| (r, ((100.0 - r.cx) - l.cx).abs() + (r.cy - l.cy).abs() + (r.width - l.width).abs() / 2.0))
+            .filter(|(_, d)| *d < 8.0)
+            .min_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((r, _)) = twin {
+            taken.insert(r.id.clone());
+            pairs.push(json!({"left":{"id":l.id,"name":l.name},"right":{"id":r.id,"name":r.name}}));
+        }
+    }
+    let one_channel = rows.iter().filter(|r| r.json["channels"] == 1).count();
+    let fixed = rows.iter().filter(|r| r.json["colors"] != "full").count();
+    Ok(json!({
+        "revision": revision, "previewId": preview.to_string(), "previewName": preview_name,
+        "props": rows.iter().map(|r| r.json.clone()).collect::<Vec<_>>(),
+        "order": {"leftToRight": left_to_right, "rightToLeft": right_to_left, "insideOut": inside_out, "outsideIn": outside_in, "bottomToTop": bottom_to_top},
+        "mirrorPairs": pairs,
+        "note": format!("{} of {} props are one channel: give them level effects (Pulse, Set Level, Twinkle across several), not movement. {} have fixed colours: use only the colours listed for them.", one_channel, rows.len(), fixed),
+    }))
+}
