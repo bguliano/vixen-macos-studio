@@ -18,6 +18,8 @@ use vixen_effects::framework::{EffectDescriptor, ParamDesc, ParamValue};
 mod onsets;
 #[path = "studio_mark_effects.rs"]
 mod mark_effects;
+#[path = "studio_rhythm.rs"]
+mod rhythm;
 #[path = "studio_step_effects.rs"]
 mod step_effects;
 #[path = "studio_motifs.rs"]
@@ -207,10 +209,8 @@ fn analysis_audio(core: &AppCore, name: &str) -> Result<vixen_audio::AudioClip, 
     }
     Ok(audio)
 }
-fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), String> {
-    let name = filename(a, "media")?;
-    let audio = analysis_audio(core, &name)?;
-    let duration = audio.duration().total_ms();
+/// Vixen's beat/bar tracker (4/4) on a clip: its mark collections, then bar starts and beats in ms, sorted and deduped.
+fn track(audio: &vixen_audio::AudioClip) -> Result<(Vec<MarkCollection>, Vec<f64>, Vec<f64>), String> {
     let tracker = vixen_analysis::BeatsAndBars::from_samples(
         audio.mono().to_vec(),
         audio.sample_rate() as f32,
@@ -252,6 +252,13 @@ fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), St
             .collect(),
         1.0,
     );
+    Ok((collections, bars, beats))
+}
+fn analyze(core: &AppCore, a: &Value) -> Result<(Value, Vec<MarkCollection>), String> {
+    let name = filename(a, "media")?;
+    let audio = analysis_audio(core, &name)?;
+    let duration = audio.duration().total_ms();
+    let (collections, bars, beats) = track(&audio)?;
     let mut intervals: Vec<_> = beats
         .windows(2)
         .map(|p| p[1] - p[0])
@@ -328,6 +335,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     }
     if name == "music_analyze" {
         return Ok(analyze(core, a)?.0);
+    }
+    if name == "music_rhythm" {
+        return rhythm::music_rhythm(core, a);
     }
     if name.starts_with("library_") {
         return library::execute(core, name, a);
@@ -429,6 +439,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     }
     if name == "sequence_onset_marks" {
         return mark_effects::onset_marks(core, &shared, a, agent);
+    }
+    if name == "sequence_section_marks" {
+        return rhythm::section_marks(core, &shared, a, agent);
     }
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
@@ -1698,6 +1711,8 @@ pub fn tools() -> Vec<Value> {
         ("effect_timing","Move/resize an effect in milliseconds, in one undo step.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"startMs":number,"durationMs":number}),vec!["sequenceId","effectId","startMs","durationMs"],false),
         ("sequence_marks","List mark collections and timestamps.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("marks_create","Create undoable timestamp marks, optionally authored phrase/word/phoneme text. No automatic speech recognition.",json!({"sequenceId":string,"name":string,"timesMs":{"type":"array","items":number,"maxItems":10000},"texts":{"type":"array","items":string,"maxItems":10000},"collectionType":{"type":"string","enum":["generic","phrase","word","phoneme","state"]}}),vec!["sequenceId","name","timesMs"],false),
+        ("music_rhythm",rhythm::RHYTHM_DESCRIPTION,rhythm::rhythm_schema(),vec![],true),
+        ("sequence_section_marks",rhythm::SECTION_MARKS_DESCRIPTION,rhythm::section_marks_schema(),vec!["sequenceId"],false),
         ("sequence_music_marks","Analyze profile media and append beat/bar collections to the sequence in one undo step.",json!({"sequenceId":string,"media":string}),vec!["sequenceId","media"],false),
         ("sequence_onset_marks","Detect per-band spectral-flux onsets (as music_analyze) in the sequence's audio, or media, and add them as mark collections in one undo step: one per band, named \"<prefix> - low\", \"- mid\" and \"- high\" (prefix default \"Onsets\"). Each mark's text is the hit's strength, 0..1 with two decimals, so the rhythm shows on the timeline and can be hand-edited (move, delete or add marks; retype a strength) before effects_on_marks places effects on it. bands picks which bands to add (default all three); minStrength drops weaker hits (default 0). Onset times are estimates, typically within 10 ms. Returns each collection's id, name, band and mark count.",json!({"sequenceId":string,"media":string,"bands":{"type":"array","items":{"type":"string","enum":["low","mid","high"]},"minItems":1,"maxItems":3},"minStrength":{"type":"number","minimum":0,"maximum":1},"prefix":string}),vec!["sequenceId"],false),
         ("effects_on_marks",mark_effects::DESCRIPTION,mark_effects::schema(),vec!["sequenceId","markCollection","template"],false),

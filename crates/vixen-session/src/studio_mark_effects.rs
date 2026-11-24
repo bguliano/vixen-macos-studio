@@ -83,7 +83,7 @@ pub(super) fn onset_marks(
 }
 
 /// The file name of the sequence's audio, as stored (a Windows show may store a full path).
-fn sequence_audio(s: &SequenceSession) -> Option<String> {
+pub(super) fn sequence_audio(s: &SequenceSession) -> Option<String> {
     s.document()
         .media
         .iter()

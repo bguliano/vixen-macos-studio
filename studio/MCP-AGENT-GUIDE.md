@@ -21,6 +21,10 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
 
 - Read `display://summary` once at the start of a session for every prop's geometry.
 - Save explicitly (`sequence_save`); unsaved headless documents end with the session.
+- Plan a song by bar with `music_rhythm`: one row per bar (downbeat, tempo, the 16th-slot onset table per band as text,
+  loudness, section, which earlier bar it repeats), plus onsets, an energy curve and estimated sections. Correct the
+  sections by ear and write them with `sequence_section_marks` (by `bar` or `startMs`); `music_rhythm` then reports
+  your names from the sequence's "Sections" marks. Downbeats, sections and repeats are estimates.
 - For a group of effects that fires on every note or beat (a swoosh then a glow, a slam with a ring, stripes that step), use
   `motif_place` on a mark collection instead of building each hit yourself: pick a built-in (`motif_list`) or save your
   own recipe with `motif_save`, pass two `targetSets` to alternate left/right, and check it with `dryRun:true` first. It

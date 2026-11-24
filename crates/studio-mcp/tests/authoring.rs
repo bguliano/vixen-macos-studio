@@ -176,6 +176,24 @@ fn real_music_thirty_second_show_via_stdio_only() {
     call("sequence_undo", json!({"sequenceId":sequence}));
     let status = call("sequence_status", json!({"sequenceId":sequence}));
     assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64, "{status}");
+    // Rhythm by bar, then named sections written as marks, read back by music_rhythm and undone in one step (B77).
+    let rhythm = call("music_rhythm", json!({"sequenceId":sequence,"rangeMs":[0,30000]}));
+    let bars = rhythm["bars"].as_array().unwrap();
+    assert!(bars.len() >= 4 && bars[0]["low"].as_str().unwrap().len() == 19, "{rhythm}");
+    assert!(bars.windows(2).all(|w| w[1]["bar"].as_u64().unwrap() == w[0]["bar"].as_u64().unwrap() + 1), "{rhythm}");
+    assert!(rhythm["tempoMap"].as_array().unwrap().iter().all(|t| (40.0..250.0).contains(&t["bpm"].as_f64().unwrap())), "{rhythm}");
+    assert!(rhythm["sections"].as_array().unwrap().iter().all(|s| s["source"] == "estimate"), "{rhythm}");
+    assert!(!rhythm["energy"]["db"].as_array().unwrap().is_empty() && rhythm["onsets"]["low"].is_array(), "{rhythm}");
+    let written = call("sequence_section_marks", json!({"sequenceId":sequence,"sections":[{"name":"Intro","startMs":0},{"name":"Verse 1","bar":3}]}));
+    let verse = &written["sections"][1];
+    assert_eq!(verse["startBar"], 3, "{written}");
+    assert_eq!(verse["startMs"].as_f64().unwrap().round(), bars[2]["downbeatMs"].as_f64().unwrap().round(), "{written}");
+    let reread = call("music_rhythm", json!({"sequenceId":sequence,"include":["sections"]}));
+    let names: Vec<&str> = reread["sections"].as_array().unwrap().iter().map(|s| s["name"].as_str().unwrap()).collect();
+    assert_eq!(names, ["Intro", "Verse 1"], "{reread}");
+    call("sequence_undo", json!({"sequenceId":sequence}));
+    let undone = call("music_rhythm", json!({"sequenceId":sequence,"include":["sections"]}));
+    assert!(undone["sections"].as_array().unwrap().iter().all(|s| s["source"] == "estimate"), "{undone}");
     call(
         "sequence_save",
         json!({"sequenceId":sequence,"file":"MCP-music-test.tim","confirm":true}),
