@@ -84,6 +84,37 @@ fn even_gradient(colors: &[Color]) -> ColorGradient {
     gradient
 }
 
+/// A gradient in the shape encode reports it, {colors:[{color,position,focus?}], note?}, so a value read from
+/// effect_parameters writes back unchanged, native stop positions included.
+fn native_gradient(v: &Value) -> Result<ColorGradient, String> {
+    let shape = "a gradient object is {colors:[{color:\"#RRGGBB\",position:0..1,focus?:0..1}]}";
+    let o = v.as_object().ok_or("Expected gradient")?;
+    if let Some(key) = o.keys().find(|k| *k != "colors" && *k != "note") {
+        return Err(format!("Unknown gradient field {key}: {shape}"));
+    }
+    let stops = array(o.get("colors").ok_or(format!("colors is required: {shape}"))?, 64)?;
+    if stops.is_empty() {
+        return Err("At least one color required".into());
+    }
+    let fraction = |stop: &serde_json::Map<String, Value>, key: &str, default: Option<f64>| match stop.get(key) {
+        None => default.ok_or(format!("{key} is required: {shape}")),
+        Some(n) => n.as_f64().filter(|n| (0.0..=1.0).contains(n)).ok_or(format!("{key} must be 0..1")),
+    };
+    let mut points = Vec::new();
+    for stop in stops {
+        let stop = stop.as_object().ok_or(format!("Expected a color stop: {shape}"))?;
+        if let Some(key) = stop.keys().find(|k| !["color", "position", "focus"].contains(&k.as_str())) {
+            return Err(format!("Unknown color stop field {key}: {shape}"));
+        }
+        let mut point = ColorPoint::new(color(stop.get("color").ok_or(format!("color is required: {shape}"))?)?, fraction(stop, "position", None)?);
+        point.focus = fraction(stop, "focus", Some(0.5))?;
+        points.push(point);
+    }
+    let mut gradient = ColorGradient::solid(points[0].rgb_color());
+    gradient.set_colors(points);
+    Ok(gradient)
+}
+
 /// The value in the form decode accepts, when that form can express it exactly.
 fn writable(value: &ParamValue) -> Option<Value> {
     let hex = |c: Color| json!(format!("#{:02x}{:02x}{:02x}", c.r, c.g, c.b));
@@ -136,7 +167,7 @@ pub fn schema(kind: ParamKind) -> Value {
             json!({"title":"colorList","type":"array","items":color,"minItems":1,"maxItems":64,"description":"A flat list of #RRGGBB colors, each used on its own, e.g. [\"#ff0000\",\"#00ff00\"]"})
         }
         ParamKind::Gradient => {
-            json!({"title":"gradient","type":"array","items":color,"minItems":1,"maxItems":64,"description":"One gradient: a flat list of #RRGGBB colors at evenly spaced stops, blended by Vixen; one color is solid. E.g. [\"#ffffff\",\"#00b4ff\"]"})
+            json!({"title":"gradient","type":"array","items":color,"minItems":1,"maxItems":64,"description":"One gradient: a flat list of #RRGGBB colors at evenly spaced stops, blended by Vixen; one color is solid. E.g. [\"#ffffff\",\"#00b4ff\"]. The object effect_parameters reads, {colors:[{color,position,focus?}]}, is also accepted and keeps those stop positions"})
         }
         ParamKind::GradientList => {
             json!({"title":"gradientList","type":"array","items":schema(ParamKind::Gradient),"maxItems":64,"description":"A list of gradients, each a flat list of #RRGGBB colors, e.g. [[\"#ff0000\"],[\"#ffffff\",\"#00b4ff\"]]"})
@@ -214,6 +245,7 @@ pub fn decode(kind: ParamKind, v: &Value) -> Result<ParamValue, String> {
         }
         ParamKind::Color => ParamValue::Color(color(v)?),
         ParamKind::Rgb => ParamValue::Rgb(vixen_core::color::Rgb::from_color(color(v)?)),
+        ParamKind::Gradient if v.is_object() => ParamValue::Gradient(native_gradient(v)?),
         ParamKind::ColorList | ParamKind::Gradient => {
             let shape = if matches!(kind, ParamKind::ColorList) { "colorList" } else { "gradient" };
             let values = array(v, 64).map_err(|e| format!("{e}: a {shape} is a flat list of #RRGGBB colors"))?;
@@ -234,7 +266,7 @@ pub fn decode(kind: ParamKind, v: &Value) -> Result<ParamValue, String> {
         }
         ParamKind::GradientList => {
             let items = array(v, 64)?;
-            if items.iter().any(|item| !item.is_array()) {
+            if items.iter().any(|item| !item.is_array() && !item.is_object()) {
                 return Err(
                     "Expected a gradientList: a list of gradients, each a list of #RRGGBB colors, e.g. [[\"#ff0000\"]]"
                         .into(),
@@ -350,7 +382,14 @@ pub fn encode(value: &ParamValue) -> Value {
         ParamValue::ColorList(v) => json!(v.iter().map(|c| hex(*c)).collect::<Vec<_>>()),
         ParamValue::Curve(v) => json!(v.points),
         ParamValue::Gradient(v) => {
-            json!({"colors":v.colors().iter().map(|c|json!({"color":hex(c.rgb_color()),"position":c.position})).collect::<Vec<_>>(),"note":"Native stop positions (0..1). Writable JSON is a flat color list placed at evenly spaced stops"})
+            let stop = |c: &ColorPoint| {
+                let mut o = json!({"color":hex(c.rgb_color()),"position":c.position});
+                if c.focus != 0.5 {
+                    o["focus"] = json!(c.focus);
+                }
+                o
+            };
+            json!({"colors":v.colors().iter().map(stop).collect::<Vec<_>>(),"note":"Native stop positions (0..1). Write this object back as-is to keep them, or give a flat #RRGGBB list for evenly spaced stops"})
         }
         ParamValue::GradientList(v) => json!(v
             .iter()
@@ -520,6 +559,55 @@ mod tests {
         let encoded = encode(&ParamValue::Gradient(g.clone()));
         assert_eq!(encoded["colors"][2]["position"], json!(1.0));
         assert_eq!(writable(&ParamValue::Gradient(g)), Some(json!(["#ffffff", "#808080", "#00b4ff"])));
+    }
+
+    #[test]
+    fn read_gradients_write_back_with_native_stops() {
+        let mut stops = vec![
+            ColorPoint::new(Color::from_argb_u32(0xffff0000), 0.0),
+            ColorPoint::new(Color::from_argb_u32(0xff00ff00), 0.2),
+            ColorPoint::new(Color::from_argb_u32(0xff0000ff), 1.0),
+        ];
+        stops[1].focus = 0.25;
+        let mut native = ColorGradient::solid(Color::from_argb_u32(0xffff0000));
+        native.set_colors(stops);
+        let read = encode(&ParamValue::Gradient(native.clone()));
+        assert_eq!(read["colors"][1]["focus"], json!(0.25));
+        assert!(read["colors"][0].get("focus").is_none());
+        let ParamValue::Gradient(back) = decode(ParamKind::Gradient, &read).unwrap() else { panic!() };
+        assert_eq!(back, native);
+        // Nested gradients take the read shape too.
+        let levels = encode(&ParamValue::GradientLevels(vec![GradientLevelPair::new(native.clone(), Curve::flat100())]));
+        let ParamValue::GradientLevels(pairs) = decode(ParamKind::GradientLevels, &levels).unwrap() else { panic!() };
+        assert_eq!(pairs[0].color_gradient, native);
+        let kind = ParamKind::Gradient;
+        assert!(decode(kind, &json!({"colors":[]})).is_err());
+        assert!(decode(kind, &json!({"colors":[{"color":"#ff0000"}]})).unwrap_err().contains("position"));
+        assert!(decode(kind, &json!({"colors":[{"color":"#ff0000","position":1.5}]})).is_err());
+        assert!(decode(kind, &json!({"colors":[{"color":"#ff0000","position":0,"alpha":1}]})).is_err());
+        assert!(decode(kind, &json!({"stops":[]})).is_err());
+    }
+
+    #[test]
+    fn every_read_value_writes_back() {
+        for descriptor in vixen_effect_registry::all() {
+            for p in descriptor.params {
+                let read = encode(&(p.default)());
+                if read.is_null() || schema(p.kind).get("not").is_some() {
+                    continue;
+                }
+                let written = decode(p.kind, &read)
+                    .unwrap_or_else(|e| panic!("{}.{} read {read} does not write back: {e}", descriptor.name, p.name));
+                if let (ParamValue::Curve(native), ParamValue::Curve(back)) = (&(p.default)(), &written) {
+                    // Writes sort curve points by x, as the native editor does; the curve itself is the same.
+                    for x in (0..=100).step_by(5).map(f64::from) {
+                        assert!((native.get_value(x) - back.get_value(x)).abs() < 1e-9, "{}.{} at {x}", descriptor.name, p.name);
+                    }
+                    continue;
+                }
+                assert_eq!(encode(&written), read, "{}.{}", descriptor.name, p.name);
+            }
+        }
     }
 
     #[test]

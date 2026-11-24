@@ -1734,7 +1734,7 @@ pub fn tools() -> Vec<Value> {
     let boolean = json!({"type":"boolean"});
     let (filter_schema, settings_schema) = layer_filters::schema();
     let entries=vec![
-        ("effect_parameters","Read current typed effect parameter values and writable schemas. Native gradient stop positions are reported separately from the evenly-spaced write format.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0}}),vec!["sequenceId","effectId"],true),
+        ("effect_parameters","Read current typed effect parameter values and writable schemas. Every value writes back as read through effect_add, effects_batch and effect_set_parameter; gradients read as {colors:[{color,position,focus?}]} keep their native stop positions that way, or can be written as a flat #RRGGBB list at evenly spaced stops.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0}}),vec!["sequenceId","effectId"],true),
         ("sequence_length","Set length without truncating effects, with shared undo. Give lengthMs, or length as text the inspector's field takes: m:ss.fff, m:ss or seconds.",json!({"sequenceId":string,"lengthMs":number,"length":string}),vec!["sequenceId"],false),
         ("sequence_layers","List layers, top first: id, name, filter (display name), filterType (layer_create's filter name), settings and isDefault.",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("layer_create","Create a mixing layer with undo, above the existing layers. filter picks how it mixes with the layers below (default highestValue); settings configure lumaKey, chromaKey and maskFill. Put effects on it with layerId (effect_add, effects_batch) or effect_layer.",json!({"sequenceId":string,"name":string,"filter":filter_schema.clone(),"settings":settings_schema.clone()}),vec!["sequenceId","name"],false),
@@ -2129,7 +2129,16 @@ mod tests {
         assert_eq!(stops(&single), vec![0.0, 0.5, 1.0], "effect_set_parameter");
         run("effects_batch", json!({"sequenceId":id,"ops":[{"op":"params","effectId":single,"params":{"ColorGradient":["#ff0000","#00ff00"]}}]}));
         assert_eq!(stops(&single), vec![0.0, 1.0], "effects_batch");
-        for _ in 0..2 {
+        // What effect_parameters reads writes back unchanged through every write path, native stops included (B95).
+        let gradient = |effect: &Value| run("effect_parameters", json!({"sequenceId":id,"effectId":effect}))["parameters"].as_array().unwrap().iter().find(|p| p["name"] == "ColorGradient").unwrap()["value"].clone();
+        run("effect_set_parameter", json!({"sequenceId":id,"effectId":single,"parameter":"ColorGradient","value":{"colors":[{"color":"#ff0000","position":0},{"color":"#00ff00","position":0.2,"focus":0.3},{"color":"#0000ff","position":1}]}}));
+        let uneven = gradient(&single);
+        assert_eq!(stops(&single), vec![0.0, 0.2, 1.0], "effect_set_parameter takes the read shape");
+        let copy = run("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":target,"startMs":1000,"durationMs":400,"params":{"ColorGradient":uneven}}))["effectId"].clone();
+        assert_eq!(gradient(&copy), uneven, "effect_add params");
+        run("effects_batch", json!({"sequenceId":id,"ops":[{"op":"params","effectId":copy,"params":{"ColorGradient":["#ffffff"]}},{"op":"params","effectId":copy,"params":{"ColorGradient":uneven}}]}));
+        assert_eq!(gradient(&copy), uneven, "effects_batch");
+        for _ in 0..5 {
             run("sequence_undo", json!({"sequenceId":id}));
         }
         assert!(fail("effect_add", json!({"sequenceId":id,"typeId":pulse,"targetId":target,"startMs":0,"durationMs":400,"params":{"Nope":1}})).contains("Unknown parameter"));

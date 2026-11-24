@@ -44,6 +44,7 @@ were already in place for both runs.
    → **`passage_copy`**: a range or section to other times or to every matching section (`"Chorus*"`), native copies
    with every parameter intact, `repeat` to fill longer sections, `targetMap` to retarget or mirror, `replace`, one
    undo step.
+   Every write tool now also takes the gradient shape `effect_parameters` reads, so read values write back as-is.
 6. **A failed multi-call step left duplicates.** A batch failed after its motif had been placed; the retry placed the
    motif again. Nothing reported the 930 duplicates.
    → `sequence_summary` flags duplicate effects (same type, target, times and parameters).
@@ -63,7 +64,6 @@ shapes each effect's level curve from the sequence's audio, B94).
 
 ## Left for later (internal backlog)
 
-- `effect_parameters` reads gradients in a different shape than every write tool takes them.
 - `motif_place`, `effects_on_marks` and `effect_step` take no `buildId` (tag afterwards with `build_tag`).
 - No warning at placement time when a movement effect or an impossible colour goes on a one-channel or fixed-colour prop
   (`sequence_summary` finds it afterwards).
