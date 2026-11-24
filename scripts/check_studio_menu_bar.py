@@ -8,7 +8,8 @@ Runs scripts/ui/studio-menu-bar.json on screen and reads the harness's menu dump
 preview designer, the prop editor, a sequencer, and the show window after each). `--foreground` makes the app active
 for the run through scripts/foreground_test_guard.swift, so each window really becomes key, as it does for a user; the
 guard stops the run if anything else comes to the front. Without it, the show window after the sequencer isn't checked:
-offscreen no window is ever key, so the sequencer keeps the menu bar. Checks:
+offscreen no window is ever key, so the sequencer keeps the menu bar, and the show window's sidebar draws nothing to
+click, so the script's steps after the sequencer's dump are left out (B90). Checks:
 - the show window and Display Setup show Vixen Studio, File, Edit, View, Tools, Window, Help, and no System, Scheduler,
   Plugins, Prop or Settings menu; the designer adds its Settings menu, the prop editor its Prop menu, and both are gone
   again with the show window in front; the sequencer shows Sequence and its own Tools;
@@ -19,6 +20,7 @@ offscreen no window is ever key, so the sequencer keeps the menu bar. Checks:
 - with --before (the menu dumps of an earlier build), every command any window showed is still in some window's menu
   bar, under Tools where it moved, with a shortcut it had.
 """
+import json
 import os
 from pathlib import Path
 import re
@@ -157,7 +159,13 @@ def run(app: Path, show: Path, foreground: bool) -> Path:
     out, profile = work / "out", work / "show"
     out.mkdir(parents=True)
     subprocess.run(["cp", "-cR", str(show), str(profile)], check=True)
-    env = dict(os.environ, VIXEN_MUTE="1", VIXEN_DATA=str(profile), VIXEN_UI_TEST=str(root / "scripts/ui/studio-menu-bar.json"),
+    script = root / "scripts/ui/studio-menu-bar.json"
+    if not foreground:
+        steps = json.loads(script.read_text())["steps"]
+        last = next(i for i, s in enumerate(steps) if s.get("name") == "menus-sequencer")
+        script = work / "studio-menu-bar.json"
+        script.write_text(json.dumps({"steps": steps[:last + 1] + [{"action": "quit"}]}, indent=1))
+    env = dict(os.environ, VIXEN_MUTE="1", VIXEN_DATA=str(profile), VIXEN_UI_TEST=str(script),
                VIXEN_UI_TEST_OUT=str(out), VIXEN_UI_TEST_ONSCREEN="1")
     binary = work / "foreground-guard"
     if foreground:
@@ -201,7 +209,7 @@ def main() -> None:
     problems = []
     for name in WINDOWS:
         if name == "show-again" and not foreground:
-            continue  # a test window is never key offscreen, so the sequencer keeps the menu bar; --foreground checks it
+            continue  # not run offscreen: no test window is ever key there; --foreground checks it
         items, tops = visible_tree(out / f"menus-{name}.txt")
         problems += check_window(name, items, tops)
     if before:
