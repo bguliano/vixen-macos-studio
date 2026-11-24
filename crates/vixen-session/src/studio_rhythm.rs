@@ -978,9 +978,11 @@ mod tests {
         let strong: Vec<usize> = (0..16).filter(|s| row[0][*s] >= 0.5).collect();
         assert_eq!(strong, vec![0, 4, 8, 12], "{}", slot_text(&row[0]));
         assert!((0..16).filter(|s| s % 4 != 0).all(|s| row[0][s] < 0.3), "{}", slot_text(&row[0]));
-        // High hits only where the chorus has hats and snares, none in a verse bar (the detector picks only some of a dense
-        // 8th-note hat line; the table reports what it found).
-        assert!((0..16).filter(|s| row[2][*s] > 0.0).all(|s| s % 2 == 0) && row[2].iter().any(|v| *v > 0.0), "{}", slot_text(&row[2]));
+        // High: every 8th-note hat of the chorus, in both choruses (late bars too), and nothing in a verse bar.
+        for bar in [8, 12, 15, 24, 31] {
+            let high = &a.grid[bar][2];
+            assert!((0..16).all(|s| (high[s] >= 0.5) == (s % 2 == 0)), "bar {bar}: {}", slot_text(high));
+        }
         assert!(a.grid[4][2].iter().all(|v| *v == 0.0), "{}", slot_text(&a.grid[4][2]));
         assert!(a.bars[12].db > a.bars[4].db + 6.0);
         assert!((a.bars[3].tempo - 120.0).abs() < 0.5);

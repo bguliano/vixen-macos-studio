@@ -125,9 +125,10 @@ pub fn detect(samples: &[f32], sample_rate: u32) -> Vec<Onset> {
 const MIN_GAP_MS: f64 = 50.0;
 
 /// Energy per millisecond of each band: 4th-order Butterworth low-pass at 200 Hz, 200-2000 Hz band-pass, high-pass at
-/// 2000 Hz.
+/// 2000 Hz. Each sample goes to the millisecond it falls in (a whole-sample block would drift: 44 samples at 44.1 kHz
+/// put a minute in at 60.14 s).
 fn band_envelopes(samples: &[f32], sr: f64) -> Vec<Vec<f64>> {
-    let block = ((sr / 1000.0).round() as usize).max(1);
+    let ms = |i: usize| (i as f64 * 1000.0 / sr) as usize;
     let filters = [
         vec![Biquad::new(sr, EDGES[0], false), Biquad::new(sr, EDGES[0], false)],
         vec![Biquad::new(sr, EDGES[0], true), Biquad::new(sr, EDGES[1], false)],
@@ -136,10 +137,10 @@ fn band_envelopes(samples: &[f32], sr: f64) -> Vec<Vec<f64>> {
     filters
         .into_iter()
         .map(|mut chain| {
-            let mut energy = vec![0.0; samples.len().div_ceil(block)];
+            let mut energy = vec![0.0; ms(samples.len().saturating_sub(1)) + 1];
             for (i, s) in samples.iter().enumerate() {
                 let y = chain.iter_mut().fold(f64::from(*s), |x, f| f.process(x));
-                energy[i / block] += y * y;
+                energy[ms(i)] += y * y;
             }
             energy
         })
@@ -299,6 +300,19 @@ mod tests {
         let times: Vec<f64> = (0..40).map(|i| 337.0 + i as f64 * 60_000.0 / 148.0 / 4.0).collect();
         for sr in [44_100, 48_000, 22_050] {
             let found = detect(&bursts(sr, 6.0, &times, None), sr);
+            for t in &times {
+                let nearest = found.iter().map(|o| (o.time_ms - t).abs()).fold(f64::INFINITY, f64::min);
+                assert!(nearest <= 10.0, "{sr} Hz: no onset within 10 ms of {t} (nearest {nearest})");
+            }
+        }
+    }
+
+    #[test]
+    fn late_onsets_stay_on_time() {
+        // A steady 8th-note line for a minute: timing must not drift with the position in the track.
+        let times: Vec<f64> = (0..240).map(|i| 250.0 + i as f64 * 250.0).collect();
+        for sr in [44_100, 22_050] {
+            let found = detect(&bursts(sr, 61.0, &times, None), sr);
             for t in &times {
                 let nearest = found.iter().map(|o| (o.time_ms - t).abs()).fold(f64::INFINITY, f64::min);
                 assert!(nearest <= 10.0, "{sr} Hz: no onset within 10 ms of {t} (nearest {nearest})");
