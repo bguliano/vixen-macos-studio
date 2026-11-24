@@ -2,12 +2,11 @@
 //! staccato passages. Each lit segment is a native Set Level (around a group) or a band Wipe (vertical), so the result
 //! opens in the effect editor and in Windows Vixen like hand-placed effects, and the whole figure is one undo step.
 use super::{
-    band_params, mark_effects, parameter_value, parameter_values, record, string, targets, uuid, NewEffect, BATCH_LIMIT,
+    band_params, mark_effects, parameter_value, parameter_values, string, targets, uuid, NewEffect, BATCH_LIMIT,
 };
 use crate::{
     app::AppCore,
     sequence::SequenceSession,
-    undo::{AddRemoveKind, UndoAction},
 };
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -18,7 +17,7 @@ const MODES: &[&str] = &["walk", "alternate", "stack", "jump"];
 const SEGMENT_LIMIT: usize = 100;
 const STEP_LIMIT: usize = 10_000;
 
-pub(super) const DESCRIPTION: &str = "Add a discrete, segmented on/off figure stepped in time with the music, for staccato hits (\"do do do do\" stabs) where smooth chases, spins and sweeps are wrong. One call replaces one effect per segment per hit, in one undo step with one render pass. Step times: markCollection (id or exact name; range [startMs,endMs] and minStrength as effects_on_marks, each mark's text its strength) or stepsMs, an explicit list of times. segments: {axis:\"around\", groupId, count?} splits the group's children (e.g. a megatree's strings) into count contiguous segments (default one per child), each lit as native Set Level effects on its children; or {axis:\"vertical\", targetId|targetIds|targetSlice, count} splits the targets' height into count horizontal bands (2..100), each lit as a still band Wipe as effect_band (elements need Vixen's Location property; element_location sets it). mode: \"walk\" lights width segments (default 1) and steps them one segment per hit, wrapping; \"alternate\" lights the even segments, then the odd ones, per hit (count 2 gives front/back halves); \"stack\" adds width segments (default 1) per hit from the bottom (or first segment), keeping earlier ones lit, and starts again after every segment is lit; \"jump\" lights width segments at seeded random positions (seed, default 1), never reusing a segment lit on the previous hit (needs width at most half of count). reverse:true walks the other way, stacks from the top (or last segment), or starts alternate on the odd segments. colors: #RRGGBB list cycled per hit (default white); a stacked segment keeps its hit's colour. level: brightness percent (default 100). Each hit lasts holdFraction (default 0.8) of the time to the next hit, so staccato gaps stay dark; stacked segments all go dark together, holdFraction of the way from the stack's last hit to the next reset. maxMs caps each hold after holdFraction (as effects_on_marks), so sparse hits stay short stabs. cutAtMs ends the run: later steps are dropped and the last hit ends there (times holdFraction); without it the last hit lasts as long as the median gap between hits. layerId puts every effect on a layer. Returns effectIds, steps used, segments and skipped steps. section (a section name from the Sections marks, e.g. \"Chorus 2\") may replace range.";
+pub(super) const DESCRIPTION: &str = "Add a discrete, segmented on/off figure stepped in time with the music, for staccato hits (\"do do do do\" stabs) where smooth chases, spins and sweeps are wrong. One call replaces one effect per segment per hit, in one undo step with one render pass. Step times: markCollection (id or exact name; range [startMs,endMs] and minStrength as effects_on_marks, each mark's text its strength) or stepsMs, an explicit list of times. segments: {axis:\"around\", groupId, count?} splits the group's children (e.g. a megatree's strings) into count contiguous segments (default one per child), each lit as native Set Level effects on its children; or {axis:\"vertical\", targetId|targetIds|targetSlice, count} splits the targets' height into count horizontal bands (2..100), each lit as a still band Wipe as effect_band (elements need Vixen's Location property; element_location sets it). mode: \"walk\" lights width segments (default 1) and steps them one segment per hit, wrapping; \"alternate\" lights the even segments, then the odd ones, per hit (count 2 gives front/back halves); \"stack\" adds width segments (default 1) per hit from the bottom (or first segment), keeping earlier ones lit, and starts again after every segment is lit; \"jump\" lights width segments at seeded random positions (seed, default 1), never reusing a segment lit on the previous hit (needs width at most half of count). reverse:true walks the other way, stacks from the top (or last segment), or starts alternate on the odd segments. colors: #RRGGBB list cycled per hit (default white); a stacked segment keeps its hit's colour. level: brightness percent (default 100). Each hit lasts holdFraction (default 0.8) of the time to the next hit, so staccato gaps stay dark; stacked segments all go dark together, holdFraction of the way from the stack's last hit to the next reset. maxMs caps each hold after holdFraction (as effects_on_marks), so sparse hits stay short stabs. cutAtMs ends the run: later steps are dropped and the last hit ends there (times holdFraction); without it the last hit lasts as long as the median gap between hits. layerId puts every effect on a layer. Returns effectIds, steps used, segments and skipped steps. section (a section name from the Sections marks, e.g. \"Chorus 2\") may replace range. buildId tags every effect it adds as placed by that build (as effects_batch), so build_edits and section_rebuild can tell later hand edits from it, in the same undo step.";
 
 pub(super) fn schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
@@ -42,6 +41,7 @@ pub(super) fn schema() -> Value {
         "cutAtMs": number,
         "seed": {"type":"integer","minimum":0},
         "layerId": string,
+        "buildId": super::builds::batch_schema(),
     })
 }
 
@@ -220,6 +220,7 @@ fn color(value: &str) -> bool {
 
 /// effect_step: validates everything, then adds the whole figure as one undo step and renders once.
 pub(super) fn effect_step(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> Result<Value, String> {
+    super::builds::check_batch(a)?;
     let length = s.length().total_ms();
     let mode = string(a, "mode")?;
     let segments = segments(core, &a["segments"])?;
@@ -341,7 +342,7 @@ pub(super) fn effect_step(core: &AppCore, s: &mut SequenceSession, a: &Value, ag
     }
     let ids: Vec<_> = planned.into_iter().map(|new| super::apply_add(s, new)).collect();
     let all: Vec<u64> = ids.iter().map(|id| id.0).collect();
-    record(s, "Step effect", UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids }, agent);
+    super::record_placed(s, "Step effect", ids, a, agent)?;
     s.render_all_dirty();
     Ok(json!({"effectIds":all,"steps":times.len(),"segments":count,"endMs":run_end,"skipped":{"belowMinStrength":weak,"tooShort":short},"effects":s.effect_count()}))
 }

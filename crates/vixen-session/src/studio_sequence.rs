@@ -200,6 +200,18 @@ fn record(s: &mut SequenceSession, label: &str, action: UndoAction, agent: bool)
         actions: vec![action],
     });
 }
+/// Records the effects a placer added as one undo step, tagging them with buildId when it is given (as effects_batch).
+fn record_placed(s: &mut SequenceSession, label: &str, ids: Vec<EffectId>, a: &Value, agent: bool) -> Result<(), String> {
+    let tags = builds::tag_batch(s, a, &ids)?;
+    let mut actions = vec![UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids }];
+    actions.extend(tags);
+    let group = UndoAction::Group { label: format!("{label}{}", if agent { " (Agent)" } else { "" }), actions };
+    if agent {
+        s.studio_agent_flash.note(&group);
+    }
+    s.record_undo(group);
+    Ok(())
+}
 fn collections_json(collections: &[MarkCollection]) -> Value {
     json!(collections.iter().map(|c|json!({"id":c.id.to_string(),"name":c.name,"marks":c.marks.iter().map(|m|json!({"timeMs":m.start_time.total_ms(),"durationMs":m.duration.total_ms(),"text":m.text})).collect::<Vec<_>>()})).collect::<Vec<_>>())
 }
@@ -1761,7 +1773,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs, millisecond times and label (the words VoiceOver reads for the effect on the timeline).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). targetRegion {elementId, heightPct?, angleDeg?, xPct?, yPct?} picks lights by where they sit in the preview, as display_geometry measures them: e.g. {elementId:<megatree>, angleDeg:[315,45]} is the front quarter of a tree, heightPct:[66,100] its top third; strings that match whole are one target each, so an angle range targets whole strings. Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"targetRegion":target_region_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
         ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds, targetSlice, or targetRegion with angleDeg or xPct for part of a tree, e.g. a ring on the front half only); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Soft edges: featherPct (percent of the height) or featherLights (rows of each target's own lights) fades each edge inside the prop over that much, centred on the edge, so the band is full from fromPct+feather/2 to toPct-feather/2 and dark beyond fromPct-feather/2 and toPct+feather/2; two feathered bands that meet cross-fade, and an edge at 0 or 100 never fades, so the prop's ends stay lit. The feather is at most the band's width. exclusive:true makes the band own its lights for its time: every existing effect that lights any of the band's lights during it is cut out of that time (shortened, split around the band with the later part a copy, or deleted when wholly inside); effects on other lights, including bands on other rows of the same prop, are left alone. The cut and the band are one undo step, and cut reports how many effects were cut. Example: {\"fromPct\":40,\"toPct\":60,\"featherPct\":10,\"exclusive\":true}. Returns effectId and effectIds (and cut with exclusive).",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"targetRegion":target_region_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"featherPct":{"type":"number","minimum":0,"maximum":100,"description":"Edge fade in percent of the targets' height, centred on each inner edge","examples":[10,20]},"featherLights":{"type":"integer","minimum":1,"maximum":1000,"description":"Edge fade in rows of each target's own lights (instead of featherPct)","examples":[2,3]},"exclusive":{"type":"boolean","description":"Cut older effects on the band's lights out of its time","examples":[true]},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
-        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,fromPct,toPct,color?,level?,featherPct?|featherLights?,layerId?} (as effect_band; exclusive is effect_band only), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards). buildId tags every effect the batch adds as placed by that build, so build_edits and section_rebuild can tell later hand edits from it.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"buildId":{"type":"string","minLength":1,"maxLength":64,"examples":["intro v2"]},"confirm":boolean}),vec!["sequenceId"],false),
+        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,fromPct,toPct,color?,level?,featherPct?|featherLights?,layerId?} (as effect_band; exclusive is effect_band only), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards). buildId tags every effect the batch adds as placed by that build, so build_edits and section_rebuild can tell later hand edits from it.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"buildId":builds::batch_schema(),"confirm":boolean}),vec!["sequenceId"],false),
         ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
         ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),
@@ -2833,6 +2845,70 @@ mod tests {
         assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":{"axis":"around","groupId":tree,"count":9},"stepsMs":[0,100]})).contains("2..8"));
         assert!(fail("effect_step", json!({"sequenceId":id,"mode":"walk","segments":around,"stepsMs":[0,100],"colors":["red"]})).contains("#RRGGBB"));
         assert!(effects().is_empty());
+        core.studio_display.stop();
+        drop(core);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn placers_tag_their_effects_with_build_id_in_one_undo_step() {
+        let root = std::env::temp_dir().join(format!("studio-placer-builds-{}", Uuid::new_v4()));
+        let core = AppCore::open(root.clone(), true).unwrap();
+        let tree = core.studio_display
+            .execute(&core, "element_template", &json!({"kind":"megatree","name":"Tree","count":4,"pixels":10}), false)
+            .unwrap()["result"]["id"]
+            .clone();
+        let strings: Vec<String> = {
+            let system = core.system.read();
+            let node = system.tree.find(&Uuid::parse_str(tree.as_str().unwrap()).unwrap()).unwrap();
+            system.tree.node(node).children.iter().map(|c| system.tree.node(*c).id.to_string()).collect()
+        };
+        let run = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_or_else(|e| panic!("{name}: {e}"));
+        let fail = |name: &str, args: Value| execute(&core, name, &args, true).unwrap_err();
+        let pulse = vixen_effect_registry::all().iter().find(|d| d.name == "Pulse").unwrap().type_id.to_string();
+        let id = run("sequence_create", json!({"lengthMs":8000}))["sequenceId"].clone();
+        run("marks_create", json!({"sequenceId":id,"name":"Hits","timesMs":[0,500,1000,1500]}));
+        let count = || run("sequence_status", json!({"sequenceId":id}))["effects"].as_u64().unwrap();
+        let edits = || run("build_edits", json!({"sequenceId":id}));
+        let builds = || edits()["builds"].as_array().unwrap().iter().map(|b| (b["buildId"].as_str().unwrap().to_string(), b["placed"].as_u64().unwrap())).collect::<Vec<_>>();
+        let marks = json!({"sequenceId":id,"markCollection":"Hits","template":{"typeId":pulse,"targetId":strings[0]},"buildId":"marks v1"});
+        let step = json!({"sequenceId":id,"mode":"walk","segments":{"axis":"around","groupId":tree},"stepsMs":[2000,2500,3000],"buildId":"step v1"});
+        let motif = json!({"sequenceId":id,"markCollection":"Hits","motif":"pingpong","targetSets":[{"targetId":strings[1]},{"targetId":strings[2]}],"range":[0,1600],"buildId":"motif v1"});
+
+        // A bad buildId fails before anything is added, dry runs included.
+        for (name, args) in [("effects_on_marks", &marks), ("effect_step", &step), ("motif_place", &motif)] {
+            let mut bad = args.clone();
+            bad["buildId"] = json!("no/slashes");
+            assert!(fail(name, bad.clone()).contains("buildId must be"), "{name}");
+            bad["dryRun"] = json!(true);
+            if name != "effect_step" {
+                assert!(fail(name, bad).contains("buildId must be"), "{name} dry run");
+            }
+        }
+        assert_eq!(count(), 0);
+
+        // Each placer tags what it adds; undo takes the effects and the tags back in one step.
+        let placed = run("effects_on_marks", marks.clone())["effectIds"].as_array().unwrap().len() as u64;
+        assert_eq!((count(), builds()), (placed, vec![("marks v1".to_string(), placed)]));
+        run("sequence_undo", json!({"sequenceId":id}));
+        assert_eq!((count(), edits()["builds"].as_array().unwrap().len()), (0, 0), "one undo step removes effects and tags");
+        run("sequence_redo", json!({"sequenceId":id}));
+        assert_eq!((count(), builds()), (placed, vec![("marks v1".to_string(), placed)]), "redo brings both back");
+        let stepped = run("effect_step", step.clone())["effectIds"].as_array().unwrap().len() as u64;
+        let motifs = run("motif_place", motif.clone())["effectIds"].as_array().unwrap().len() as u64;
+        assert_eq!(builds(), vec![("marks v1".to_string(), placed), ("step v1".to_string(), stepped), ("motif v1".to_string(), motifs)]);
+        let report = edits();
+        assert_eq!((report["clean"].as_bool(), report["counts"]["untracked"].as_u64()), (Some(true), Some(0)), "{report}");
+
+        // So a rebuild sees them as the build's: no hand edits to refuse, and they are replaced.
+        let rebuilt = run("section_rebuild", json!({"sequenceId":id,"range":[0,4000],"buildId":"v2","ops":[{"op":"add","typeId":pulse,"targetId":strings[3],"startMs":0,"durationMs":500}]}));
+        // The last mark's effect runs to the sequence end, so it is trimmed to the part after the section.
+        assert_eq!((rebuilt["added"].as_u64(), rebuilt["removed"].as_u64(), rebuilt["trimmed"].as_u64()), (Some(1), Some(placed + stepped + motifs - 1), Some(1)), "{rebuilt}");
+        assert_eq!(count(), 2);
+
+        // Without buildId nothing is tagged, as before.
+        run("effects_on_marks", json!({"sequenceId":id,"markCollection":"Hits","template":{"typeId":pulse,"targetId":strings[0]}}));
+        assert_eq!(edits()["counts"]["added"].as_u64(), Some(placed));
         core.studio_display.stop();
         drop(core);
         let _ = std::fs::remove_dir_all(root);

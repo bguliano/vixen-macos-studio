@@ -134,8 +134,8 @@ walkthrough in [MCP-AGENT-GAPS.md](MCP-AGENT-GAPS.md); before these tools it too
   (e.g. `"chorus-2 v3"`) instead of deleting and re-adding effects: it replaces only that range, tags the new effects,
   and refuses when Braden has hand-edited the section since your build, listing the edits; read them with
   `build_edits`, then rebuild around them with `onHandEdits:"keep"`, or ask before using `"replace"`. Pass `buildId`
-  to `effects_batch`, `passage_copy` and `effects_edit` too; tag what `motif_place`, `effects_on_marks` and
-  `effect_step` placed with `build_tag`. Run `build_edits` at the start of a session on an existing show.
+  to `effects_batch`, `passage_copy`, `effects_edit`, `motif_place`, `effects_on_marks` and `effect_step` too, so
+  `build_edits` and `section_rebuild` see their effects as the build's. Run `build_edits` at the start of a session on an existing show.
 - **Porting an old show:** start with `effects_port_from_sequence` `dryRun:true` and `autoZones:true` on the old `.tim`:
   it lists the zones (the old rig's channels grouped by name) to route. Take out the old rig's lag with `offsetMs`
   (e.g. -35), snap with `grid:"16th"` and a `snapToleranceMs` so hand-placed syncopation isn't forced onto the grid,

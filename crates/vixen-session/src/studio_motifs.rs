@@ -2,13 +2,12 @@
 //! from a palette, alternating parameters, a stepped band or offset, an intensity ramp), in one undo step. Built-in motifs
 //! match the show-building agent's library; agents save their own recipes by name in the profile.
 use super::{
-    apply_add, mark_effects, parameter_values, plan_add, plan_band, record, string, target_ids_schema,
+    apply_add, mark_effects, parameter_values, plan_add, plan_band, record_placed, string, target_ids_schema,
     target_slice_schema, NewEffect, BATCH_LIMIT,
 };
 use crate::{
     app::AppCore,
     sequence::SequenceSession,
-    undo::{AddRemoveKind, UndoAction},
 };
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
@@ -81,7 +80,7 @@ fn builtins() -> Vec<(&'static str, Value)> {
     ]
 }
 
-pub(super) const PLACE_DESCRIPTION: &str = "Place a motif, a small template of 1..10 effects, on every mark of a mark collection, varied per mark, in one undo step with one render pass. Marks: markCollection (id or exact name), range, minStrength, snap and gridCollection as effects_on_marks. motif names a built-in (march, train, swoosh_glow, slam, hop, pingpong, stab_run, climb; motif_list describes them) or one saved with motif_save; or pass recipe inline (the motif_save format). targetSets lists 1..8 target groups, each {targetId|targetIds|targetSlice} as effect_add: a step on set \"event\" (the default) uses set i % n on the i-th mark, so two sets alternate left/right, more sets walk. palette [#RRGGBB...] overrides the motif's own colours, cycled per mark. ramp [fromPct,toPct] raises (or lowers) every step's level linearly from the first mark to the last (default [100,100]); levelFromStrength:true also scales it by each mark's strength. Each mark's hold lasts until the next mark times gapFraction (default 1), capped at maxMs (default 2000); the last mark holds the median gap. Steps are timed as fractions of the hold, so a motif follows the tempo. layerId puts every effect on a layer. dryRun:true returns the effects it would place (step, mark, effect, target, times, parameters; the first 200) without adding anything. Returns effectIds, events used, skipped marks, and unscaledSteps (steps whose effect has no level parameter, so ramp did not apply). section (a section name from the Sections marks, e.g. \"Chorus 2\") may replace range.";
+pub(super) const PLACE_DESCRIPTION: &str = "Place a motif, a small template of 1..10 effects, on every mark of a mark collection, varied per mark, in one undo step with one render pass. Marks: markCollection (id or exact name), range, minStrength, snap and gridCollection as effects_on_marks. motif names a built-in (march, train, swoosh_glow, slam, hop, pingpong, stab_run, climb; motif_list describes them) or one saved with motif_save; or pass recipe inline (the motif_save format). targetSets lists 1..8 target groups, each {targetId|targetIds|targetSlice} as effect_add: a step on set \"event\" (the default) uses set i % n on the i-th mark, so two sets alternate left/right, more sets walk. palette [#RRGGBB...] overrides the motif's own colours, cycled per mark. ramp [fromPct,toPct] raises (or lowers) every step's level linearly from the first mark to the last (default [100,100]); levelFromStrength:true also scales it by each mark's strength. Each mark's hold lasts until the next mark times gapFraction (default 1), capped at maxMs (default 2000); the last mark holds the median gap. Steps are timed as fractions of the hold, so a motif follows the tempo. layerId puts every effect on a layer. dryRun:true returns the effects it would place (step, mark, effect, target, times, parameters; the first 200) without adding anything. Returns effectIds, events used, skipped marks, and unscaledSteps (steps whose effect has no level parameter, so ramp did not apply). section (a section name from the Sections marks, e.g. \"Chorus 2\") may replace range. buildId tags every effect it adds as placed by that build (as effects_batch), so build_edits and section_rebuild can tell later hand edits from it, in the same undo step.";
 
 pub(super) const LIST_DESCRIPTION: &str = "List motifs for motif_place: the built-ins and those saved in this profile with motif_save, each with its description and full recipe.";
 
@@ -151,6 +150,7 @@ pub(super) fn place_schema() -> Value {
         "gapFraction": {"type":"number","minimum":0.05,"maximum":1},
         "maxMs": {"type":"number","minimum":1,"maximum":60000},
         "layerId": string,
+        "buildId": super::builds::batch_schema(),
         "dryRun": {"type":"boolean"},
     })
 }
@@ -433,6 +433,7 @@ fn median_gap(times: &[f64]) -> Option<f64> {
 }
 
 pub(super) fn place(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> Result<Value, String> {
+    super::builds::check_batch(a)?;
     let (name, recipe_value) = match (a.get("motif"), a.get("recipe")) {
         (Some(_), None) => {
             let wanted = string(a, "motif")?;
@@ -636,7 +637,7 @@ pub(super) fn place(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: b
     }
     let ids: Vec<_> = planned.into_iter().map(|p| apply_add(s, p.new)).collect();
     let all: Vec<u64> = ids.iter().map(|id| id.0).collect();
-    record(s, &format!("Place motif {name}"), UndoAction::EffectsAdded { kind: AddRemoveKind::AddedOrRemoved, ids }, agent);
+    record_placed(s, &format!("Place motif {name}"), ids, a, agent)?;
     s.render_all_dirty();
     Ok(json!({"motif":name,"effectIds":all,"events":n,"skipped":skipped,"unscaledSteps":unscaled,"effects":s.effect_count()}))
 }

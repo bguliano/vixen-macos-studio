@@ -278,6 +278,11 @@ pub(super) fn tag_batch(s: &mut SequenceSession, a: &Value, added: &[EffectId]) 
     Ok(Some(tag(s, &build, added, None, "Build tags")))
 }
 
+/// The buildId argument of effects_batch and the placers (effects_on_marks, effect_step, motif_place).
+pub(super) fn batch_schema() -> Value {
+    json!({"type":"string","minLength":1,"maxLength":64,"examples":["intro v2"]})
+}
+
 /// Checks a batch's buildId before anything changes.
 pub(super) fn check_batch(a: &Value) -> Result<(), String> {
     if a.get("buildId").is_some() {
@@ -303,7 +308,7 @@ pub(super) fn tools() -> Vec<(&'static str, &'static str, Value, Vec<&'static st
          json!({"sequenceId":string,"sinceBuild":build,"range":range,"targetIds":targets}),
          vec!["sequenceId"], true),
         ("build_tag",
-         "Tag effects as placed by buildId in their current state, in one undo step: adopt effects placed before builds were tracked, accept hand edits so the next section_rebuild may replace them, or tag what effects_on_marks, motif_place or effect_step placed. Pick effects with effectIds, or with range [startMs,endMs] and/or targetIds (effects overlapping it, on those elements or under them), or all:true. Already tagged effects take the new build id. Example: {sequenceId, buildId:\"baseline\", all:true}.",
+         "Tag effects as placed by buildId in their current state, in one undo step: adopt effects placed before builds were tracked, accept hand edits so the next section_rebuild may replace them, or tag what effects_on_marks, motif_place or effect_step placed without their buildId. Pick effects with effectIds, or with range [startMs,endMs] and/or targetIds (effects overlapping it, on those elements or under them), or all:true. Already tagged effects take the new build id. Example: {sequenceId, buildId:\"baseline\", all:true}.",
          json!({"sequenceId":string,"buildId":build,"effectIds":{"type":"array","items":{"type":"integer","minimum":0},"minItems":1,"maxItems":BATCH_LIMIT},"range":range,"targetIds":targets,"all":{"type":"boolean"}}),
          vec!["sequenceId","buildId"], false),
         ("sequence_versions",
@@ -386,7 +391,7 @@ fn report(s: &SequenceSession, a: &Value) -> Result<Value, String> {
     let mut out = json!({"sinceBuild":since.map(|r|r.id.clone()),"builds":builds,"edited":edited,"added":added,"removed":removed,
         "counts":{"edited":counts[0],"added":counts[1],"removed":counts[2],"untracked":untracked},"clean":counts.iter().all(|c|*c==0)});
     if since.is_none() {
-        out["note"] = json!("No builds recorded for this sequence yet: place effects with section_rebuild or effects_batch buildId, or tag the current ones with build_tag");
+        out["note"] = json!("No builds recorded for this sequence yet: place effects with section_rebuild, or the buildId of effects_batch, effects_on_marks, effect_step or motif_place, or tag the current ones with build_tag");
     }
     if counts.iter().any(|c| *c > LISTED) {
         out["truncated"] = json!(format!("Lists stop at {LISTED} effects each; narrow with range or targetIds"));
