@@ -198,6 +198,36 @@ fn real_music_thirty_second_show_via_stdio_only() {
         "sequence_save",
         json!({"sequenceId":sequence,"file":"MCP-music-test.tim","confirm":true}),
     );
+    // Porting an old show onto this one (B79): the saved file's effects, lag taken out and snapped to the song's 16ths, as a
+    // dry run, then for real as one undo step; its timing as zone marks on the same grid.
+    let old_show = root.join("Sequence/MCP-music-test.tim").to_string_lossy().into_owned();
+    let survey = call("effects_port_from_sequence", json!({"sequenceId":sequence,"path":old_show,"offsetMs":-35,"grid":"16th","dryRun":true}));
+    let map: Vec<Value> = survey["zones"].as_array().unwrap().iter().map(|z| json!({"from":z["name"],"targetId":element})).collect();
+    let moved = &survey["moves"];
+    assert_eq!(moved["events"].as_u64().unwrap(), selected.len() as u64, "{survey}");
+    assert!(moved["snapped"].as_u64().unwrap() + moved["alreadyOnGrid"].as_u64().unwrap() == selected.len() as u64, "{survey}");
+    let sixteenth = 60_000.0 / 40.0 / 4.0;
+    assert!(moved["maxSnapMs"].as_f64().unwrap() <= sixteenth / 2.0, "a 16th snap moves at most half a 16th: {survey}");
+    let rhythm = call("music_rhythm", json!({"sequenceId":sequence,"include":["bars"]}));
+    let bars = rhythm["bars"].as_array().unwrap();
+    let on_grid = |t: f64| bars.iter().any(|b| {
+        let (start, length) = (b["downbeatMs"].as_f64().unwrap(), b["lengthMs"].as_f64().unwrap());
+        let k = ((t - start) / (length / 16.0)).round();
+        (0.0..=16.0).contains(&k) && (start + k * length / 16.0 - t).abs() < 1.0
+    });
+    assert!(moved["furthest"].as_array().unwrap().iter().all(|m| on_grid(m["toMs"].as_f64().unwrap())), "{survey}");
+    let ported = call("effects_port_from_sequence", json!({"sequenceId":sequence,"path":old_show,"offsetMs":-35,"grid":"16th","map":map}));
+    let ported_count = ported["effectIds"].as_array().unwrap().len() as u64;
+    assert_eq!(ported_count, selected.len() as u64, "{ported}");
+    let status = call("sequence_status", json!({"sequenceId":sequence}));
+    assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64 * 2, "{status}");
+    assert!(status["undo"][0].as_str().unwrap().starts_with("Port Effects"), "{status}");
+    call("sequence_undo", json!({"sequenceId":sequence}));
+    let status = call("sequence_status", json!({"sequenceId":sequence}));
+    assert_eq!(status["effects"].as_u64().unwrap(), selected.len() as u64, "{status}");
+    let marks = call("marks_import_from_sequence", json!({"sequenceId":sequence,"path":old_show,"includeMarks":false,"offsetMs":-35,"grid":"16th","snapToleranceMs":40,"dryRun":true}));
+    assert_eq!(marks["collections"].as_array().unwrap().len(), survey["zones"].as_array().unwrap().len(), "{marks}");
+    assert_eq!(marks["moves"]["events"].as_u64().unwrap(), selected.len() as u64, "{marks}");
     call(
         "sequence_export_fseq",
         json!({"sequenceId":sequence,"file":"MCP-music-test.fseq","confirm":true}),

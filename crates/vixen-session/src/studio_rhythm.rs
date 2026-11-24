@@ -751,6 +751,28 @@ pub(super) fn music_rhythm(core: &AppCore, a: &Value) -> Result<Value, String> {
     Ok(out)
 }
 
+/// A song's music grid for porting old sequences (B79): every bar split into `per_bar` equal slots (16 for the 16ths of
+/// music_rhythm's slot table, 8, 4 for beats, 1 for downbeats), from the same repaired downbeats, extended back to 0 at
+/// the first bar's spacing. Sorted.
+pub(super) fn grid_points(core: &AppCore, media: &str, per_bar: usize) -> Result<Vec<f64>, String> {
+    Ok(bar_grid(&run(core, media)?.analysis.bars, per_bar))
+}
+
+fn bar_grid(bars: &[Bar], per_bar: usize) -> Vec<f64> {
+    let Some(first) = bars.first() else { return Vec::new() };
+    let step0 = first.length / per_bar as f64;
+    let mut points: Vec<f64> = (1..).map(|k| first.start - step0 * k as f64).take_while(|t| *t >= -0.5).collect();
+    points.reverse();
+    for bar in bars {
+        points.extend((0..per_bar).map(|k| bar.start + bar.length * k as f64 / per_bar as f64));
+    }
+    if let Some(last) = bars.last() {
+        points.push(last.start + last.length);
+    }
+    points.sort_by(f64::total_cmp);
+    points
+}
+
 pub(super) fn section_marks(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Value, agent: bool) -> Result<Value, String> {
     let name = if a.get("collection").is_some() { string(a, "collection")? } else { SECTIONS };
     let given = a.get("sections").and_then(Value::as_array);
@@ -994,6 +1016,15 @@ mod tests {
         assert_eq!(a.tempo_map.len(), 2, "{:?}", a.tempo_map);
         assert_eq!(a.tempo_map[1].0, 8);
         assert!((a.tempo_map[0].1 - 120.0).abs() < 1.0 && (a.tempo_map[1].1 - 160.0).abs() < 2.0, "{:?}", a.tempo_map);
+    }
+
+    #[test]
+    fn bar_grid_splits_bars_and_reaches_back_to_zero() {
+        let bar = |start: f64| Bar { start, length: 2000.0, beats: Vec::new(), tempo: 120.0, db: 0.0 };
+        let points = bar_grid(&[bar(1000.0), bar(3000.0)], 4);
+        assert_eq!(points, [0.0, 500.0, 1000.0, 1500.0, 2000.0, 2500.0, 3000.0, 3500.0, 4000.0, 4500.0, 5000.0]);
+        assert_eq!(bar_grid(&[bar(1000.0)], 16)[..3], [0.0, 125.0, 250.0]);
+        assert!(bar_grid(&[], 16).is_empty());
     }
 
     #[test]

@@ -39,6 +39,12 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
   since your build (moved, changed, added or deleted effects there) and lists the edits; read them with `build_edits`, then
   rebuild around them with `onHandEdits:"keep"`, or ask before using `"replace"`. Tag a sequence built before builds were
   tracked once with `build_tag` (`all:true`), and pass `buildId` to `effects_batch` for effects placed outside a rebuild.
+- To port an old show (B79), start with `effects_port_from_sequence` `dryRun:true` and `autoZones:true` on the old `.tim`: it
+  lists the zones (the old rig's channels grouped by name) to route. Take out the old rig's lag with `offsetMs` (e.g. -35),
+  snap with `grid:"16th"` (from the song's bars, as `music_rhythm` reads them) and a `snapToleranceMs` so hand-placed
+  syncopation isn't forced onto the grid, and read `moves.furthest` before trusting it. Then add `map` (zone → Studio
+  targets) and run it for real with a `buildId`: one undo step. `marks_import_from_sequence` takes the same options when you
+  only want the old timing as marks.
 - Run `build_edits` at the start of a session on an existing show: it reports what changed in the GUI since your last build.
 - Save milestones with a label (`sequence_save` with `label:"WiW v6"`): `sequence_versions` lists them and
   `sequence_version_restore` puts one back in place (one undo step).

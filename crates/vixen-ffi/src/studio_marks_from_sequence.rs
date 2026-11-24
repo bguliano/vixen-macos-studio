@@ -31,7 +31,7 @@ impl MarksPanel {
             Ok(source) => source,
             Err(e) => return failed(e),
         };
-        let options = timing::TimingOptions { merged, offset_ms, snap_to: snap, elements: Vec::new(), include_marks: true };
+        let options = timing::TimingOptions { merged, offset_ms, snap_to: snap, include_marks: true, ..Default::default() };
         let candidates = timing::candidates(&source, &options);
         if candidates.is_empty() {
             return failed(format!("“{}” has no effects or marks to import.", source.name));

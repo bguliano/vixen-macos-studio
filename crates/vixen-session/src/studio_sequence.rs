@@ -34,6 +34,8 @@ pub mod inspector;
 pub mod marks_panel;
 #[path = "studio_marks_from_sequence.rs"]
 pub mod marks_from_sequence;
+#[path = "studio_port_sequence.rs"]
+mod port_sequence;
 #[path = "studio_sequence_audio.rs"]
 pub mod audio;
 #[path = "studio_effect_gallery.rs"]
@@ -443,6 +445,16 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "sequence_section_marks" {
         return rhythm::section_marks(core, &shared, a, agent);
     }
+    if name == "marks_import_from_sequence" || name == "effects_port_from_sequence" {
+        // The music grid is read before the sequence is locked: the analysis takes a few seconds (B79).
+        let grid = marks_from_sequence::music_grid(core, &shared, a)?;
+        let mut s = shared.lock();
+        return if name == "marks_import_from_sequence" {
+            marks_from_sequence::execute(&mut s, a, agent, grid)
+        } else {
+            port_sequence::execute(core, &mut s, a, agent, grid)
+        };
+    }
     if name == "sequence_music_marks" {
         let (analysis, marks) = analyze(core, a)?;
         let mut s = shared.lock();
@@ -656,7 +668,6 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
         "marks_visibility" => return inspector::set_visibility(&mut s, a, agent),
         "sequence_audio" => return audio::execute(core, &mut s, a, agent),
         "marks_collection_edit" | "marks_collection_delete" | "marks_import" => return marks_panel::execute(&mut s, name, a, agent),
-        "marks_import_from_sequence" => return marks_from_sequence::execute(&mut s, a, agent),
         "sequence_row_height" => return crate::studio_row_height::execute(&mut s, a),
         "marks_create" => {
             let times = a["timesMs"]
@@ -1735,6 +1746,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(audio::tools());
     entries.extend(marks_panel::tools());
     entries.extend(marks_from_sequence::tools());
+    entries.extend(port_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
     entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"section_rebuild"|"sequence_version_restore"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
