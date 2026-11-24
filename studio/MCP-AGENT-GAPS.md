@@ -61,10 +61,10 @@ Song structure (`music_rhythm` sections, `sequence_section_marks`), beat and bar
 (`preview_sheet`, and per section `preview_section_sheet`, B98), rebuilding one section (`section_rebuild`), "what is
 on at time t" (`effects_find` with `range:[t, t+1]` and `match:"overlaps"`), intensity that follows the song's loudness (`effects_edit` `levelFromEnergy`
 shapes each effect's level curve from the sequence's audio, B94), placers that tag their own effects for later
-rebuilds (`motif_place`, `effects_on_marks` and `effect_step` take `buildId`, B96).
+rebuilds (`motif_place`, `effects_on_marks` and `effect_step` take `buildId`, B96), a warning at placement when an
+effect can't show on its targets (`unlitTargets` on every placer: movement on one channel, a Wipe without Location,
+a colour a fixed-colour prop can't show, B97).
 
 ## Left for later (internal backlog)
 
-- No warning at placement time when a movement effect or an impossible colour goes on a one-channel or fixed-colour prop
-  (`sequence_summary` finds it afterwards).
 - Lyric and phoneme timing for singing faces from lyrics text was not part of this walkthrough.

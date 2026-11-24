@@ -31,6 +31,8 @@ and none of them restricts what you can still do by hand.
      `targetSets` from `display_layout`'s `order` (e.g. `leftToRight`), `section`, and `dryRun:true` first;
    - staccato stabs: `effect_step`; still zones on a tree or matrix: `effect_band` (`featherPct`, `exclusive`);
    - long washes, twinkles and fades: `effects_batch` adds, with the section's `startMs`/`endMs` from `sequence_summary`.
+   Every placer's result lists `unlitTargets` when an effect it placed can't show on its target (movement on a
+   one-channel prop, a Wipe without Location, a colour the prop can't show): fix those before moving on.
 7. **Repeat it: `passage_copy`.** `{section:"Chorus 1", toSections:"Chorus*", repeat:true}` puts the chorus on every
    other chorus, laid end to end until each is full; `targetMap` retargets on the way (`mirrorPairs` gives left/right
    twins), `replace:true` clears what was there. Copies keep every parameter.

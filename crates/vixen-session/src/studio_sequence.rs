@@ -48,6 +48,8 @@ pub mod builds;
 pub mod seq_palette;
 #[path = "studio_passages.rs"]
 mod passages;
+#[path = "studio_unlit.rs"]
+mod unlit;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -547,14 +549,14 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             );
             json!({"effectId":first,"effectIds":all})
         }
-        "effects_batch" => return effects_batch(core, &mut s, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
+        "effects_batch" => return effects_batch(core, &mut s, a, agent).map(|v| unlit::warn(&s, seq_palette::warn(&s, v, &[]))),
         "sequence_palette" => seq_palette::execute(&mut s, a, agent)?,
-        "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
-        "effect_step" => return step_effects::effect_step(core, &mut s, a, agent),
-        "motif_place" => return motifs::place(core, &mut s, a, agent),
+        "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent).map(|v| unlit::warn(&s, v)),
+        "effect_step" => return step_effects::effect_step(core, &mut s, a, agent).map(|v| unlit::warn(&s, v)),
+        "motif_place" => return motifs::place(core, &mut s, a, agent).map(|v| unlit::warn(&s, v)),
         "effects_find" => return passages::find(core, &s, a),
         "effects_edit" => return passages::edit(core, &mut s, a, agent),
-        "passage_copy" => return passages::copy(core, &mut s, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
+        "passage_copy" => return passages::copy(core, &mut s, a, agent).map(|v| unlit::warn(&s, seq_palette::warn(&s, v, &[]))),
         "section_rebuild" => return builds::execute(core, &mut s, name, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
         "build_edits" | "build_tag" | "sequence_versions" | "sequence_version_restore" => {
             return builds::execute(core, &mut s, name, a, agent)
@@ -802,7 +804,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if !read_only {
         s.render_all_dirty();
     }
-    let result = if matches!(name, "effect_add" | "effect_band") { seq_palette::warn(&s, result, &[]) } else { result };
+    let result = if matches!(name, "effect_add" | "effect_band") { unlit::warn(&s, seq_palette::warn(&s, result, &[])) } else { result };
     drop(s);
 
     Ok(result)
@@ -1852,7 +1854,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(port_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"section_rebuild"|"sequence_version_restore"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"preview_section_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|(name,unlit::described(name,description),properties,required,read_only)).map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"section_rebuild"|"sequence_version_restore"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"preview_section_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {
