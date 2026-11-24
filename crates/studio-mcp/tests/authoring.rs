@@ -307,6 +307,28 @@ fn real_music_thirty_second_show_via_stdio_only() {
         let png = std::fs::read(root.join("Export/MCP-music-test-sheet.png")).unwrap();
         let png_width = u32::from_be_bytes(png[16..20].try_into().unwrap());
         assert_eq!(u64::from(png_width), sheet["width"].as_u64().unwrap());
+        // Key moments of every section in one sheet (B98): a row per section, frames from each section's start.
+        call("sequence_section_marks", json!({"sequenceId":sequence,"sections":[{"name":"Intro","startMs":0},{"name":"Verse 1","startMs":start+1000.0},{"name":"Verse 2","startMs":start+4000.0}]}));
+        let sections = call(
+            "preview_section_sheet",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"perSection":4,"tileWidth":96,"file":"MCP-music-sections.png","confirm":true}),
+        );
+        assert_eq!(sections["rows"], 3, "{sections}");
+        assert_eq!(sections["tiles"], 12, "{sections}");
+        let rows = sections["sections"].as_array().unwrap();
+        assert_eq!(rows[1]["name"], "Verse 1", "{sections}");
+        assert_eq!(rows[1]["timesMs"][0].as_f64().unwrap().round(), (start + 1000.0).round(), "{sections}");
+        assert_eq!(rows[1]["endMs"], rows[2]["startMs"], "{sections}");
+        assert!(rows.iter().all(|r| r["timesMs"].as_array().unwrap().iter().all(|t| t.as_f64().unwrap() < r["endMs"].as_f64().unwrap())), "{sections}");
+        let png = std::fs::read(root.join("Export/MCP-music-sections.png")).unwrap();
+        assert_eq!(u64::from(u32::from_be_bytes(png[20..24].try_into().unwrap())), sections["height"].as_u64().unwrap());
+        let verses = call(
+            "preview_section_sheet",
+            json!({"sequenceId":sequence,"previewId":preview["id"],"sections":"Verse*","perSection":2,"file":"MCP-music-verses.png","confirm":true}),
+        );
+        assert_eq!(verses["rows"], 2, "{verses}");
+        assert_eq!(verses["columns"], 2, "{verses}");
+        call("sequence_undo", json!({"sequenceId":sequence}));
         assert!(std::fs::read_dir(root.join("Export"))
             .unwrap()
             .all(|e| !e.unwrap().file_name().to_string_lossy().contains(".partial.")));

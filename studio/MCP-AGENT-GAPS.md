@@ -58,8 +58,8 @@ were already in place for both runs.
 Song structure (`music_rhythm` sections, `sequence_section_marks`), beat and bar grids (`sequence_music_marks`,
 `music_rhythm` tempo map), effects on every beat with alternation across props (`effects_on_marks` `rotateTargets`,
 `motif_place` target sets), palettes (`sequence_palette`), taste checks (`render_analyze`), contact sheets
-(`preview_sheet`), rebuilding one section (`section_rebuild`), "what is on at time t" (`effects_find` with
-`range:[t, t+1]` and `match:"overlaps"`), intensity that follows the song's loudness (`effects_edit` `levelFromEnergy`
+(`preview_sheet`, and per section `preview_section_sheet`, B98), rebuilding one section (`section_rebuild`), "what is
+on at time t" (`effects_find` with `range:[t, t+1]` and `match:"overlaps"`), intensity that follows the song's loudness (`effects_edit` `levelFromEnergy`
 shapes each effect's level curve from the sequence's audio, B94), placers that tag their own effects for later
 rebuilds (`motif_place`, `effects_on_marks` and `effect_step` take `buildId`, B96).
 
@@ -67,5 +67,4 @@ rebuilds (`motif_place`, `effects_on_marks` and `effect_step` take `buildId`, B9
 
 - No warning at placement time when a movement effect or an impossible colour goes on a one-channel or fixed-colour prop
   (`sequence_summary` finds it afterwards).
-- A per-section review sheet (key moments of every section in one image).
 - Lyric and phoneme timing for singing faces from lyrics text was not part of this walkthrough.

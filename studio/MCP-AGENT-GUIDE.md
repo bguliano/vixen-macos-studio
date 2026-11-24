@@ -43,7 +43,8 @@ and none of them restricts what you can still do by hand.
    effect's level curve from the song's loudness over its span: a build-up or swell that follows the music.
 10. **Taste check: `render_analyze`** (`marks:["Music - All"]`, `sections:"Sections"`) flags dark stretches, spazzing,
     changes off the beat and colours that lean blue/purple or leave the palette, each with a time to jump to. Watch only
-    what it flags: `preview_sheet` (a contact sheet of a span) or `preview_video`.
+    what it flags: `preview_section_sheet` (key moments of every section in one image), `preview_sheet` (a contact
+    sheet of a span) or `preview_video`.
 11. **Save: `sequence_save`** with `confirm:true`, and a `label` for milestones (`sequence_versions`,
     `sequence_version_restore`).
 
@@ -68,7 +69,7 @@ and none of them restricts what you can still do by hand.
 | Rebuild one section without losing hand edits | `section_rebuild`, `build_edits`, `build_tag` |
 | The whole sequence in one read, with problems | `sequence_summary` |
 | Taste checks on the rendered show | `render_analyze`, `sequence_activity` |
-| See it | `preview_sheet`, `preview_video`, `preview_frame`, `effect_gallery` |
+| See it | `preview_section_sheet`, `preview_sheet`, `preview_video`, `preview_frame`, `effect_gallery` |
 | Port an old show | `effects_port_from_sequence`, `marks_import_from_sequence` |
 
 ## Worked example: a 3-minute show in 23 calls

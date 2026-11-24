@@ -449,6 +449,9 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if name == "preview_video" || name == "preview_sheet" {
         return preview_range(core, &shared, name, a);
     }
+    if name == "preview_section_sheet" {
+        return section_sheet(core, &shared, a);
+    }
     if name == "sequence_activity" {
         return activity(core, &shared, a);
     }
@@ -1502,6 +1505,45 @@ fn preview_range(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, name: &st
     }
 }
 
+/// preview_section_sheet: evenly spaced key moments of every section (or the named ones), one row each, in one PNG (B98).
+fn section_sheet(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Value) -> Result<Value, String> {
+    confirm(a)?;
+    let file = filename(a, "file")?;
+    if !file.to_lowercase().ends_with(".png") {
+        return Err("Use .png extension".into());
+    }
+    let path = output(core, "Export", &file)?;
+    let whole = |k: &str, default: u32, range: std::ops::RangeInclusive<u32>| {
+        a.get(k).map_or(Some(default), |v| v.as_u64().and_then(|n| u32::try_from(n).ok())).filter(|n| range.contains(n)).ok_or(format!("{k} must be a whole number in {}..{}", range.start(), range.end()))
+    };
+    let moments = whole("perSection", 6, 1..=16)? as usize;
+    let tile_width = whole("tileWidth", 160, 64..=640)?;
+    let sections = {
+        let s = shared.lock();
+        if a.get("sections").is_some() {
+            passages::named_sections(&s, a, "sections")?
+        } else {
+            passages::sections(&s, a.get("sectionsCollection").map(|_| string(a, "sectionsCollection")).transpose()?)?
+        }
+    };
+    if sections.is_empty() {
+        return Err("The sections collection has no marks inside the sequence".into());
+    }
+    if sections.len() > 64 {
+        return Err(format!("{} sections; a sheet holds at most 64 (name the ones to show with sections)", sections.len()));
+    }
+    let rows: Vec<crate::studio_preview::SheetRow> = sections
+        .iter()
+        .map(|sec| crate::studio_preview::SheetRow {
+            title: sec.name.clone(),
+            start_ms: sec.start,
+            end_ms: sec.end,
+            times: crate::studio_preview::section_moments(sec.start, sec.end, moments),
+        })
+        .collect();
+    crate::studio_preview::section_sheet(core, shared, uuid(a, "previewId")?, a["glow"] == true, &rows, tile_width, &path)
+}
+
 /// An element's name and the element ids of it and everything under it.
 fn element_and_below(core: &AppCore, target: Uuid) -> Result<(String, std::collections::HashSet<Uuid>), String> {
     let system = core.system.read();
@@ -1766,6 +1808,7 @@ pub fn tools() -> Vec<Value> {
         ("sequence_activity","Measure dead air without rendering a video: the share of a preview's linked lights lit (at level or brighter, 0 to 1, a light's brightest channel as the preview draws it, so a red tree is lit) at every frame of a span, from the rendered schedule's exact intensities. Returns lit min/mean/max and dark: every stretch of at least minMs where fewer than minLit of the lights are lit (startMs, endMs, durationMs, meanLit, peakLit), plus darkMs in total. elements (element or group ids) adds the same per prop, measured on its lights in this preview; series adds the lit share of every frame. Defaults: whole sequence, 20 fps, level 0.1, minLit 0.05, minMs 1000. preview_video reports the same dark stretches for the whole preview at the defaults.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.5,"maximum":100},"level":{"type":"number","minimum":0,"maximum":1},"minLit":{"type":"number","minimum":0,"maximum":1},"minMs":{"type":"number","minimum":0,"maximum":600000},"elements":{"type":"array","items":string,"maxItems":64},"series":boolean}),vec!["sequenceId","previewId"],true),
         ("render_analyze",crate::studio_preview::taste::DESCRIPTION,crate::studio_preview::taste::schema(),vec!["sequenceId","previewId"],true),
         ("preview_sheet","Render a sequence span as one PNG contact sheet under profile Export: frames every 1/fps seconds tiled left to right, top to bottom, each captioned with its m:ss.cc time. A cheap way to review 10-20 s for dead air, mush or off-beat motion. Defaults: 2 fps, 8 columns, 160 px tiles. At most 400 tiles. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"startMs":number,"endMs":number,"fps":{"type":"number","minimum":0.1,"maximum":30},"cols":{"type":"integer","minimum":1,"maximum":30},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","startMs","endMs","file","confirm"],false),
+        ("preview_section_sheet","Render key moments of every section as one PNG under profile Export: one row per section (the marks of sectionsCollection, default Sections, as sequence_section_marks writes them), headed by the section name and its m:ss.cc span, with perSection frames evenly spaced from the section start, each captioned with its time. Review a whole show in one image instead of a preview_sheet per span. sections picks some by name or pattern (\"Chorus*\"). Defaults: 6 per section, 160 px tiles. At most 64 sections. Requires confirmed output filename.",json!({"sequenceId":string,"previewId":string,"sections":{"anyOf":[{"type":"string","minLength":1},{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"maxItems":64}],"examples":["Chorus*"]},"sectionsCollection":{"type":"string","minLength":1,"maxLength":256,"examples":["Sections"]},"perSection":{"type":"integer","minimum":1,"maximum":16},"tileWidth":{"type":"integer","minimum":64,"maximum":640},"glow":boolean,"file":string,"confirm":boolean}),vec!["sequenceId","previewId","file","confirm"],false),
         ("music_analyze","Analyze actual profile media with Vixen's beat/bar tracker and per-band spectral-flux onsets; returns millisecond beats, bars, tempo, onsets with bar/16th slots and a per-bar slot-strength grid. Assumes 4/4; no playback.",json!({"media":string}),vec!["media"],true),
         ("sequence_create","Create a new in-memory sequence with optional profile audio; never plays sound. Its sequenceId changes to the file's after sequence_save (the old one keeps working).",json!({"lengthMs":number,"media":string}),vec!["lengthMs"],false),
         ("sequence_open","Open a profile Sequence filename, a Sequence/.scratch filename with scratch:true, or an absolute path to a .tim file anywhere (opened in place; sequence_save still writes only into the profile). sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack; reload:true instead discards that copy and reads the file again (same sequenceId; unsaved changes need confirm:true; refused while an app window has it open). sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":{"type":"string","minLength":1,"maxLength":1024},"scratch":boolean,"reload":boolean,"confirm":boolean}),vec!["file"],false),
@@ -1809,7 +1852,7 @@ pub fn tools() -> Vec<Value> {
     entries.extend(port_sequence::tools());
     entries.extend(crate::studio_row_height::tools());
     entries.extend(crate::studio_effects_library::tools());
-    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"section_rebuild"|"sequence_version_restore"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
+    entries.into_iter().map(|(name,description,properties,required,read_only)|json!({"name":name,"description":description,"inputSchema":{"type":"object","properties":properties,"required":required,"additionalProperties":false},"annotations":{"readOnlyHint":read_only,"destructiveHint":matches!(name,"effect_delete"|"effects_batch"|"section_rebuild"|"sequence_version_restore"|"marks_collection_delete"|"motif_delete"|"sequence_clear"|"sequence_close"|"layer_delete"|"sequence_save"|"sequence_export_fseq"|"library_discard"|"library_export_fseq"|"preview_frame"|"preview_video"|"preview_sheet"|"preview_section_sheet"|"effect_gallery"|"sequence_play"|"sequence_seek"),"openWorldHint":matches!(name,"sequence_play"|"sequence_seek")}})).collect()
 }
 
 pub fn execute(core: &AppCore, name: &str, args: &Value, agent: bool) -> Result<Value, String> {

@@ -790,6 +790,89 @@ pub fn sheet(
     }))
 }
 
+/// One row of a section sheet: a section's name and span, and the times drawn under it.
+pub struct SheetRow {
+    pub title: String,
+    pub start_ms: f64,
+    pub end_ms: f64,
+    pub times: Vec<f64>,
+}
+
+/// Key moments of several sections in one PNG (B98): one row per section, headed by its name and span, each tile
+/// captioned with its time, so a whole show can be reviewed in one image instead of a preview_sheet per span.
+pub fn section_sheet(
+    core: &AppCore,
+    shared: &Arc<Mutex<SequenceSession>>,
+    preview_id: Uuid,
+    glow: bool,
+    rows: &[SheetRow],
+    tile_width: u32,
+    path: &Path,
+) -> Result<Value, String> {
+    let full = {
+        let mut s = shared.lock();
+        Renderer::new(core, &mut s, preview_id, 1.0, false)?.size()
+    };
+    let scale = (tile_width as f32 / full.0 as f32).min(1.0);
+    let mut renderer = Renderer::new(core, &mut shared.lock(), preview_id, scale, glow)?;
+    let (tile_w, tile_h) = renderer.size();
+    const HEADER: u32 = 13;
+    const CAPTION: u32 = 11;
+    const GAP: u32 = 2;
+    let columns = rows.iter().map(|r| r.times.len() as u32).max().unwrap_or(1).max(1);
+    let cell_w = tile_w + GAP;
+    let row_h = HEADER + tile_h + CAPTION + GAP;
+    let (width, height) = (columns * cell_w + GAP, rows.len() as u32 * row_h + GAP);
+    if width > 8192 || height > 8192 {
+        return Err(format!("Sheet would be {width}x{height}; keep it within 8192 (fewer moments per section, smaller tileWidth or fewer sections)"));
+    }
+    let mut sheet = image::RgbaImage::from_pixel(width, height, image::Rgba([40, 40, 40, 255]));
+    let mut tile = image::RgbaImage::new(tile_w, tile_h);
+    let mut lit = 0usize;
+    let mut listed = Vec::with_capacity(rows.len());
+    for (r, row) in rows.iter().enumerate() {
+        let top = GAP + r as u32 * row_h;
+        let span = format!("  {}-{}", timestamp(row.start_ms), timestamp(row.end_ms));
+        let room = (width.saturating_sub(GAP + 1) / 8) as usize;
+        // A long name is shortened so the span still fits; a single narrow column may cut the span instead.
+        let keep = room.saturating_sub(span.len()).max(4);
+        let header: String = row.title.chars().take(keep).chain(span.chars()).take(room).collect();
+        caption(&mut sheet, GAP + 1, top + 1, &header);
+        let mut illuminated = Vec::with_capacity(row.times.len());
+        for (i, time) in row.times.iter().enumerate() {
+            let count = renderer.paint(*time, &mut tile);
+            lit = lit.max(count);
+            illuminated.push(count);
+            let x = GAP + i as u32 * cell_w;
+            image::imageops::replace(&mut sheet, &tile, i64::from(x), i64::from(top + HEADER));
+            caption(&mut sheet, x + 1, top + HEADER + tile_h + 2, &timestamp(*time));
+        }
+        listed.push(json!({"name": row.title, "startMs": row.start_ms, "endMs": row.end_ms, "timesMs": row.times, "illuminated": illuminated}));
+    }
+    sheet.save(path).map_err(|e| e.to_string())?;
+    Ok(json!({
+        "path": path,
+        "width": width,
+        "height": height,
+        "rows": rows.len(),
+        "columns": columns,
+        "tiles": rows.iter().map(|r| r.times.len()).sum::<usize>(),
+        "tileWidth": tile_w,
+        "tileHeight": tile_h,
+        "sections": listed,
+        "maxIlluminated": lit,
+        "lights": renderer.total,
+        "renderer": "CPU inspection frames using real scene/schedule, one row per section, top to bottom",
+        "omitted": OMITTED,
+    }))
+}
+
+/// Evenly spaced key moments of a section: its start, then every 1/count of its length.
+pub fn section_moments(start_ms: f64, end_ms: f64, count: usize) -> Vec<f64> {
+    let step = (end_ms - start_ms) / count.max(1) as f64;
+    (0..count.max(1)).map(|i| start_ms + i as f64 * step).collect()
+}
+
 /// `m:ss.cc`, the sequence time under each tile.
 fn timestamp(ms: f64) -> String {
     let centis = (ms / 10.0).round() as u64;
@@ -889,6 +972,13 @@ mod tests {
         assert_eq!(Encoding::MAX.codec(4096, 2304, 60.0), Codec::H264 { bitrate: 120_000_000 });
         assert_eq!(Encoding::H264Bitrate(9_000_000).codec(64, 64, 1.0), Codec::H264 { bitrate: 9_000_000 });
         assert_eq!(Encoding::ProRes4444.codec(64, 64, 1.0), Codec::ProRes4444);
+    }
+
+    #[test]
+    fn section_moments_start_at_the_section_and_stay_inside_it() {
+        assert_eq!(super::section_moments(10_000.0, 16_000.0, 3), vec![10_000.0, 12_000.0, 14_000.0]);
+        assert_eq!(super::section_moments(500.0, 900.0, 1), vec![500.0]);
+        assert_eq!(super::section_moments(0.0, 1000.0, 0), vec![0.0]);
     }
 
     #[test]
