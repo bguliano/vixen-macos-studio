@@ -59,6 +59,18 @@
   "file": "scripts/build_app.sh",
   "hash": "be5c92225730a5cf"
  },
+ "block:build-tags-insert": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "f53fcc14308900e1"
+ },
+ "block:build-tags-inverse": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "44e73f4cbc831705"
+ },
+ "block:build-tags-undo": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "ee4d83e6fc4c165b"
+ },
  "block:coarse-fine-always-live": {
   "file": "app/Sources/VixenDialogs/FilterSheets.swift",
   "hash": "e3b0c44298fc1c14"
@@ -2439,6 +2451,14 @@
   "file": "crates/vixen-session/src/preview.rs",
   "hash": "bc77178e83943822"
  },
+ "line:crates/vixen-session/src/sequence.rs:1c191a194c413b2d": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "1c191a194c413b2d"
+ },
+ "line:crates/vixen-session/src/sequence.rs:1d74a3196dbc6d01": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "1d74a3196dbc6d01"
+ },
  "line:crates/vixen-session/src/sequence.rs:1f3e5d9434a47e78": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "1f3e5d9434a47e78"
@@ -2447,6 +2467,10 @@
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "278a68c0b8de1c3d"
  },
+ "line:crates/vixen-session/src/sequence.rs:64772f39f145b378": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "64772f39f145b378"
+ },
  "line:crates/vixen-session/src/sequence.rs:655abb5874355daa": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "655abb5874355daa"
@@ -2454,6 +2478,10 @@
  "line:crates/vixen-session/src/sequence.rs:c4f258362eb26588": {
   "file": "crates/vixen-session/src/sequence.rs",
   "hash": "c4f258362eb26588"
+ },
+ "line:crates/vixen-session/src/sequence.rs:e5ac4b353ecb9620": {
+  "file": "crates/vixen-session/src/sequence.rs",
+  "hash": "e5ac4b353ecb9620"
  },
  "line:crates/vixen-session/src/sequencer/commands.rs:3b74128dbc3a3db7": {
   "file": "crates/vixen-session/src/sequencer/commands.rs",
@@ -2542,6 +2570,10 @@
  "line:crates/vixen-session/src/undo.rs:68f9eacc46d03920": {
   "file": "crates/vixen-session/src/undo.rs",
   "hash": "68f9eacc46d03920"
+ },
+ "line:crates/vixen-session/src/undo.rs:9efe7d9ccba73730": {
+  "file": "crates/vixen-session/src/undo.rs",
+  "hash": "9efe7d9ccba73730"
  },
  "line:crates/vixen-session/src/undo.rs:bca77e0e22b11298": {
   "file": "crates/vixen-session/src/undo.rs",

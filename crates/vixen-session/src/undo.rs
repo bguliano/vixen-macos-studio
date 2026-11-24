@@ -111,6 +111,9 @@ pub enum UndoAction {
     // STUDIO-BEGIN marks-panel-undo: a Mark Collections panel edit, as the whole list and the mark-reading effects' parameters to go back to
     StudioMarkCollections { label: String, marks: Vec<MarkCollection>, params: Vec<(EffectId, Params)> },
     // STUDIO-END marks-panel-undo
+    // STUDIO-BEGIN build-tags-undo: the build manifest to go back to, which section rebuilds and build tags change (B80)
+    StudioBuilds { label: String, builds: crate::studio_sequence::builds::Builds },
+    // STUDIO-END build-tags-undo
     /// Undoing removes these.
     EffectsAdded { kind: AddRemoveKind, ids: Vec<EffectId> },
     /// Undoing puts these back.
@@ -155,6 +158,7 @@ impl UndoAction {
             UndoAction::StudioMarkVisibility { label, .. } => label.clone(), // STUDIO: the sequence inspector's mark visibility
             UndoAction::StudioAudio { label, .. } => label.clone(), // STUDIO: Add, Change and Remove Audio on the undo stack
             UndoAction::StudioMarkCollections { label, .. } => label.clone(), // STUDIO: Mark Collections panel edits on the shared undo
+            UndoAction::StudioBuilds { label, .. } => label.clone(), // STUDIO: B80 build tags on the shared undo
             UndoAction::EffectsAdded { kind, ids } => added_removed_text(*kind, ids.len(), true),
             UndoAction::EffectsRemoved { kind, effects } => added_removed_text(*kind, effects.len(), false),
             UndoAction::TimesChanged { kind, times } => {

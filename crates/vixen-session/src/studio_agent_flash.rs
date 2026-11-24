@@ -64,6 +64,7 @@ fn touched(action: &UndoAction, out: &mut Vec<EffectId>) {
         | UndoAction::StudioMarkVisibility { .. }
         | UndoAction::StudioAudio { .. }
         | UndoAction::StudioMarkCollections { .. }
+        | UndoAction::StudioBuilds { .. }
         | UndoAction::EffectsRemoved { .. }
         | UndoAction::MarksChanged { .. }
         | UndoAction::MarkTimesChanged { .. }

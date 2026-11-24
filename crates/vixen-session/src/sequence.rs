@@ -150,6 +150,7 @@ pub struct SequenceSession {
     /// See [`UndoAction::RowsRestored`].
     rows_restored: Vec<EffectId>,
     pub(crate) studio_agent_flash: crate::studio_agent_flash::AgentFlash, // STUDIO: R39, the effects agent edits touched
+    pub(crate) studio_builds: crate::studio_sequence::builds::Builds, // STUDIO: B80, the effects each agent build placed, saved beside the file
 }
 
 struct RenderResult {
@@ -223,6 +224,7 @@ impl SequenceSession {
         apply_library_links(&mut document, &env.store);
         apply_load_rules(&mut document, &env.tree);
         let mut session = SequenceSession::from_document(document, Some(path.to_path_buf()), env);
+        session.studio_builds = crate::studio_sequence::builds::Builds::load(path); // STUDIO: B80 build tags from beside the file
         session.load_audio_cancellable(env, cancel)?;
         session.render_all_dirty();
         Ok(session)
@@ -297,6 +299,7 @@ impl SequenceSession {
             cancel,
             rows_restored: Vec::new(),
             studio_agent_flash: Default::default(), // STUDIO: R39
+            studio_builds: Default::default(), // STUDIO: B80
         }
     }
 
@@ -386,6 +389,7 @@ impl SequenceSession {
         let result = save_sequence(&self.document, &target);
         self.document.effects = Vec::new();
         result?;
+        if let Err(e) = self.studio_builds.store(&target) { self.problems.lock().push(format!("Couldn't save the build tags beside the sequence: {e}")); } // STUDIO: B80
         self.path = Some(target);
         self.modified = false;
         Ok(())
@@ -513,6 +517,31 @@ impl SequenceSession {
         self.render_all_dirty();
         id
     }
+
+    // STUDIO-BEGIN build-tags-insert: put effects back as a labelled save holds them, keeping their instance ids (B80)
+    /// Adds whole effect nodes, instance ids and all, with no undo record; their layers come from the document's map.
+    pub fn studio_insert_nodes(&mut self, nodes: Vec<EffectNode>) -> Vec<EffectId> {
+        let snapshots: Vec<EffectSnapshot> = nodes
+            .into_iter()
+            .map(|node| {
+                let id = EffectId(self.next_id);
+                self.next_id += 1;
+                EffectSnapshot { id, position: None, node, layer: None, intents: None, generation: 0, rendered_generation: 0 }
+            })
+            .collect();
+        let ids = snapshots.iter().map(|s| s.id).collect();
+        self.restore_effects(snapshots);
+        ids
+    }
+
+    /// Reads a sequence file as opening it would, without making a session: no audio decode, no render.
+    pub fn studio_load_document(path: &Path, env: &SessionEnvironment) -> Result<TimedSequence, SessionError> {
+        let mut document = load_sequence_with_store(path, &env.store)?;
+        apply_library_links(&mut document, &env.store);
+        apply_load_rules(&mut document, &env.tree);
+        Ok(document)
+    }
+    // STUDIO-END build-tags-insert
 
     /// `RemoveEffectNodeAndElement`, with no undo record.
     pub fn remove_effects(&mut self, ids: &[EffectId]) -> Vec<EffectSnapshot> {
@@ -1136,6 +1165,11 @@ impl SequenceSession {
                 UndoAction::StudioMarkCollections { label, marks: current, params: current_params }
             }
             // STUDIO-END marks-panel-inverse
+            // STUDIO-BEGIN build-tags-inverse: swap the build manifest back (B80)
+            UndoAction::StudioBuilds { label, builds } => {
+                UndoAction::StudioBuilds { label, builds: std::mem::replace(&mut self.studio_builds, builds) }
+            }
+            // STUDIO-END build-tags-inverse
             UndoAction::EffectsAdded { kind, ids } => {
                 let snapshots = self.remove_effects(&ids);
                 UndoAction::EffectsRemoved { kind, effects: snapshots }

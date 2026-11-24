@@ -29,6 +29,16 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
   instead of tuning a parked Wipe by hand; add `exclusive:true` and the band cuts whatever was lighting its rows for its
   time (other rows and other props keep their effects), so stacked zones never overlap. One undo step.
 
+- To rebuild one section, use `section_rebuild` with the section's `range` and a `buildId` (e.g. `"chorus-2 v3"`) instead of
+  deleting and re-adding effects: it replaces only that range (optionally only `targetIds`), tags every new effect with the
+  build id, trims effects crossing the edges, and is one undo step. It refuses when Braden has hand-edited the section
+  since your build (moved, changed, added or deleted effects there) and lists the edits; read them with `build_edits`, then
+  rebuild around them with `onHandEdits:"keep"`, or ask before using `"replace"`. Tag a sequence built before builds were
+  tracked once with `build_tag` (`all:true`), and pass `buildId` to `effects_batch` for effects placed outside a rebuild.
+- Run `build_edits` at the start of a session on an existing show: it reports what changed in the GUI since your last build.
+- Save milestones with a label (`sequence_save` with `label:"WiW v6"`): `sequence_versions` lists them and
+  `sequence_version_restore` puts one back in place (one undo step).
+
 ## Checking
 
 - Before showing anyone a build, run `render_analyze` on the sequence (`scope` your main prop, `marks` your beat
