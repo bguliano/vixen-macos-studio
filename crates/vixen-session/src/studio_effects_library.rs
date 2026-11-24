@@ -8,6 +8,9 @@
 //! or a drag drawn in Draw mode (the hooks in `sequencer::state` and `timeline::host`). Agents' effects don't count,
 //! since a script placing thousands of effects would push out what the user reached for. Like row height these are the
 //! user's view rather than edits to a document, so they aren't on Undo: the star, pressed again, reverses a pin.
+#[path = "studio_effect_looks.rs"]
+pub mod looks;
+
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -79,7 +82,7 @@ impl Library {
     /// are left out.
     pub fn to_json(&self) -> Value {
         let entry = |id: &Uuid| {
-            vixen_effect_registry::by_type_id(id).map(|d| json!({"typeId": id.to_string(), "name": d.name}))
+            vixen_effect_registry::by_type_id(id).map(|d| json!({"typeId": id.to_string(), "name": d.name, "looks": looks::looks(d.name)}))
         };
         let favorites: Vec<Value> = self.favorites.iter().filter_map(entry).collect();
         let recent: Vec<Value> = self
@@ -218,7 +221,7 @@ pub fn execute(a: &Value) -> Result<Value, String> {
 pub fn tools() -> Vec<(&'static str, &'static str, Value, Vec<&'static str>, bool)> {
     vec![(
         "effects_library",
-        "The sequencer's Effects library above its categories: favorites (pinned with the star on an effect's row, in the order pinned) and recent (effects the user placed in the sequencer window, newest first, favorites left out, at most 5), each {typeId, name}. They belong to the user, not the show, and survive relaunch. With no arguments it only reads. favorite (an effect's typeId from effect_catalog) with on true pins it and on false unpins it, as the star does; clearRecent true empties Recently Used. changed says whether anything changed. Not on Undo: pinning again reverses it. Effects agents add don't count as recently used.",
+        "The sequencer's Effects library above its categories: favorites (pinned with the star on an effect's row, in the order pinned) and recent (effects the user placed in the sequencer window, newest first, favorites left out, at most 5), each {typeId, name, looks: what it looks like on common props in plain words, as effect_catalog gives it}. They belong to the user, not the show, and survive relaunch. With no arguments it only reads. favorite (an effect's typeId from effect_catalog) with on true pins it and on false unpins it, as the star does; clearRecent true empties Recently Used. changed says whether anything changed. Not on Undo: pinning again reverses it. Effects agents add don't count as recently used.",
         json!({"favorite":{"type":"string","minLength":1,"maxLength":64},"on":{"type":"boolean"},"clearRecent":{"type":"boolean"}}),
         vec![],
         false,

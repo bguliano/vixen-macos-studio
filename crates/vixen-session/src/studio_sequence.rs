@@ -44,6 +44,8 @@ pub mod effect_gallery;
 pub mod layer_filters;
 #[path = "studio_builds.rs"]
 pub mod builds;
+#[path = "studio_sequence_palette.rs"]
+pub mod seq_palette;
 
 /// An effect's words, as VoiceOver reads it on the timeline (`studio_access`, R43): type, targets and times.
 fn studio_access_label(e: &crate::sequence::EffectEntry) -> String {
@@ -525,11 +527,13 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
             );
             json!({"effectId":first,"effectIds":all})
         }
-        "effects_batch" => return effects_batch(core, &mut s, a, agent),
+        "effects_batch" => return effects_batch(core, &mut s, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
+        "sequence_palette" => seq_palette::execute(&mut s, a, agent)?,
         "effects_on_marks" => return mark_effects::effects_on_marks(core, &mut s, a, agent),
         "effect_step" => return step_effects::effect_step(core, &mut s, a, agent),
         "motif_place" => return motifs::place(core, &mut s, a, agent),
-        "section_rebuild" | "build_edits" | "build_tag" | "sequence_versions" | "sequence_version_restore" => {
+        "section_rebuild" => return builds::execute(core, &mut s, name, a, agent).map(|v| seq_palette::warn(&s, v, &[])),
+        "build_edits" | "build_tag" | "sequence_versions" | "sequence_version_restore" => {
             return builds::execute(core, &mut s, name, a, agent)
         }
         "sequence_clear" => {
@@ -602,7 +606,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
                 },
                 agent,
             );
-            json!({})
+            seq_palette::warn(&s, json!({}), &[effect.0])
         }
         "preview_frame" => {
             confirm(a)?;
@@ -775,6 +779,7 @@ fn execute_inner(core: &AppCore, name: &str, a: &Value, agent: bool) -> Result<V
     if !read_only {
         s.render_all_dirty();
     }
+    let result = if matches!(name, "effect_add" | "effect_band") { seq_palette::warn(&s, result, &[]) } else { result };
     drop(s);
 
     Ok(result)
@@ -829,12 +834,19 @@ fn parameter_values(
 const TARGET_LIMIT: usize = 4096;
 /// The targets of an add, with their names: targetId, targetIds, or targetSlice (a group's children picked by position).
 fn targets(core: &AppCore, a: &Value) -> Result<Vec<(Uuid, String)>, String> {
-    if ["targetId", "targetIds", "targetSlice"].iter().filter(|k| a.get(**k).is_some()).count() != 1 {
-        return Err("Give exactly one of targetId, targetIds or targetSlice".into());
+    if ["targetId", "targetIds", "targetSlice", "targetRegion"].iter().filter(|k| a.get(**k).is_some()).count() != 1 {
+        return Err("Give exactly one of targetId, targetIds, targetSlice or targetRegion".into());
     }
     let system = core.system.read();
     let tree = &system.tree;
     let named = |id: Uuid| tree.find(&id).map(|n| (id, tree.node(n).name.clone())).ok_or(format!("Target {id} not found"));
+    if let Some(spec) = a.get("targetRegion") {
+        let nodes = crate::studio_preview::geometry::region(&system, spec)?;
+        if nodes.len() > TARGET_LIMIT {
+            return Err(format!("targetRegion picks {} lights, more than {TARGET_LIMIT} targets: narrow it, or use effect_band for a height range", nodes.len()));
+        }
+        return Ok(nodes.into_iter().map(|n| (tree.node(n).id, tree.node(n).name.clone())).collect());
+    }
     if a.get("targetId").is_some() {
         return Ok(vec![named(uuid(a, "targetId")?)?]);
     }
@@ -1118,6 +1130,9 @@ fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEf
     let pct = |k: &str, default: Option<f64>| {
         a.get(k).map_or(default, Value::as_f64).filter(|n| (0.0..=100.0).contains(n)).ok_or(format!("{k} must be a percentage in 0..100"))
     };
+    if a.get("targetRegion").is_some_and(|r| r.get("heightPct").is_some() || r.get("yPct").is_some()) {
+        return Err("A band sets its own height with fromPct and toPct: give targetRegion angleDeg or xPct only".into());
+    }
     let (from, to) = (pct("fromPct", None)?, pct("toPct", None)?);
     if to - from < 1.0 {
         return Err("toPct must be at least 1 above fromPct".into());
@@ -1159,7 +1174,7 @@ fn plan_band(core: &AppCore, s: &SequenceSession, a: &Value) -> Result<Vec<NewEf
             return Err(format!("The feather ({feather:.1}% of the height) must be at most the band's width (toPct - fromPct, {:.1})", to - from));
         }
         if let Some((id, _)) = &target {
-            for k in ["targetIds", "targetSlice"] {
+            for k in ["targetIds", "targetSlice", "targetRegion"] {
                 add.remove(k);
             }
             add.insert("targetId".into(), json!(id.to_string()));
@@ -1228,10 +1243,13 @@ fn op_schema() -> Value {
     let string = json!({"type":"string","minLength":1,"maxLength":256});
     let number = json!({"type":"number","minimum":0,"maximum":3600000});
     let percent = json!({"type":"number","minimum":0,"maximum":100});
-    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","band","delete","timing","params"]},"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0},"fromPct":percent,"toPct":percent,"color":string,"level":percent,"featherPct":percent,"featherLights":{"type":"integer","minimum":1,"maximum":1000}},"required":["op"],"additionalProperties":false})
+    json!({"type":"object","properties":{"op":{"type":"string","enum":["add","band","delete","timing","params"]},"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"targetRegion":target_region_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string,"effectId":{"type":"integer","minimum":0},"fromPct":percent,"toPct":percent,"color":string,"level":percent,"featherPct":percent,"featherLights":{"type":"integer","minimum":1,"maximum":1000}},"required":["op"],"additionalProperties":false})
 }
 fn target_ids_schema() -> Value {
     json!({"type":"array","items":{"type":"string","minLength":1,"maxLength":256},"minItems":1,"maxItems":TARGET_LIMIT})
+}
+fn target_region_schema() -> Value {
+    crate::studio_preview::geometry::region_schema()
 }
 fn target_slice_schema() -> Value {
     let whole = json!({"type":"integer","minimum":0});
@@ -1267,8 +1285,8 @@ fn effects_batch(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool
             crate::studio_schema::arguments(&schema, op)?;
             let kind = op["op"].as_str().unwrap();
             let allowed: &[&str] = match kind {
-                "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "params", "layerId"],
-                "band" => &["op", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level", "featherPct", "featherLights"],
+                "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "targetRegion", "startMs", "durationMs", "params", "layerId"],
+                "band" => &["op", "targetId", "targetIds", "targetSlice", "targetRegion", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level", "featherPct", "featherLights"],
                 "delete" => &["op", "effectId"],
                 "timing" => &["op", "effectId", "startMs", "durationMs"],
                 _ => &["op", "effectId", "params"],
@@ -1561,6 +1579,18 @@ fn render_analyze(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Valu
     if palette.len() > 32 {
         return Err("At most 32 palette colours".into());
     }
+    // Without palette, the sequence's own (sequence_palette), with its distance unless paletteDistance is given.
+    let mut palette_distance = number("paletteDistance", seq_palette::DEFAULT_DISTANCE, 0.01, 2.0)?;
+    let mut palette_from = if palette.is_empty() { "none" } else { "argument" };
+    if a.get("palette").is_none() {
+        if let Some((colors, distance)) = seq_palette::current(&shared.lock()) {
+            palette = colors;
+            if a.get("paletteDistance").is_none() {
+                palette_distance = distance;
+            }
+            palette_from = "sequence";
+        }
+    }
     let (marks, sections) = {
         let s = shared.lock();
         let marks = match a.get("marks") {
@@ -1617,12 +1647,14 @@ fn render_analyze(core: &AppCore, shared: &Arc<Mutex<SequenceSession>>, a: &Valu
         off_mark_max: number("offMarkMax", 0.25, 0.0, 1.0)?,
         sections,
         palette,
-        palette_distance: number("paletteDistance", 0.35, 0.01, 2.0)? as f32,
+        palette_distance: palette_distance as f32,
         off_palette_max: number("offPaletteMax", 0.15, 0.0, 1.0)?,
         blue_purple_max: number("bluePurpleMax", 0.5, 0.0, 1.0)?,
     };
     let range = crate::studio_preview::Range { preview_id: uuid(a, "previewId")?, start_ms: start, end_ms: end, fps, glow: false };
-    crate::studio_preview::analyze(core, shared, &range, scope, &elements, &input)
+    let mut report = crate::studio_preview::analyze(core, shared, &range, scope, &elements, &input)?;
+    report["paletteFrom"] = json!(palette_from);
+    Ok(report)
 }
 
 /// preview_video's framing, size, renderer and encoding.
@@ -1713,9 +1745,9 @@ pub fn tools() -> Vec<Value> {
         ("sequence_open","Open a profile Sequence filename, a Sequence/.scratch filename with scratch:true, or an absolute path to a .tim file anywhere (opened in place; sequence_save still writes only into the profile). sequenceId is derived from the file, so every connection gets the same ID. alreadyOpen:true means this Studio session already had the file open (in the app or by an agent) and you are attached to that same document and undo stack; reload:true instead discards that copy and reads the file again (same sequenceId; unsaved changes need confirm:true; refused while an app window has it open). sharedWithApp:false means a headless copy the app does not see. Returns file, path and modified.",json!({"file":{"type":"string","minLength":1,"maxLength":1024},"scratch":boolean,"reload":boolean,"confirm":boolean}),vec!["file"],false),
         ("sequence_status","Shared document file, path, dirty/render/undo status and sharedWithApp, plus what its window's title bar and toolbar show: title, subtitle (the song, or No audio), song, songMissing, rendering and renderingPercent (rendered of all effects).",json!({"sequenceId":string}),vec!["sequenceId"],true),
         ("sequence_effects","List up to 10000 effects with stable in-session IDs, target UUIDs, millisecond times and label (the words VoiceOver reads for the effect on the timeline).",json!({"sequenceId":string}),vec!["sequenceId"],true),
-        ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
-        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds or targetSlice); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Soft edges: featherPct (percent of the height) or featherLights (rows of each target's own lights) fades each edge inside the prop over that much, centred on the edge, so the band is full from fromPct+feather/2 to toPct-feather/2 and dark beyond fromPct-feather/2 and toPct+feather/2; two feathered bands that meet cross-fade, and an edge at 0 or 100 never fades, so the prop's ends stay lit. The feather is at most the band's width. exclusive:true makes the band own its lights for its time: every existing effect that lights any of the band's lights during it is cut out of that time (shortened, split around the band with the later part a copy, or deleted when wholly inside); effects on other lights, including bands on other rows of the same prop, are left alone. The cut and the band are one undo step, and cut reports how many effects were cut. Example: {\"fromPct\":40,\"toPct\":60,\"featherPct\":10,\"exclusive\":true}. Returns effectId and effectIds (and cut with exclusive).",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"featherPct":{"type":"number","minimum":0,"maximum":100,"description":"Edge fade in percent of the targets' height, centred on each inner edge","examples":[10,20]},"featherLights":{"type":"integer","minimum":1,"maximum":1000,"description":"Edge fade in rows of each target's own lights (instead of featherPct)","examples":[2,3]},"exclusive":{"type":"boolean","description":"Cut older effects on the band's lights out of its time","examples":[true]},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
-        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice,startMs,durationMs,fromPct,toPct,color?,level?,featherPct?|featherLights?,layerId?} (as effect_band; exclusive is effect_band only), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards). buildId tags every effect the batch adds as placed by that build, so build_edits and section_rebuild can tell later hand edits from it.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"buildId":{"type":"string","minLength":1,"maxLength":64,"examples":["intro v2"]},"confirm":boolean}),vec!["sequenceId"],false),
+        ("effect_add","Add an undoable effect. Give one target: targetId (an element or group UUID); targetIds (up to 4096 UUIDs, one effect each); or targetSlice {groupId, strings?:[from,to], every?, offset?}, which picks the group's children by position without changing the display (strings counts children from 1, inclusive; every:2 takes every second one, starting offset children into the range). targetRegion {elementId, heightPct?, angleDeg?, xPct?, yPct?} picks lights by where they sit in the preview, as display_geometry measures them: e.g. {elementId:<megatree>, angleDeg:[315,45]} is the front quarter of a tree, heightPct:[66,100] its top third; strings that match whole are one target each, so an angle range targets whole strings. Several targets add one effect per target, all undone together. Optional params (name to value, as effect_parameters reports them) and layerId are applied in the same undo step. Returns effectId (the first) and effectIds.",json!({"sequenceId":string,"typeId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"targetRegion":target_region_schema(),"startMs":number,"durationMs":number,"params":{"type":"object"},"layerId":string}),vec!["sequenceId","typeId","startMs","durationMs"],false),
+        ("effect_band","Add a still horizontal band of light from fromPct to toPct of the targets' height, counted from the bottom (0 = lowest light, 100 = highest), e.g. a ring on a megatree or rows of a matrix. It is a native Wipe (Vertical, Movement, flat MovementCurve, pulse as wide as the band) that the effect editor and Windows Vixen open normally; band edges land on the nearest preview row, and 0 and 100 include the lowest and highest light. A band over the whole height (0 to 100) is two Wipes, its lower and upper half, since one Wipe's pulse can't reach both ends. Targets as effect_add (targetId, targetIds, targetSlice, or targetRegion with angleDeg or xPct for part of a tree, e.g. a ring on the front half only); several targets give one band each, measured on each target's own height. color is #RRGGBB (default white), level the brightness in percent (default 100). Like any Wipe it only lights elements that have Vixen's Location property; elements without one stay dark (element_location gives them one from their preview positions). Soft edges: featherPct (percent of the height) or featherLights (rows of each target's own lights) fades each edge inside the prop over that much, centred on the edge, so the band is full from fromPct+feather/2 to toPct-feather/2 and dark beyond fromPct-feather/2 and toPct+feather/2; two feathered bands that meet cross-fade, and an edge at 0 or 100 never fades, so the prop's ends stay lit. The feather is at most the band's width. exclusive:true makes the band own its lights for its time: every existing effect that lights any of the band's lights during it is cut out of that time (shortened, split around the band with the later part a copy, or deleted when wholly inside); effects on other lights, including bands on other rows of the same prop, are left alone. The cut and the band are one undo step, and cut reports how many effects were cut. Example: {\"fromPct\":40,\"toPct\":60,\"featherPct\":10,\"exclusive\":true}. Returns effectId and effectIds (and cut with exclusive).",json!({"sequenceId":string,"targetId":string,"targetIds":target_ids_schema(),"targetSlice":target_slice_schema(),"targetRegion":target_region_schema(),"startMs":number,"durationMs":number,"fromPct":{"type":"number","minimum":0,"maximum":100},"toPct":{"type":"number","minimum":0,"maximum":100},"color":string,"level":{"type":"number","minimum":0,"maximum":100},"featherPct":{"type":"number","minimum":0,"maximum":100,"description":"Edge fade in percent of the targets' height, centred on each inner edge","examples":[10,20]},"featherLights":{"type":"integer","minimum":1,"maximum":1000,"description":"Edge fade in rows of each target's own lights (instead of featherPct)","examples":[2,3]},"exclusive":{"type":"boolean","description":"Cut older effects on the band's lights out of its time","examples":[true]},"layerId":string}),vec!["sequenceId","startMs","durationMs","fromPct","toPct"],false),
+        ("effects_batch","Apply many effect edits as one undo step with one render pass. Every op is validated before anything changes; an invalid op fails the whole batch and names its index. Ops: {op:\"add\",typeId,targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,params?,layerId?} (one effect per target, as effect_add), {op:\"band\",targetId|targetIds|targetSlice|targetRegion,startMs,durationMs,fromPct,toPct,color?,level?,featherPct?|featherLights?,layerId?} (as effect_band; exclusive is effect_band only), {op:\"delete\",effectId}, {op:\"timing\",effectId,startMs,durationMs}, {op:\"params\",effectId,params}. Give ops inline, or opsFile: a .json path relative to the profile folder holding the same array (or {ops:[...]}), up to 100000 ops and 64 MiB, for shows too large for one request; at most 100000 added effects in all. Deletes need confirm:true. Returns effectIds of the adds in order, every target's effect in its op's order; added (effects added, one per target), removed (effects deleted), edited (timing and params ops applied; changed is the same number, kept for older callers) and effects (the sequence's effect count afterwards). buildId tags every effect the batch adds as placed by that build, so build_edits and section_rebuild can tell later hand edits from it.",json!({"sequenceId":string,"ops":{"type":"array","items":op_schema(),"minItems":1,"maxItems":BATCH_LIMIT},"opsFile":{"type":"string","minLength":1,"maxLength":1024},"buildId":{"type":"string","minLength":1,"maxLength":64,"examples":["intro v2"]},"confirm":boolean}),vec!["sequenceId"],false),
         ("sequence_clear","Delete every effect in the sequence as one undo step; marks, layers and length stay. Requires confirmation.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId","confirm"],false),
         ("sequence_close","Close a sequence this Studio session created or opened, freeing it. If the app has it open in a window it stays open there (openInApp:true). Discarding unsaved changes requires confirm:true; save first to keep them.",json!({"sequenceId":string,"confirm":boolean}),vec!["sequenceId"],false),
         ("effect_delete","Delete an effect; requires confirmation.",json!({"sequenceId":string,"effectId":{"type":"integer","minimum":0},"confirm":boolean}),vec!["sequenceId","effectId","confirm"],false),
@@ -1741,6 +1773,7 @@ pub fn tools() -> Vec<Value> {
     ];
     let mut entries=entries;
     entries.extend(builds::tools());
+    entries.extend(seq_palette::tools());
     entries.extend(library::tools());
     entries.extend(inspector::tools());
     entries.extend(audio::tools());

@@ -123,6 +123,127 @@ pub fn execute(system: &SystemData, revision: u64, a: &Value) -> Result<Value, S
     Ok(out)
 }
 
+/// The `targetRegion` schema: effect_add, effect_band and effects_batch take it in place of targetId (B81).
+pub fn region_schema() -> Value {
+    let range = |lo: f64, hi: f64, example: Value| json!({"type":"array","items":{"type":"number","minimum":lo,"maximum":hi},"minItems":2,"maxItems":2,"examples":[example]});
+    json!({"type":"object","description":"Lights picked by where they sit in a preview, as display_geometry measures them: elementId (a prop's group, or any element) and any of heightPct (megatrees: along the strings from the base; other props: yPct), angleDeg (megatrees: around the trunk, 0 front, 90 viewer's right, 180 back, 270 viewer's left; [300,60] wraps through the front), xPct and yPct (0-100 within the prop, y from the bottom), all inclusive. Whole strings (and whole props) that match are targeted as one element; partly matched strings give one effect per light, unless select is lights (always per light) or strings (strings with any matching light)","properties":{"elementId":{"type":"string","minLength":1,"maxLength":256},"previewId":{"type":"string","minLength":1,"maxLength":256,"description":"Needed when elementId's lights are linked in more than one preview"},"heightPct":range(0.0,100.0,json!([60,100])),"angleDeg":range(0.0,360.0,json!([315,45])),"xPct":range(0.0,100.0,json!([0,50])),"yPct":range(0.0,100.0,json!([0,30])),"select":{"type":"string","enum":["auto","lights","strings"]}},"required":["elementId"],"additionalProperties":false,"examples":[{"elementId":"<megatree UUID>","angleDeg":[315,45]},{"elementId":"<megatree UUID>","heightPct":[66,100],"angleDeg":[90,270]}]})
+}
+
+/// The nodes a `targetRegion` picks, in element order: whole elements where every light under them matches (unless
+/// select is lights), otherwise single lights; select strings takes every string with a matching light.
+pub fn region(system: &SystemData, spec: &Value) -> Result<Vec<NodeId>, String> {
+    const KEYS: [&str; 7] = ["elementId", "previewId", "heightPct", "angleDeg", "xPct", "yPct", "select"];
+    let fields = spec.as_object().ok_or("targetRegion must be an object: {elementId, heightPct?, angleDeg?, xPct?, yPct?, previewId?, select?}")?;
+    if let Some(extra) = fields.keys().find(|k| !KEYS.contains(&k.as_str())) {
+        return Err(format!("{extra} does not apply to targetRegion"));
+    }
+    let id = |key: &str| -> Result<Option<Uuid>, String> {
+        spec.get(key).map(|v| v.as_str().and_then(|s| Uuid::parse_str(s).ok()).ok_or(format!("targetRegion {key} must be a UUID"))).transpose()
+    };
+    let element = id("elementId")?.ok_or("targetRegion needs elementId, the prop's group (or any element)")?;
+    let preview = id("previewId")?;
+    let range = |key: &str, max: f64| -> Result<Option<(f64, f64)>, String> {
+        let Some(v) = spec.get(key) else { return Ok(None) };
+        match v.as_array().map(|r| r.iter().map(Value::as_f64).collect::<Vec<_>>()).as_deref() {
+            Some([Some(a), Some(b)]) if (0.0..=max).contains(a) && (0.0..=max).contains(b) => Ok(Some((*a, *b))),
+            _ => Err(format!("targetRegion {key} must be [from, to], each 0..{max}")),
+        }
+    };
+    let (height, angle, x, y) = (range("heightPct", 100.0)?, range("angleDeg", 360.0)?, range("xPct", 100.0)?, range("yPct", 100.0)?);
+    for (key, r) in [("heightPct", height), ("xPct", x), ("yPct", y)] {
+        if r.is_some_and(|(a, b)| a > b) {
+            return Err(format!("targetRegion {key} must be [from, to] with from at most to"));
+        }
+    }
+    let select = spec.get("select").map_or(Some("auto"), Value::as_str).filter(|s| ["auto", "lights", "strings"].contains(s)).ok_or("targetRegion select must be auto, lights or strings")?;
+    let tree = &system.tree;
+    let root = tree.find(&element).ok_or("targetRegion elementId not found")?;
+    let under: HashSet<NodeId> = tree.distinct_leaves(root).into_iter().collect();
+    if let Some(p) = preview {
+        if !crate::preview::preview_entries(system).iter().any(|e| e.id == p) {
+            return Err("targetRegion previewId: preview not found".into());
+        }
+    }
+    // Percentages are measured on the whole prop, so a region on one string still means the prop's height.
+    let props: Vec<Prop> = collect(system, preview, None).into_iter().filter(|p| p.lights.iter().any(|l| under.contains(&l.node))).collect();
+    let previews: HashSet<Uuid> = props.iter().map(|p| p.preview_id).collect();
+    if previews.is_empty() {
+        return Err("targetRegion: elementId has no lights linked in a preview, so it has no geometry (link it with preview_prop_link or element_template previewId)".into());
+    }
+    if previews.len() > 1 {
+        let names: Vec<&str> = props.iter().filter(|p| previews.contains(&p.preview_id)).map(|p| p.preview_name.as_str()).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+        return Err(format!("targetRegion: elementId is linked in more than one preview ({}); give previewId", names.join(", ")));
+    }
+    let within = |v: f64, (a, b): (f64, f64)| v >= a - 0.05 && v <= b + 0.05;
+    let around = |v: f64, (a, b): (f64, f64)| if a <= b { within(v, (a, b)) } else { v >= a - 0.05 || v <= b + 0.05 };
+    let (mut matched, mut linked) = (HashSet::new(), HashSet::new());
+    let mut angle_missing = false;
+    for prop in &props {
+        let (min_x, max_x, min_y, max_y) = bounds(&prop.lights);
+        let pct = |v: f32, lo: f32, hi: f32| if hi > lo { f64::from(100.0 * (v - lo) / (hi - lo)) } else { 0.0 };
+        for (i, light) in prop.lights.iter().enumerate() {
+            if !under.contains(&light.node) {
+                continue;
+            }
+            linked.insert(light.node);
+            let (lx, ly) = (pct(light.x, min_x, max_x), pct(max_y - light.y, 0.0, max_y - min_y));
+            let h = light.along.map_or(ly, |f| f64::from(100.0 * f));
+            let a = prop.angles[i];
+            angle_missing |= angle.is_some() && a.is_none();
+            let ok = height.is_none_or(|r| within(h, r))
+                && x.is_none_or(|r| within(lx, r))
+                && y.is_none_or(|r| within(ly, r))
+                && angle.is_none_or(|r| a.is_some_and(|a| around(a, r)));
+            if ok {
+                matched.insert(light.node);
+            }
+        }
+    }
+    if matched.is_empty() {
+        return Err(if angle_missing && angle.is_some() {
+            "targetRegion angleDeg applies to megatrees only (other props have no angle); use xPct for left/right".into()
+        } else {
+            "targetRegion picks no lights: widen the ranges (display_geometry shows each light's heightPct, angleDeg, xPct and yPct)".to_string()
+        });
+    }
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    match select {
+        "lights" => out.extend(tree.distinct_leaves(root).into_iter().filter(|l| matched.contains(l))),
+        "strings" => {
+            let leaves: Vec<NodeId> = tree.distinct_leaves(root).into_iter().filter(|l| matched.contains(l)).collect();
+            let parents = best_parents(tree, &leaves);
+            for leaf in leaves {
+                let string = parents.get(&leaf).copied().unwrap_or(leaf);
+                if seen.insert(string) {
+                    out.push(string);
+                }
+            }
+        }
+        _ => cover(tree, root, &matched, &linked, &mut seen, &mut out),
+    }
+    Ok(out)
+}
+
+/// Top-down: a node whose every linked light matched (and that has a linked light) is taken whole; otherwise its children.
+fn cover(tree: &ElementTree, node: NodeId, matched: &HashSet<NodeId>, linked: &HashSet<NodeId>, seen: &mut HashSet<NodeId>, out: &mut Vec<NodeId>) {
+    let leaves = tree.distinct_leaves(node);
+    let lit: Vec<&NodeId> = leaves.iter().filter(|l| linked.contains(l)).collect();
+    if lit.is_empty() || !lit.iter().any(|l| matched.contains(l)) {
+        return;
+    }
+    // Whole only when every leaf is linked and matched: an unlinked light under it has no place, so it isn't lit.
+    if leaves.iter().all(|l| matched.contains(l)) {
+        if seen.insert(node) {
+            out.push(node);
+        }
+        return;
+    }
+    for child in tree.node(node).children.clone() {
+        cover(tree, child, matched, linked, seen, out);
+    }
+}
+
 /// Every prop's summary, for the display://summary resource.
 pub fn summary(system: &SystemData, revision: u64) -> Value {
     execute(system, revision, &json!({"pixels":false})).unwrap_or_else(|e| json!({"error":e}))

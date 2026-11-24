@@ -26,7 +26,7 @@ const TOOLS: &[(&str, &str)] = &[
     ("controller_list", "List configured controllers and output counts. Does not start output."),
     ("sequence_list", "List sequence filenames in the selected profile."),
     ("media_list", "List media filenames, read-only; does not decode or play audio."),
-    ("effect_catalog", "List registered effects and JSON parameter schemas. Unsupported native value kinds have a rejecting schema."),
+    ("effect_catalog", "List registered effects and JSON parameter schemas. Unsupported native value kinds have a rejecting schema. Each effect's looks says in plain words what it looks like on common props (megatree, matrix, arch, line), e.g. that plain Vertical Wipe moves downward and that Chase and Spin light only a one-string sliver of a megatree unless DepthOfEffect is 1: read it before picking an effect."),
     ("diagnostics_report", "Report patches, controller/universe errors, and missing media/targets/native color corrections for open sequences."),
 ];
 
@@ -483,7 +483,7 @@ impl Server {
                 let mut paths=std::fs::read_dir(folder).map_err(|e|e.to_string())?.map(|e|e.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<Result<Vec<_>,_>>().map_err(|e|e.to_string())?;
                 paths.sort(); paths.into_iter().map(|p|json!({"name":p})).collect()
             }
-            "effect_catalog" => vixen_effect_registry::all().iter().map(|d|json!({"id":d.type_id.to_string(),"name":d.name,"description":d.description,"parameters":d.params.iter().map(|p|{let mut o=json!({"name":p.name,"label":p.label,"description":p.description,"schema":vixen_session::studio_params::param_schema(p)});if let Some(n)=vixen_session::studio_params::note(d.name,p.name){o["note"]=json!(n);}o}).collect::<Vec<_>>()})).collect(),
+            "effect_catalog" => vixen_effect_registry::all().iter().map(|d|json!({"id":d.type_id.to_string(),"name":d.name,"description":d.description,"looks":vixen_session::studio_effects_library::looks::looks(d.name),"parameters":d.params.iter().map(|p|{let mut o=json!({"name":p.name,"label":p.label,"description":p.description,"schema":vixen_session::studio_params::param_schema(p)});if let Some(n)=vixen_session::studio_params::note(d.name,p.name){o["note"]=json!(n);}o}).collect::<Vec<_>>()})).collect(),
             "diagnostics_report" => return Ok(vixen_session::studio_diagnostics::report(s,self.core.as_deref())),
             "recent_logs" => return vixen_session::studio_diagnostics::recent_logs(&self.root,limit),
             "controller_monitor" => return Ok(self.core.as_ref().map(|c|vixen_session::studio_diagnostics::monitor(c)).unwrap_or(json!({"execution":"Not started","controllers":[]}))),

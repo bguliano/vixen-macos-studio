@@ -29,6 +29,18 @@ Short, practical notes for agents that build shows through the `vixen-studio-mcp
   `motif_place` on a mark collection instead of building each hit yourself: pick a built-in (`motif_list`) or save your
   own recipe with `motif_save`, pass two `targetSets` to alternate left/right, and check it with `dryRun:true` first. It
   is one undo step.
+- **Pick effects by their look first.** `effect_catalog` (and `effects_library`) give each effect a `looks` text: what it
+  does on a megatree, matrix, arch or line in plain words. Two surprises it spells out: plain Vertical `Wipe` moves
+  *downward* (set ReverseDirection to rise), and `Chase` and `Spin` on a megatree group light only a one-string sliver
+  at a time unless DepthOfEffect is 1, which steps whole strings around the trunk.
+- **Target by where lights sit**, not by guessing string numbers: `targetRegion` on `effect_add`, `effect_band`,
+  `effects_batch` and `section_rebuild` ops takes `elementId` plus `angleDeg` (megatrees, 0 front, 90 viewer's right,
+  `[315,45]` wraps through the front), `heightPct` (along the strings from the base), `xPct`/`yPct`, measured exactly as
+  `display_geometry` reports them. Whole strings that match are one target each; for a height range on a whole tree,
+  `effect_band` is one Wipe per string instead of one effect per light. One undo step per call.
+- **Set the sequence's palette once** with `sequence_palette` (`colors`, optional `distance`). It is saved with the
+  sequence and one undo step; every add or parameter edit that brings in a colour outside it returns
+  `paletteWarnings`, and `render_analyze` checks against it when you don't pass `palette`.
 - For soft-edged zones on a tree or matrix, use `effect_band` with `featherPct` (or `featherLights`, rows of lights)
   instead of tuning a parked Wipe by hand; add `exclusive:true` and the band cuts whatever was lighting its rows for its
   time (other rows and other props keep their effects), so stacked zones never overlap. One undo step.

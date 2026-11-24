@@ -57,6 +57,10 @@ pub struct BuildRecord {
 pub struct Builds {
     pub records: Vec<BuildRecord>,
     pub placed: BTreeMap<Uuid, Placed>,
+    /// The sequence's palette (`sequence_palette`, B81) as `#rrggbb`, and how far a colour may stray from it; it shares
+    /// the sidecar so it travels with undo, labelled saves and the file.
+    pub palette: Vec<String>,
+    pub palette_distance: Option<f64>,
 }
 
 fn fnv(text: &str) -> u64 {
@@ -72,7 +76,7 @@ pub fn sidecar(sequence: &Path) -> PathBuf {
 
 impl Builds {
     pub fn is_empty(&self) -> bool {
-        self.records.is_empty() && self.placed.is_empty()
+        self.records.is_empty() && self.placed.is_empty() && self.palette.is_empty()
     }
 
     /// The manifest beside `sequence`, or an empty one when there is none or it can't be read.
@@ -97,7 +101,11 @@ impl Builds {
     fn to_json(&self) -> Value {
         let builds: Vec<Value> = self.records.iter().map(|r| json!({"id":r.id,"at":r.at,"range":r.range.map(|(a,b)|json!([a,b])),"placed":r.placed,"baseline":r.baseline.iter().map(Uuid::to_string).collect::<Vec<_>>(),"untagged":r.untagged.iter().map(Uuid::to_string).collect::<Vec<_>>()})).collect();
         let effects: Map<String, Value> = self.placed.iter().map(|(id, p)| (id.to_string(), json!({"build":p.build,"typeId":p.type_id.to_string(),"start":p.start,"span":p.span,"targets":p.targets.iter().map(Uuid::to_string).collect::<Vec<_>>(),"layer":p.layer.map(|l|l.to_string()),"params":format!("{:016x}",p.params)}))).collect();
-        json!({"version":1,"builds":builds,"effects":effects})
+        let mut out = json!({"version":1,"builds":builds,"effects":effects});
+        if !self.palette.is_empty() {
+            out["palette"] = json!({"colors":self.palette,"distance":self.palette_distance});
+        }
+        out
     }
 
     fn from_json(v: &Value) -> Option<Builds> {
@@ -118,6 +126,8 @@ impl Builds {
                 params: u64::from_str_radix(p["params"].as_str()?, 16).ok()?,
             });
         }
+        builds.palette = v["palette"]["colors"].as_array().map(|c| c.iter().filter_map(|c| c.as_str().map(str::to_string)).collect()).unwrap_or_default();
+        builds.palette_distance = v["palette"]["distance"].as_f64();
         Some(builds)
     }
 
@@ -443,8 +453,8 @@ fn rebuild(core: &AppCore, s: &mut SequenceSession, a: &Value, agent: bool) -> R
             crate::studio_schema::arguments(&schema, op)?;
             let kind = op["op"].as_str().unwrap();
             let allowed: &[&str] = match kind {
-                "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "params", "layerId"],
-                "band" => &["op", "targetId", "targetIds", "targetSlice", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level", "featherPct", "featherLights"],
+                "add" => &["op", "typeId", "targetId", "targetIds", "targetSlice", "targetRegion", "startMs", "durationMs", "params", "layerId"],
+                "band" => &["op", "targetId", "targetIds", "targetSlice", "targetRegion", "startMs", "durationMs", "layerId", "fromPct", "toPct", "color", "level", "featherPct", "featherLights"],
                 _ => return Err(format!("a rebuild only adds effects (add and band ops), not {kind}")),
             };
             if let Some(extra) = op.as_object().unwrap().keys().find(|k| !allowed.contains(&k.as_str())) {
