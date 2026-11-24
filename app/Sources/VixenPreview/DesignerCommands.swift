@@ -21,29 +21,24 @@ struct PreviewDesignerCommands: Commands {
         }
         // View, Settings and Help: only with a designer in front, so the other windows' menus keep to their own items.
         CommandGroup(after: .toolbar) {
-            let model = registry.active
-            if model != nil { // STUDIO: only with a designer in front, so other windows' View menus keep to their own items (B69)
-            Toggle("Prop Information", isOn: Binding(get: { model?.showInfo ?? false }, set: { model?.showInfo = $0 }))
-                .disabled(model == nil)
-            Button("Prop Editor") { openWindow(id: WindowID.customPropEditor, value: UUID()) }
-                .disabled(model == nil)
-            Toggle("Elements", isOn: Binding(get: { model?.showElements ?? true }, set: { model?.showElements = $0 }))
-                .disabled(model == nil)
-            Toggle("Properties", isOn: Binding(get: { model?.showProperties ?? true }, set: { model?.showProperties = $0 }))
-                .disabled(model == nil)
-            // F80: upstream's panels could be dragged out of the window. The floating panel's close button docks it again.
-            Toggle("Float Elements Panel", isOn: Binding(get: { model?.elementsFloating ?? false }, set: { model?.setFloating(.elements, $0) }))
-                .disabled(model == nil)
-            Toggle("Float Properties Panel", isOn: Binding(get: { model?.propertiesFloating ?? false }, set: { model?.setFloating(.properties, $0) }))
-                .disabled(model == nil)
-            } // STUDIO: only with a designer in front (B69)
+            if let model = registry.active {
+                Toggle("Prop Information", isOn: Binding(get: { model.showInfo }, set: { model.showInfo = $0 }))
+                Button("Prop Editor") { openWindow(id: WindowID.customPropEditor, value: UUID()) }
+                Toggle("Elements", isOn: Binding(get: { model.showElements }, set: { model.showElements = $0 }))
+                Toggle("Properties", isOn: Binding(get: { model.showProperties }, set: { model.showProperties = $0 }))
+                // F80: upstream's panels could be dragged out of the window. The floating panel's close button docks it again.
+                Toggle("Float Elements Panel", isOn: Binding(get: { model.elementsFloating }, set: { model.setFloating(.elements, $0) }))
+                Toggle("Float Properties Panel", isOn: Binding(get: { model.propertiesFloating }, set: { model.setFloating(.properties, $0) }))
+            }
         }
         // Not after .pasteboard: the sequencer replaces that group, and SwiftUI then drops other scenes' groups placed after it.
         CommandGroup(before: .textEditing) {
             DesignerEditItems(model: registry.active)
         }
         CommandMenu("Settings") {
-            if let model = registry.active { DesignerSettingsItems(model: model) } // STUDIO: empty, so hidden, with no designer in front (B69)
+            if let model = registry.active {
+                DesignerSettingsItems(model: model)
+            }
         }
         CommandGroup(after: .windowArrangement) {
             // F70: the way back for a window that may not be right-clickable any more.
@@ -52,19 +47,13 @@ struct PreviewDesignerCommands: Commands {
         }
         // The Administration window's Help, always there, has upstream's Vixen YouTube Channel item.
         CommandGroup(after: .help) {
-            let model = registry.active
-            // STUDIO-BEGIN designer-help-items: only with a designer in front, without a second Vixen YouTube Channel (the show window's is always there) (B69)
-            if model != nil {
-            Button("View Help") { model?.help("https://www.vixenlights.com/docs/usage/preview/preview-main-screen/") }
-                .keyboardShortcut(model == nil ? nil : KeyboardShortcut("?", modifiers: .command))
-                .disabled(model == nil)
-            Button("Template Help") { model?.help("https://www.vixenlights.com/docs/") }
-                .disabled(model == nil)
-            // Q3: no handler upstream, kept until the owner decides.
-            Button("Custom Prop Help") {}
-                .disabled(model == nil)
+            if let model = registry.active {
+                Button("View Help") { model.help("https://www.vixenlights.com/docs/usage/preview/preview-main-screen/") }
+                    .keyboardShortcut("?", modifiers: .command)
+                Button("Template Help") { model.help("https://www.vixenlights.com/docs/") }
+                // Q3: no handler upstream, kept until the owner decides.
+                Button("Custom Prop Help") {}
             }
-            // STUDIO-END designer-help-items
         }
     }
 }

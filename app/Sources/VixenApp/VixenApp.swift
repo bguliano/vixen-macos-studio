@@ -38,7 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UITestHarness.startIfRequested()
-        StudioMenuBar.install() // STUDIO: an empty window menu never shows in the menu bar (B69)
+        WindowMenus.install()
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

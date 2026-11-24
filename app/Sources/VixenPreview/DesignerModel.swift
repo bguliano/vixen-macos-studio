@@ -54,7 +54,8 @@ final class DesignerRegistry {
                 active = found
             }
         }
-        StudioMenuBar.setNeedsArrange() // STUDIO: Settings fills after this; show it once it has items (B69)
+        // The Settings menu belongs to this window: it's empty, so hidden, with another one in front, and fills after this.
+        WindowMenus.setNeedsArrange()
     }
 }
 
