@@ -18,7 +18,10 @@ Checks:
   Display); a new row shows no "required" errors until it's left; Copy Settings and Paste Settings move the JSON, and a
   paste is one Undo step;
 - with another process holding Plugins/.lock, Settings ▸ Plugins says the plugins run in that process (its pid), shows
-  enabled plugins as Elsewhere and disables every change; once the lock is released this process owns the folder.
+  enabled plugins as Elsewhere and disables every change; once the lock is released this process owns the folder;
+- on screen (the real split view, not the harness's offscreen stand-in), the show window with the missing-plugin banner
+  keeps its sidebar and list inside the window (B100: the banner's text pushed both out, leaving an empty sidebar and
+  blank rows). Script: scripts/ui/studio-plugins-banner-onscreen-ui.json.
 The run never touches ~/Library/Application Support/Vixen Studio/Plugins (VIXEN_STUDIO_PLUGINS points elsewhere).
 """
 import fcntl
@@ -115,6 +118,30 @@ def run_read_only(app: Path) -> None:
         lock.close()
 
 
+def run_onscreen_banner(app: Path) -> None:
+    """B100: the show window on screen, with a show that needs a plugin version that isn't installed (what upgrading a
+    0.x plugin leaves: the show still needs ^0.2.0)."""
+    show, plugins, out = WORK / "show-banner", WORK / "Plugins-banner", WORK / "out-banner"
+    shutil.copytree(ROOT / "target/show-copy", show, symlinks=True)
+    (show / "SystemData/StudioPlugins.json").write_text(json.dumps({"plugins": [{"id": "io.github.someone.porch-output", "versionRange": "^0.2.0"}]}))
+    plugins.mkdir()
+    out.mkdir()
+    subprocess.run([str(app / "Contents/MacOS/Vixen")], timeout=120, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                   env=dict(os.environ, VIXEN_STUDIO_PLUGINS=str(plugins), VIXEN_UI_TEST=str(ROOT / "scripts/ui/studio-plugins-banner-onscreen-ui.json"),
+                            VIXEN_UI_TEST_OUT=str(out), VIXEN_DATA=str(show), VIXEN_UI_TEST_ONSCREEN="1"))
+
+
+def check_onscreen_banner() -> None:
+    steps = json.loads((WORK / "out-banner/result.json").read_text())
+    failed = [s for s in steps if not s.get("ok")]
+    assert not failed, failed
+    banner = next(s["detail"] for s in steps if s["action"] == "studioPluginBanner")
+    assert banner == "Needs plugin io.github.someone.porch-output ^0.2.0 — not installed", banner
+    # The layout check (a failed step above) catches the sidebar or the list reaching past the window's edges.
+    layout = (WORK / "out-banner/layout-Vixen Studio.txt").read_text()
+    assert 'AXOutline "Sidebar"' in layout, layout[:400]
+
+
 def check() -> None:
     steps = json.loads((WORK / "out/result.json").read_text())
     failed = [s for s in steps if not s.get("ok")]
@@ -186,4 +213,6 @@ if __name__ == "__main__":
     check()
     run_read_only(app)
     check_read_only()
+    run_onscreen_banner(app)
+    check_onscreen_banner()
     print("plugin UI checks passed; screenshots in", WORK / "out")

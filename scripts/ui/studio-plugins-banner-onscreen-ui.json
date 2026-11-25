@@ -1,0 +1,32 @@
+{
+ "steps": [
+  {
+   "action": "window",
+   "id": "administration"
+  },
+  {
+   "action": "wait",
+   "seconds": 8
+  },
+  {
+   "action": "studioPluginBanner"
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "check",
+    "Vixen Studio"
+   ]
+  },
+  {
+   "action": "hook",
+   "name": "studio.layout",
+   "path": [
+    "snapshot",
+    "01-banner-onscreen",
+    "Vixen Studio"
+   ]
+  }
+ ]
+}
