@@ -6,6 +6,16 @@
     <description>Vixen Studio updates (unofficial alphas)</description>
     <language>en</language>
     <item>
+      <title>Vixen Studio 3.13.4 alpha 7</title>
+      <pubDate>Wed, 25 Nov 2026 02:16:01 GMT</pubDate>
+      <sparkle:version>8857</sparkle:version>
+      <sparkle:shortVersionString>3.13.4 alpha 7</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:fullReleaseNotesLink>https://github.com/bguliano/vixen-macos-studio/releases/tag/v3.13.4-studio-alpha.7</sparkle:fullReleaseNotesLink>
+      <description>&lt;h3&gt;Changes&lt;/h3&gt;&lt;ul&gt;&lt;li&gt;Backlog B97: warn at placement when an effect can&amp;#x27;t show on its targets (104911af1)&lt;/li&gt;&lt;li&gt;Backlog B98: preview_section_sheet, key moments of every section in one PNG (758193e0e)&lt;/li&gt;&lt;li&gt;Backlog B96: motif_place, effects_on_marks and effect_step take buildId (303ca3df6)&lt;/li&gt;&lt;li&gt;Backlog B95: effect_parameters gradients write back as read (a93b5b22f)&lt;/li&gt;&lt;li&gt;Backlog B94: effects_edit levelFromEnergy shapes level curves from the song&amp;#x27;s loudness (abef4be05)&lt;/li&gt;&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/bguliano/vixen-macos-studio/releases/download/v3.13.4-studio-alpha.7/Vixen-Studio-3.13.4-studio-alpha.7.zip" sparkle:edSignature="55hDOXM74rPfsHceOOqyRoamHVGi9x3y+afmBvJzLgw0en7DjxiCRpwa+P+hU2O2sQ8pOy6Mvzh3+HDdOuDCDA==" length="49243532" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Vixen Studio 3.13.4 alpha 6</title>
       <pubDate>Tue, 24 Nov 2026 03:46:49 GMT</pubDate>
       <sparkle:version>8852</sparkle:version>
