@@ -6,6 +6,16 @@
     <description>Vixen Studio updates (unofficial alphas)</description>
     <language>en</language>
     <item>
+      <title>Vixen Studio 3.13.4 alpha 8</title>
+      <pubDate>Thu, 26 Nov 2026 02:15:12 GMT</pubDate>
+      <sparkle:version>8858</sparkle:version>
+      <sparkle:shortVersionString>3.13.4 alpha 8</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <sparkle:fullReleaseNotesLink>https://github.com/bguliano/vixen-macos-studio/releases/tag/v3.13.4-studio-alpha.8</sparkle:fullReleaseNotesLink>
+      <description>&lt;h3&gt;Changes&lt;/h3&gt;&lt;ul&gt;&lt;li&gt;Backlog B100: missing-plugin banner no longer pushes the show window&amp;#x27;s sidebar and list out of view (cb292c7e8)&lt;/li&gt;&lt;/ul&gt;</description>
+      <enclosure url="https://github.com/bguliano/vixen-macos-studio/releases/download/v3.13.4-studio-alpha.8/Vixen-Studio-3.13.4-studio-alpha.8.zip" sparkle:edSignature="lnD/hOEcl6yKnPTKRruxBFJPRr2yvhzGcSOKfHl3lpcbscP0Qk1Z1X9JnS35mTRkdc24pf45+GIEsrZeSZWYDQ==" length="49244289" type="application/octet-stream" />
+    </item>
+    <item>
       <title>Vixen Studio 3.13.4 alpha 7</title>
       <pubDate>Wed, 25 Nov 2026 02:16:01 GMT</pubDate>
       <sparkle:version>8857</sparkle:version>
